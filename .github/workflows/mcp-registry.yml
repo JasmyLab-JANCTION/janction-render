@@ -1,0 +1,34 @@
+# MCP Registry（registry.modelcontextprotocol.io）へ server.json を公開する。
+# 組織名前空間 io.github.JasmyLab-JANCTION/* は GitHub Actions の OIDC でだけ取れる（個人の端末からの device login では
+# 個人名前空間しか付かない）。タグ v* の push で走る（PyPI の publish.yml と同時）ほか、Actions 画面/gh から手動でも走らせられる。
+# 先に PyPI に同じ版が上がっていること（server.json の packages[].version と一致）。
+name: mcp-registry
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install mcp-publisher
+        run: |
+          curl -fsSL "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz" | tar xz mcp-publisher
+          ./mcp-publisher --version
+      - name: Wait for the PyPI release to be visible (tag push only)
+        if: github.event_name == 'push'
+        run: |
+          V=$(python3 -c "import json;print(json.load(open('server.json'))['packages'][0]['version'])")
+          for i in $(seq 1 30); do
+            curl -fsS "https://pypi.org/pypi/janction-render/$V/json" >/dev/null && exit 0
+            sleep 20
+          done
+          echo "janction-render $V not on PyPI yet" >&2; exit 1
+      - name: Login (GitHub OIDC)
+        run: ./mcp-publisher login github-oidc
+      - name: Publish
+        run: ./mcp-publisher publish

@@ -1,8 +1,8 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "janction-render",
-  "version": "0.2.1",
-  "description": "Cloud GPU rendering for Blender, built for AI agents. Preview, estimate and render Blender scenes (.blend or bpy scripts) on JANCTION GPUs from ChatGPT, Codex, Claude and any MCP client.",
+  "version": "0.2.2",
+  "description": "Cloud GPU rendering for Blender, built for AI agents. Preview, estimate and render Blender scenes (.blend files or bpy scripts) on JANCTION GPUs from any MCP client.",
   "author": {
     "name": "JasmyLab Inc.",
     "url": "https://render.janction.jp"
@@ -10,16 +10,41 @@
   "homepage": "https://render.janction.jp",
   "repository": "https://github.com/JasmyLab-JANCTION/janction-render",
   "license": "MIT",
-  "keywords": ["blender", "rendering", "render-farm", "gpu", "3d", "cycles", "mcp"],
+  "keywords": [
+    "blender",
+    "rendering",
+    "render-farm",
+    "gpu",
+    "3d",
+    "cycles",
+    "mcp"
+  ],
   "extensions": {
     "com.openai": {
       "interface": {
         "displayName": "JANCTION Render",
-        "category": "Productivity",
+        "shortDescription": "Render Blender on cloud GPUs",
+        "longDescription": "JANCTION Render is a cloud GPU render farm for Blender, built for AI agents. The agent writes or receives a Blender scene as a bpy Python script or a .blend file, previews it in seconds on a JANCTION GPU, estimates how long the final render will take, then renders the frames or an MP4 and returns download links that work for 24 hours.\n\nTypical flow: scene_info reads cameras, frame range, objects, lights and missing files without rendering. render_preview returns up to 4 frames tiled in one image so the agent can check camera, lighting and materials and fix the scene before spending GPU time. render_estimate reports the expected GPU seconds, the queue wait and whether the job fits today's quota. render_final renders PNG frames or an MP4 animation. render_status reports progress and the remaining time, render_download returns the links, render_cancel stops a job, and billing / render_info report quota usage and worker availability.\n\nIntended users: people building 3DCG with Blender who have no GPU or whose local rendering is slow, and agents that need a rendered image or video from a Blender scene. Not for non-Blender workloads such as video conversion, image generation or modeling advice.\n\nBeta limits: 10 GPU-minutes per key per day and up to 240 frames at 1080p per job. Blender 5.0 with Cycles on NVIDIA GPUs. No account is needed: connecting creates a key. Inputs and results are deleted 24 hours after last use and are never used for training. Operated by JasmyLab Inc. (Tokyo, Japan).",
+        "developerName": "JasmyLab Inc.",
+        "category": "Creativity",
+        "capabilities": [
+          "Render Blender scenes on cloud GPUs",
+          "Preview up to 4 frames in seconds",
+          "Estimate render time and quota before rendering",
+          "Render animations to MP4 or PNG frames",
+          "Inspect .blend files and bpy scripts without rendering"
+        ],
         "websiteURL": "https://render.janction.jp",
+        "supportURL": "https://render.janction.jp/support",
         "privacyPolicyURL": "https://render.janction.jp/privacy",
         "termsOfServiceURL": "https://render.janction.jp/terms",
-        "composerIcon": "./assets/icon.png"
+        "logo": "./assets/icon.png",
+        "composerIcon": "./assets/icon.png",
+        "defaultPrompt": [
+          "Make a red cube rotating on a grey floor in Blender and show me a 4-frame preview.",
+          "How long would 120 frames at 1280x720 with 64 samples take to render, and does it fit today's quota?",
+          "Render my Blender scene to a 48-frame MP4 at 1280x720."
+        ]
       }
     }
   }
