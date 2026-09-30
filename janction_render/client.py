@@ -185,6 +185,13 @@ class Client:
         body.update({k: v for k, v in params.items() if v is not None})
         return self._req("POST", "/v1/jobs", json=body)
 
+    def estimate(self, scene_id: Optional[str] = None, **params: Any) -> dict[str, Any]:
+        """入れずに見積もりだけ（GPU 秒・列の待ち・壁時計の目安・無料枠に収まるか）。"""
+        body: dict[str, Any] = {k: v for k, v in params.items() if v is not None}
+        if scene_id:
+            body["scene_id"] = scene_id
+        return self._req("POST", "/v1/estimate", json=body)
+
     def job(self, job_id: str) -> dict[str, Any]:
         return self._req("GET", f"/v1/jobs/{job_id}")
 

@@ -26,6 +26,7 @@ try:
 except ImportError:  # mcp 1.x
     from mcp.server.fastmcp import FastMCP as MCPServer, Image  # type: ignore
 
+from janction_render.brief import brief as _brief, estimate_brief
 from janction_render.client import Client, ClientError, parse_frames
 
 PREVIEW_WAIT_S = 240.0
@@ -34,12 +35,13 @@ INFO_WAIT_S = 150.0
 mcp = MCPServer(
     name="janction-render",
     instructions=(
-        "Render Blender scenes on JANCTION GPUs from the terminal. Use it when the user is "
-        "building 3DCG with Blender (a .blend file or a bpy Python script) and has no GPU or "
-        "rendering locally is slow. Flow: scene_info (cameras, frame range, missing files; no "
-        "render) -> render_preview (1-4 fast frames in one image; look at it, fix the scene, "
-        "repeat) -> ask the user 'is this OK?' -> render_final (frames or MP4) -> render_status / "
-        "render_download. Inputs and results are deleted 24 hours after last use."
+        "Render Blender scenes on JANCTION GPUs (a cloud render farm for AI agents) from the terminal. Use it when the "
+        "user is building 3DCG with Blender (a .blend file or a bpy Python script) and has no GPU or rendering locally "
+        "is slow. Flow: scene_info (cameras, frame range, missing files; no render) -> render_preview (1-4 fast frames "
+        "in one image; look at it, fix the scene, repeat) -> ask the user 'is this OK?' -> render_estimate (tell the "
+        "user how long it takes and whether it fits today's free quota) -> render_final (frames or MP4) -> "
+        "render_status / render_download. Always tell the user the time estimate (estimate.human / eta.human). "
+        "Blender 5.0 with Cycles on GPU. Inputs and results are deleted 24 hours after last use."
     ),
 )
 
@@ -70,36 +72,6 @@ def _quota_block(exc: ClientError) -> Optional[dict[str, Any]]:
             "resets_at": x.get("resets_at"),
             "next": "tell the user today's free GPU time is used up and when it resets; a smaller job (fewer frames, "
                     "lower resolution or samples) may still fit"}
-
-
-def _brief(j: dict[str, Any]) -> dict[str, Any]:
-    p = j["progress"]
-    out = {
-        "job_id": j["job_id"],
-        "kind": j["kind"],
-        "status": j["status"],
-        "scene_id": j["scene_id"],
-        "frames": j["frames"] if j.get("frames") else f"{j['frame_start']}-{j['frame_end']}",
-        "progress": f"{p['frames_done']}/{p['frames_total']} frames, {p['chunks_done']}/{p['chunks_total']} chunks",
-        "queue_ahead": p["queue_ahead"],
-        "gpu_seconds": j["gpu_seconds"],
-        "device": j["device"],
-        "expires_at": j["expires_at"],
-    }
-    if j.get("error"):
-        out["error"] = j["error"]
-    if j.get("log_tail"):
-        out["log_tail"] = j["log_tail"][-1500:]
-    if j.get("warnings"):
-        out["warnings"] = j["warnings"]
-    if j.get("output"):
-        out["output"] = j["output"]["name"]
-    if j.get("cost"):
-        c = j["cost"]
-        out["cost"] = ("free" if c["free"] else
-                       (f"{c['charged_yen']} yen charged" if c["settled"] else f"up to {c['reserved_yen']} yen reserved"))
-    out["artifacts"] = [a["name"] for a in j["artifacts"]][:50]
-    return out
 
 
 def _payment_block(exc: ClientError) -> Optional[dict[str, Any]]:
@@ -219,6 +191,37 @@ def render_preview(
 
 
 @mcp.tool()
+def render_estimate(scene_id: str = "", kind: str = "final", frame_start: int = 1, frame_end: int = 1,
+                    frames: str = "", width: int = 1920, height: int = 1080, samples: int = 128) -> str:
+    """Estimate how long a render will take BEFORE starting it (no GPU time used): GPU seconds, queue wait,
+    wall-clock time as a human-readable string ('about 3 minutes'), and whether it fits today's free quota and
+    the size limits. kind is 'final' (frame_start..frame_end at width x height, samples) or 'preview' (frames
+    like '1-24'). Pass scene_id when you have one: the estimate then uses this scene's own measured render
+    times. Tell the user the result before calling render_final."""
+    c = _client()
+    try:
+        params: dict[str, Any] = {"kind": kind, "width": width, "height": height, "samples": samples}
+        if kind == "preview":
+            params["frames"] = parse_frames(frames)
+        else:
+            params.update({"frame_start": frame_start, "frame_end": frame_end})
+        est = c.estimate(scene_id or None, **params)
+    except (ClientError, ValueError) as exc:
+        return _j({"ok": False, "error": str(exc)})
+    out = estimate_brief(est) or {}
+    out["kind"] = kind
+    q = est.get("quota") or {}
+    if q and not q.get("fits_today", True):
+        out["next"] = ("this does not fit today's remaining free GPU time; propose fewer frames, lower resolution or "
+                       "samples, or wait until resets_at")
+    elif q and q.get("fits_size") is False:
+        out["next"] = f"too big for the free beta (max {q.get('max_frames_per_job')} frames and 1920x1080 per job); split it"
+    else:
+        out["next"] = "tell the user the estimate and ask before calling render_final"
+    return _j(out)
+
+
+@mcp.tool()
 def render_final(
     scene_path: str = "",
     scene_id: str = "",
@@ -253,20 +256,26 @@ def render_final(
     except (ValueError, FileNotFoundError) as exc:
         return _j({"ok": False, "error": str(exc)})
     brief = _brief(j)
-    brief["estimate"] = j.get("estimate")
-    brief["next"] = "render_status(job_id) until status is done, then render_download(job_id)"
+    est = j.get("estimate") or {}
+    brief["next"] = (f"tell the user it will take {est.get('human', 'a few minutes')}; then render_status(job_id) "
+                     "until status is done, then render_download(job_id)")
     return _j(brief)
 
 
 @mcp.tool()
 def render_status(job_id: str) -> str:
     """Check a JANCTION render job: status (queued/running/done/failed/canceled), frames done,
-    how many chunks are queued ahead, artifacts ready, Blender warnings, and the error plus log
-    tail if it failed. Use render_download once status is done."""
+    how many chunks are queued ahead, the ETA (eta.human = remaining time including queue wait),
+    artifacts ready, Blender warnings, and the error plus log tail if it failed. Use render_download
+    once status is done."""
     try:
-        return _j(_brief(_client().job(job_id)))
+        j = _client().job(job_id)
     except ClientError as exc:
         return _j({"ok": False, "error": str(exc)})
+    b = _brief(j)
+    if j["status"] in ("queued", "running"):
+        b["next"] = f"tell the user: {((j.get('eta') or {}).get('human') or 'still working')}; check again in a while"
+    return _j(b)
 
 
 @mcp.tool()
@@ -346,7 +355,8 @@ def render_info() -> str:
     except (ClientError, Exception) as exc:  # noqa: BLE001
         return _j({"ok": False, "server": c.server, "error": str(exc)})
     return _j({"ok": True, "server": c.server, "workers": health["workers"], "queue": health["queue"],
-               "key": me, "downloads_go_to": str(_out_root())})
+               "key": me, "downloads_go_to": str(_out_root()),
+               "remote_mcp": f"{c.server}/mcp (Streamable HTTP; for Claude.ai, ChatGPT, Cursor: add this URL as a connector)"})
 
 
 def main() -> None:

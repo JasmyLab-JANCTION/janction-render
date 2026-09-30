@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "janction-render": {
+      "type": "http",
+      "url": "https://render.janction.jp/mcp"
+    }
+  }
+}

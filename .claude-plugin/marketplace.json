@@ -1,0 +1,19 @@
+{
+  "name": "janction-render",
+  "description": "JANCTION Render: cloud GPU rendering for Blender, built for AI agents",
+  "owner": {
+    "name": "JasmyLab Inc.",
+    "url": "https://render.janction.jp"
+  },
+  "plugins": [
+    {
+      "name": "janction-render",
+      "source": "./plugins/janction-render",
+      "description": "Render Blender scenes on JANCTION GPUs (cloud render farm for AI agents): previews, frames, MP4. Remote MCP connector plus a workflow skill.",
+      "category": "productivity",
+      "tags": ["blender", "rendering", "gpu", "3d", "mcp"],
+      "homepage": "https://render.janction.jp",
+      "license": "MIT"
+    }
+  ]
+}
