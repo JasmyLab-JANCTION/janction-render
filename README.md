@@ -13,19 +13,19 @@ Use it when you are building 3DCG with Blender and have no GPU, or rendering loc
 
 ## Status
 
-Free beta. The public endpoint is `https://render.janction.jp` (opening; check `/v1/health`). Until it answers, you can
-self-host the server and worker from the internal package (see Self-hosting) or wait for the announcement in `/llms.txt`.
+Free beta. The public endpoint is `https://render.janction.jp` (`/v1/health`, `/llms.txt`). Quotas and limits are on the
+service page; paid plans will be announced there before they start.
 
 ## Install
 
-Until the package is on PyPI, install straight from this repository:
+The package is on PyPI as `janction-render`.
 
 ```
-# Claude Code
-claude mcp add janction-render -e JANCTION_RENDER_SERVER=https://render.janction.jp -- uvx --from git+https://github.com/KJdayo/janction-render janction-render-mcp
+# Claude Code (uvx runs it without a global install)
+claude mcp add janction-render -e JANCTION_RENDER_SERVER=https://render.janction.jp -- uvx --from janction-render janction-render-mcp
 
-# or with pipx
-pipx install git+https://github.com/KJdayo/janction-render
+# or with pip / pipx
+pip install janction-render
 claude mcp add janction-render -e JANCTION_RENDER_SERVER=https://render.janction.jp -- janction-render-mcp
 ```
 
@@ -34,7 +34,7 @@ Codex: add to `~/.codex/config.toml`
 ```toml
 [mcp_servers.janction-render]
 command = "uvx"
-args = ["--from", "git+https://github.com/KJdayo/janction-render", "janction-render-mcp"]
+args = ["--from", "janction-render", "janction-render-mcp"]
 env = { JANCTION_RENDER_SERVER = "https://render.janction.jp" }
 ```
 
