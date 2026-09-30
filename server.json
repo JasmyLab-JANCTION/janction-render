@@ -1,8 +1,9 @@
 {
-  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-07-09/server.schema.json",
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.KJdayo/janction-render",
   "description": "Render Blender scenes (.blend or bpy script) on JANCTION GPUs from AI agents: previews, frames, MP4.",
   "version": "0.1.1",
+  "websiteUrl": "https://render.janction.jp",
   "repository": {
     "url": "https://github.com/KJdayo/janction-render",
     "source": "github"
@@ -28,7 +29,8 @@
           "isRequired": false,
           "isSecret": true
         }
-      ]
+      ],
+      "registryBaseUrl": "https://pypi.org"
     }
   ]
 }
