@@ -1,14 +1,14 @@
 {
   "name": "janction-render",
   "displayName": "JANCTION Render",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Render Blender scenes on JANCTION GPUs (cloud render farm for AI agents): previews, frames, MP4. Connects the remote MCP server and adds a skill with the workflow.",
   "author": {
     "name": "JasmyLab Inc.",
     "url": "https://render.janction.jp"
   },
   "homepage": "https://render.janction.jp",
-  "repository": "https://github.com/KJdayo/janction-render",
+  "repository": "https://github.com/JasmyLab-JANCTION/janction-render",
   "license": "MIT",
   "keywords": ["blender", "rendering", "gpu", "render-farm", "3d", "mcp", "cycles"]
 }

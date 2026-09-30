@@ -36,7 +36,7 @@ results come back as an inline image plus download links that need no key and wo
 Claude Code plugin (the remote connector plus a skill with the workflow):
 
 ```
-/plugin marketplace add KJdayo/janction-render
+/plugin marketplace add JasmyLab-JANCTION/janction-render
 /plugin install janction-render@janction-render
 ```
 
@@ -129,9 +129,9 @@ holds the client side: stdio MCP server, CLI, HTTP client, samples and the Claud
 
 ## MCP registry
 
-This server is listed in the official MCP registry as `io.github.KJdayo/janction-render` (remote: `https://render.janction.jp/mcp`).
+This server is listed in the official MCP registry as `io.github.JasmyLab-JANCTION/janction-render` (remote: `https://render.janction.jp/mcp`).
 
-mcp-name: io.github.KJdayo/janction-render
+mcp-name: io.github.JasmyLab-JANCTION/janction-render
 
 ## License
 
