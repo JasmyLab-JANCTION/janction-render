@@ -41,7 +41,10 @@ mcp = MCPServer(
         "in one image; look at it, fix the scene, repeat) -> ask the user 'is this OK?' -> render_estimate (tell the "
         "user how long it takes and whether it fits today's free quota) -> render_final (frames or MP4) -> "
         "render_status / render_download. Always tell the user the time estimate (estimate.human / eta.human). "
-        "Blender 5.0 with Cycles on GPU. Inputs and results are deleted 24 hours after last use."
+        "Blender 5.0 with Cycles on GPU. Inputs and results are deleted 24 hours after last use. Use it when: the user asks "
+        "to render a Blender file or bpy script, an agent-made Blender scene needs its final image or video, the machine has "
+        "no NVIDIA GPU or local rendering is slow, or many frames need GPU rendering. Do not use it for modeling without "
+        "rendering or for non-Blender workloads."
     ),
 )
 
