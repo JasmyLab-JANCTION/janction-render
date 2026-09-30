@@ -47,6 +47,7 @@ scene.collection.objects.link(sun)
 - Always add a camera and set `scene.camera`, and add at least one light; set `frame_start` / `frame_end` for animations; animate with keyframes.
 - If you start from an empty scene (`bpy.ops.wm.read_factory_settings(use_empty=True)`), there is no camera, no light and no world: add all three. Otherwise the service adds an automatic camera (framing all objects) and a sun, and tells you in `warnings`.
 - Do not set `mat.use_nodes = True` (always on in Blender 5.x; it only produces a deprecation warning). Build materials through `mat.node_tree`.
+- Blender 5.0 animation API: animate with `obj.keyframe_insert("rotation_euler", frame=n)`; do not touch `obj.animation_data.action.fcurves` (removed in 5.0). For linear motion set `bpy.context.preferences.edit.keyframe_new_interpolation_type = 'LINEAR'` before inserting keyframes.
 - Do not call `bpy.ops.render.render` or change render settings; do not read local files or the network (the sandbox has none).
 - Textures: procedural (shader nodes) work; external image files must be packed into a .blend.
 
