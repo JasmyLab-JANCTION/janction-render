@@ -1,7 +1,7 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-07-09/server.schema.json",
   "name": "io.github.KJdayo/janction-render",
-  "description": "Render Blender scenes (.blend or a bpy script) on JANCTION GPUs from a terminal AI agent: fast tiled previews, final frames or MP4, prepaid credit. First preview free.",
+  "description": "Render Blender scenes (.blend or bpy script) on JANCTION GPUs from AI agents: previews, frames, MP4.",
   "version": "0.1.1",
   "repository": {
     "url": "https://github.com/KJdayo/janction-render",
@@ -13,7 +13,9 @@
       "identifier": "janction-render",
       "version": "0.1.1",
       "runtimeHint": "uvx",
-      "transport": { "type": "stdio" },
+      "transport": {
+        "type": "stdio"
+      },
       "environmentVariables": [
         {
           "name": "JANCTION_RENDER_SERVER",
