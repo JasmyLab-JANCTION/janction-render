@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "janction-render"
-version = "0.1.0"
+version = "0.1.1"
 description = "Render Blender scenes on JANCTION GPUs straight from terminal AI agents (Claude Code, Codex): MCP server + CLI"
 readme = "README.md"
 requires-python = ">=3.11"

@@ -98,6 +98,12 @@ The server (FastAPI + SQLite) and the worker (Blender in disposable Docker conta
 live in the internal repository and are not part of this package yet. This repository holds the client side: MCP server, CLI,
 HTTP client and samples.
 
+## MCP registry
+
+This package is listed in the official MCP registry as `io.github.KJdayo/janction-render`.
+
+mcp-name: io.github.KJdayo/janction-render
+
 ## License
 
 MIT (see LICENSE). Operated by JasmyLab Inc.
