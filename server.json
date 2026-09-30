@@ -1,0 +1,32 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-07-09/server.schema.json",
+  "name": "io.github.KJdayo/janction-render",
+  "description": "Render Blender scenes (.blend or a bpy script) on JANCTION GPUs from a terminal AI agent: fast tiled previews, final frames or MP4, prepaid credit. First preview free.",
+  "version": "0.1.0",
+  "repository": {
+    "url": "https://github.com/KJdayo/janction-render",
+    "source": "github"
+  },
+  "packages": [
+    {
+      "registryType": "pypi",
+      "identifier": "janction-render",
+      "version": "0.1.0",
+      "runtimeHint": "uvx",
+      "transport": { "type": "stdio" },
+      "environmentVariables": [
+        {
+          "name": "JANCTION_RENDER_SERVER",
+          "description": "Service URL (default http://127.0.0.1:8340)",
+          "isRequired": false
+        },
+        {
+          "name": "JANCTION_RENDER_API_KEY",
+          "description": "API key. Optional: a temporary key is issued automatically on first use.",
+          "isRequired": false,
+          "isSecret": true
+        }
+      ]
+    }
+  ]
+}

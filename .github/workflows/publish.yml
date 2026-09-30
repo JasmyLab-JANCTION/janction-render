@@ -1,0 +1,21 @@
+# PyPI へ上げる（Trusted Publishing。PyPI 側で「pending publisher」に
+#   owner=KJdayo / repository=<公開リポジトリ名> / workflow=publish.yml / environment=pypi を登録しておく）
+# タグ v0.1.0 を push すると走る。
+name: publish
+on:
+  push:
+    tags: ["v*"]
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install -U pip build && python -m build
+      - uses: pypa/gh-action-pypi-publish@release/v1

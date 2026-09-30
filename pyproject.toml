@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "janction-render"
+version = "0.1.0"
+description = "Render Blender scenes on JANCTION GPUs straight from terminal AI agents (Claude Code, Codex): MCP server + CLI"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = ["requests>=2.31", "mcp>=1.10"]
+
+[project.optional-dependencies]
+mcp = ["mcp>=1.10"]
+dev = ["pytest>=8"]
+
+[project.scripts]
+janction-render = "janction_render.cli:main"
+janction-render-mcp = "janction_render.mcp_server:main"
+
+[tool.setuptools.packages.find]
+include = ["janction_render*"]
