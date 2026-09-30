@@ -229,10 +229,16 @@ class Client:
         out = Path(out_dir)
         out.mkdir(parents=True, exist_ok=True)
         paths: list[Path] = []
+        from urllib.parse import urlsplit
+
         for a in j["artifacts"]:
             if only and a["name"] not in only:
                 continue
-            url = a["url"] if a["url"].startswith("http") else f"{self.server}{a['url']}"
+            # 受付が返す URL は公開 URL の土台で組まれている。自分がつないだ先（SSH トンネルなど）でも
+            # 落とせるように、パスだけを取り出して自分の server に付け直す
+            parts = urlsplit(a["url"])
+            path = parts.path + (f"?{parts.query}" if parts.query else "")
+            url = f"{self.server}{path}" if parts.path.startswith("/v1/") else a["url"]
             with self.s.get(url, headers=self._headers(), stream=True, timeout=600) as r:
                 self._raise(r)
                 dest = out / a["name"]
