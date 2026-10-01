@@ -6,7 +6,9 @@ A cloud GPU render farm for Blender, built for AI agents. Render Blender scenes 
 Claude Code, Codex, Cursor or any MCP client**: an MCP server (remote and stdio) plus a CLI. Use it to render Blender
 without a GPU, or when rendering locally is slow.
 
-- Input: a `.blend` file, or a **bpy Python script that builds the scene** (no local Blender needed).
+- Input: a `.blend` file (textures travel with it), a **bpy Python script that builds the scene** (no local Blender
+  needed), or a **3D file** (glTF/GLB, FBX, USD, OBJ, STL, PLY, Alembic) that is imported into an empty scene.
+- `environment="studio" | "sunset" | "overcast" | "night"` lights a scene with a bundled HDRI (CC0) for a good first render.
 - `scene_info` reads the scene without rendering (cameras, frame range, missing files).
 - `render_preview` returns 1-4 low-cost frames tiled in one image within seconds, so the agent can look, fix, and repeat.
 - `render_estimate` says how long a render will take ("about 3 minutes") and whether it fits today's free quota.
@@ -17,7 +19,12 @@ without a GPU, or when rendering locally is slow.
 
 ## Status
 
-Free beta. Service page: `https://render.janction.jp` (`/v1/health`, `/llms.txt`). Blender 5.0, Cycles on GPU.
+Free beta. Service page: `https://render.janction.jp` (`/v1/health`, `/llms.txt`, `/faq`). Blender 5.0, Cycles on GPU
+(`blender="5.2"` selects Blender 5.2 when the worker has it; `render_info` lists what is available).
+Guides: [render farm for agents](https://render.janction.jp/blender-render-farm) · [without a GPU](https://render.janction.jp/render-blender-without-gpu) ·
+[Claude](https://render.janction.jp/claude-blender) · [ChatGPT](https://render.janction.jp/chatgpt-blender) · [Claude Code](https://render.janction.jp/claude-code-blender) ·
+[Codex](https://render.janction.jp/codex-blender) · [bpy scripts](https://render.janction.jp/bpy-script-cloud-gpu) · [API](https://render.janction.jp/blender-render-api) ·
+[comparison](https://render.janction.jp/blender-render-farm-api-comparison) · 日本語は `/ja/`
 
 ## Connect (remote MCP, nothing to install)
 
@@ -32,8 +39,9 @@ also works as `Authorization: Bearer jr_...`.
 | Claude Code | `claude mcp add --transport http janction-render https://render.janction.jp/mcp`, then `/mcp` to authenticate |
 | Cursor, Windsurf, other MCP clients | Streamable HTTP at the URL above (OAuth, or a Bearer API key header) |
 
-Remote tools take `scene_script` (bpy code as text), `scene_url` (an https link to a `.blend` or `.py`) or `scene_id`;
-results come back as an inline image plus download links that need no key and work for about 24 hours.
+Remote tools take `scene_script` (bpy code as text), `scene_url` (an https link to a `.blend`, `.py` or a 3D file) or
+`scene_id`, plus `asset_urls` for textures or glTF `.bin` files; results come back as an inline image plus download links
+that need no key and work for about 24 hours (`render_download(only="mp4")` for just the video).
 
 Claude Code plugin (the remote connector plus a skill with the workflow):
 
@@ -76,13 +84,18 @@ Then, in Claude Code:
 
 | tool | what |
 |---|---|
-| `scene_info(scene_script | scene_url | scene_path | scene_id)` | cameras, frame range, fps, resolution, objects, lights, missing files. No render. |
-| `render_preview(..., frames="1-24")` | up to 4 frames (720p budget) tiled with frame labels; returns the image inline |
+| `scene_info(scene_script | scene_url | scene_path | scene_id, assets?)` | cameras, frame range, fps, resolution, objects, lights, missing files. No render. |
+| `render_preview(..., frames="1-24", environment?, blender?)` | up to 4 frames (720p budget) tiled with frame labels; returns the image inline |
 | `render_estimate(scene_id, frame_start, frame_end, width, height, samples)` | GPU seconds, queue wait, "about N minutes", fits today's free quota? No GPU time used |
-| `render_final(scene_id, frame_start, frame_end, width, height, samples, fps, output)` | PNG or MP4; returns job_id + estimate |
-| `render_status(job_id)` | progress and ETA (`eta.human`); `render_download(job_id)` files or links; `render_cancel(job_id)` |
+| `render_final(scene_id, frame_start, frame_end, width, height, samples, fps, output, environment?, blender?)` | PNG or MP4; returns job_id + estimate |
+| `render_status(job_id)` | progress and ETA (`eta.human`); `render_download(job_id, only="mp4" / "frames" / "all")` files or links; `render_cancel(job_id)` |
 | `billing()` | free-beta quota (used today, daily limit, reset time); later balance and top-up link |
-| `render_info()` | workers online, queue and expected wait |
+| `render_info()` | workers online, queue, expected wait, supported inputs, environment presets, Blender versions |
+
+Options on `render_preview` / `render_final`: `environment` (`studio`, `sunset`, `overcast`, `night`; `environment_strength`,
+`environment_visible=False` for a flat grey backdrop with HDRI lighting), `blender` (`"5.2"`), and `assets` (stdio: local files
+sent with the scene, found in the script through `os.environ["JR_ASSETS_DIR"]`; a `.blend`'s external files are collected
+automatically with `pip install janction-render[blend]`) or `asset_urls` (remote).
 
 CLI: `janction-render inspect|preview|render|status|download|cancel|jobs|balance|topup|info`.
 
@@ -109,15 +122,17 @@ Scripts run in an isolated container with no network. See `samples/cube_scene.py
 
 ```
 POST /v1/keys                                   -> {api_key}         (header X-API-Key afterwards)
-POST /v1/files  multipart "file" (.blend|.py)   -> {scene_id}
+POST /v1/files  multipart "file" (.blend|.py|.glb|.fbx|.usd|.obj|...)   -> {scene_id}
+POST /v1/files/{id}/assets  multipart "files"   textures, glTF .bin ...   GET /v1/files/lookup?sha256=  reuse an upload
 POST /v1/estimate {kind, frames|frame_start/frame_end, width, height, samples, scene_id?} -> seconds, wall_seconds, human, quota
-POST /v1/jobs   {scene_id, kind: info|preview|final, frames|frame_start/frame_end, width, height, samples, camera, fps, output}
+POST /v1/jobs   {scene_id, kind: info|preview|final, frames|frame_start/frame_end, width, height, samples, camera, fps, output,
+                 environment, environment_strength, environment_visible, blender}
 GET  /v1/jobs/{id}      status, progress, eta, artifacts[], cost, warnings, info    DELETE /v1/jobs/{id}  cancel
 GET  /v1/jobs/{id}/artifacts/{name}             PNG / MP4
 POST /mcp                                       remote MCP (Streamable HTTP; Bearer api key or OAuth)
 GET  /.well-known/oauth-protected-resource/mcp  OAuth discovery
 POST /v1/billing/checkout {amount_yen} -> {checkout_url}   POST /v1/billing/sync   GET /v1/ledger   GET /v1/me
-GET  /llms.txt  /terms  /privacy  /legal  /security
+GET  /llms.txt  /llms-full.txt  /ja/llms.txt  /faq  /terms  /privacy  /legal  /security  /support
 ```
 
 During the free beta a `429 quota_exceeded` response carries `resets_at`; a `400 beta_limit` means the job is too big

@@ -17,6 +17,77 @@ import requests
 DEFAULT_SERVER = "http://127.0.0.1:8340"
 CACHE = Path.home() / ".janction-render.json"
 
+# 送れるシーン: .blend、bpy スクリプト、こちらの Blender が読み込める 3D ファイル
+SCENE_SUFFIXES = (".blend", ".py", ".fbx", ".glb", ".gltf", ".obj", ".stl", ".ply", ".usd", ".usda", ".usdc", ".usdz", ".abc")
+ONLY_CHOICES = ("all", "mp4", "frames", "sheet", "output")
+
+
+def select_artifacts(artifacts: list[dict[str, Any]], only: Optional[str] = None) -> list[dict[str, Any]]:
+    """成果物の絞り込み: all / mp4（output.mp4 だけ）/ frames（PNG のコマだけ）/ sheet（4 コマ並べだけ）/ output（mp4 か sheet）。"""
+    o = (only or "all").strip().lower()
+    if o in ("", "all"):
+        return list(artifacts)
+    if o == "mp4":
+        return [a for a in artifacts if a["name"].endswith(".mp4")]
+    if o == "frames":
+        return [a for a in artifacts if a["name"].startswith("frame_")]
+    if o == "sheet":
+        return [a for a in artifacts if a["name"] == "sheet.png"]
+    if o == "output":
+        picked = [a for a in artifacts if a["name"] in ("output.mp4", "sheet.png")]
+        return picked or [a for a in artifacts if a["name"].startswith("frame_")][:1]
+    raise ValueError("only must be one of: " + ", ".join(ONLY_CHOICES))
+
+
+def sha256_of(path: Path) -> str:
+    import hashlib
+
+    h = hashlib.sha256()
+    with Path(path).open("rb") as fh:
+        for chunk in iter(lambda: fh.read(1024 * 1024), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def trace_blend_assets(blend: Path) -> tuple[list[tuple[str, Path]], list[str]]:
+    """.blend が参照する外部ファイル（画像・ライブラリなど）を手元で調べる（blender-asset-tracer があるとき）。
+
+    返すのは ([(送るときの名前, 場所)], [見つからなかったパス])。名前は .blend からの相対パス（//textures/a.png → textures/a.png）。
+    .blend の外（上の階層や絶対パス）にあるものは送れないので「見つからなかった」に入れる。
+    """
+    try:
+        from blender_asset_tracer import trace  # type: ignore
+    except Exception:  # noqa: BLE001 — 入っていなければ調べない（受付の scene_info が GPU 側で知らせる）
+        return [], []
+    found: list[tuple[str, Path]] = []
+    missing: list[str] = []
+    seen: set[str] = set()
+    base = Path(blend).resolve().parent
+    try:
+        for usage in trace.deps(Path(blend).resolve()):
+            try:
+                p = Path(usage.abspath)
+            except Exception:  # noqa: BLE001
+                continue
+            key = str(p)
+            if key in seen:
+                continue
+            seen.add(key)
+            if usage.is_sequence:
+                continue
+            if not p.exists():
+                missing.append(str(usage.asset_path))
+                continue
+            try:
+                rel = p.resolve().relative_to(base)
+            except ValueError:
+                missing.append(f"{usage.asset_path} (outside the .blend folder; cannot be sent)")
+                continue
+            found.append((rel.as_posix(), p))
+    except Exception:  # noqa: BLE001
+        return found, missing
+    return found, missing
+
 
 def parse_frames(spec: str, default: int = 1, count: int = 4) -> list[int]:
     """試し描きのコマの指定を配列にする。
@@ -155,15 +226,72 @@ class Client:
     def me(self) -> dict[str, Any]:
         return self._req("GET", "/v1/me")
 
-    def upload(self, path: str | Path) -> dict[str, Any]:
+    def lookup(self, sha256: str) -> Optional[dict[str, Any]]:
+        """同じ中身を送ってあれば、その scene_id（無ければ None）。"""
+        r = self.s.get(f"{self.server}/v1/files/lookup", params={"sha256": sha256}, headers=self._headers(), timeout=30)
+        if r.status_code == 404:
+            return None
+        self._raise(r)
+        return r.json()
+
+    def upload(self, path: str | Path, assets: Optional[list[str | Path]] = None,
+               trace_assets: bool = True) -> dict[str, Any]:
+        """シーンを送る。同じ中身を送ってあれば送り直さない（sha256 で照合）。
+
+        assets: 一緒に送る素材（画像など）。.blend は blender-asset-tracer があれば参照する外部ファイルを自動で集める。
+        返り値に assets（送った素材）と missing_assets（見つからなかった参照）が入る。
+        """
         p = Path(path)
         if not p.is_file():
             raise FileNotFoundError(f"{p} is not a file")
-        if p.suffix.lower() not in (".blend", ".py"):
-            raise ValueError("scene must be a .blend file or a Blender Python script (.py)")
-        with p.open("rb") as fh:
-            r = self.s.post(f"{self.server}/v1/files", headers=self._headers(),
-                            files={"file": (p.name, fh, "application/octet-stream")}, timeout=1800)
+        if p.suffix.lower() not in SCENE_SUFFIXES:
+            raise ValueError("scene must be a .blend file, a Blender Python script (.py), or a 3D file "
+                             "(" + ", ".join(SCENE_SUFFIXES[2:]) + ")")
+        digest = sha256_of(p)
+        out: Optional[dict[str, Any]] = None
+        try:
+            out = self.lookup(digest)
+        except ClientError:
+            out = None
+        if out is None:
+            with p.open("rb") as fh:
+                r = self.s.post(f"{self.server}/v1/files", headers=self._headers(),
+                                files={"file": (p.name, fh, "application/octet-stream")}, timeout=1800)
+            self._raise(r)
+            out = r.json()
+        items: list[tuple[str, Path]] = []
+        missing: list[str] = []
+        if p.suffix.lower() == ".blend" and trace_assets:
+            items, missing = trace_blend_assets(p)
+        for a in assets or []:
+            ap = Path(a)
+            if not ap.is_file():
+                raise FileNotFoundError(f"asset {ap} is not a file")
+            try:
+                name = ap.resolve().relative_to(p.resolve().parent).as_posix()
+            except ValueError:
+                name = ap.name
+            items.append((name, ap))
+        already = {a["name"] for a in out.get("assets") or []}
+        todo = [(n, ap) for n, ap in items if n not in already]
+        if todo:
+            out = self.upload_assets(out["scene_id"], todo)
+        out["missing_assets"] = missing
+        return out
+
+    def upload_assets(self, scene_id: str, items: list[tuple[str, str | Path]]) -> dict[str, Any]:
+        """素材をシーンに足す。items は [(送るときの名前, 場所)]。名前にフォルダを含めてよい（textures/a.png）。"""
+        handles = []
+        try:
+            files = []
+            for name, path in items:
+                fh = Path(path).open("rb")
+                handles.append(fh)
+                files.append(("files", (name, fh, "application/octet-stream")))
+            r = self.s.post(f"{self.server}/v1/files/{scene_id}/assets", headers=self._headers(), files=files, timeout=1800)
+        finally:
+            for fh in handles:
+                fh.close()
         self._raise(r)
         return r.json()
 
@@ -230,17 +358,17 @@ class Client:
                 return j
             time.sleep(interval)
 
-    def download(self, job_id: str, out_dir: str | Path, only: Optional[list[str]] = None) -> list[Path]:
-        """成果物を out_dir に落とす。only を渡せばその名前だけ。"""
+    def download(self, job_id: str, out_dir: str | Path, only: Optional[list[str] | str] = None) -> list[Path]:
+        """成果物を out_dir に落とす。only は名前の一覧か、'mp4' / 'frames' / 'sheet' / 'output' / 'all'。"""
         j = self.job(job_id)
         out = Path(out_dir)
         out.mkdir(parents=True, exist_ok=True)
         paths: list[Path] = []
         from urllib.parse import urlsplit
 
-        for a in j["artifacts"]:
-            if only and a["name"] not in only:
-                continue
+        wanted = select_artifacts(j["artifacts"], only) if isinstance(only, str) or only is None else \
+            [a for a in j["artifacts"] if a["name"] in only]
+        for a in wanted:
             # 受付が返す URL は公開 URL の土台で組まれている。自分がつないだ先（SSH トンネルなど）でも
             # 落とせるように、パスだけを取り出して自分の server に付け直す
             parts = urlsplit(a["url"])

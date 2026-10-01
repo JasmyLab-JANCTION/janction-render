@@ -1,7 +1,32 @@
 """仕事の状態を、エージェントが読みやすい短い形にする。stdio の MCP（mcp_server.py）とリモート MCP（server/mcp_remote.py）で共通。"""
 from __future__ import annotations
 
+import time
 from typing import Any
+
+JST = 9 * 3600
+
+
+def iso(ts: float | int | None) -> str | None:
+    """epoch 秒 → "2026-10-02T04:12:00Z (2026-10-02 13:12 JST)"。エージェントがそのまま伝えられる形。"""
+    if ts is None:
+        return None
+    try:
+        t = float(ts)
+    except (TypeError, ValueError):
+        return None
+    utc = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(t))
+    jst = time.strftime("%Y-%m-%d %H:%M JST", time.gmtime(t + JST))
+    return f"{utc} ({jst})"
+
+
+def trim(items: list[Any] | None, keep: int = 8) -> dict[str, Any]:
+    """長い一覧を「先頭 keep 件 ＋ 残りの件数」にする（エージェントの文脈を食わないように）。"""
+    items = list(items or [])
+    out: dict[str, Any] = {"count": len(items), "first": items[:keep]}
+    if len(items) > keep:
+        out["more"] = len(items) - keep
+    return out
 
 
 def eta_brief(e: dict[str, Any] | None) -> dict[str, Any] | None:
@@ -33,7 +58,7 @@ def brief(j: dict[str, Any]) -> dict[str, Any]:
         "queue_ahead": p["queue_ahead"],
         "gpu_seconds": j["gpu_seconds"],
         "device": j["device"],
-        "expires_at": j["expires_at"],
+        "expires_at": iso(j.get("expires_at")) or j.get("expires_at"),
     }
     if j.get("eta"):
         out["eta"] = eta_brief(j["eta"])

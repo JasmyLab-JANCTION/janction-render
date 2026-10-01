@@ -15,8 +15,12 @@ Connect in the browser page (it creates a free key).
 ## Workflow
 
 1. **Write the scene as a bpy script** (no local Blender needed). Set the scene, camera and frame range only; the
-   service sets the engine, resolution, samples and denoising. Pass it as `scene_script`. A `.blend` on the web can be
-   passed as `scene_url` (https). Reuse the returned `scene_id` afterwards instead of re-sending the script.
+   service sets the engine, resolution, samples and denoising. Pass it as `scene_script`. A `.blend` or a 3D file
+   (glTF/GLB, FBX, USD, OBJ, STL, PLY, Alembic) on the web can be passed as `scene_url` (https); textures or glTF `.bin`
+   files go in `asset_urls`. Reuse the returned `scene_id` afterwards instead of re-sending the script.
+   If the user has not described lighting, pass `environment="studio"` (or `sunset` / `overcast` / `night`) for HDRI
+   lighting; `environment_visible=False` keeps the lighting but shows a flat grey backdrop. `blender="5.2"` selects
+   Blender 5.2 when `render_info` lists it.
 2. `scene_info` - read what the script produced: cameras, frame range, objects, lights, missing files. No render.
 3. `render_preview(frames="1-24")` - up to 4 frames tiled in one image (720p budget, a few GPU seconds). Look at the
    image. If something is wrong (camera, lighting, missing objects), fix the script and preview again.
@@ -24,9 +28,10 @@ Connect in the browser page (it creates a free key).
 5. `render_estimate(scene_id, frame_start, frame_end, width, height, samples)` - tell the user the time ("about 3
    minutes") and whether it fits today's free quota. Propose fewer frames / lower samples if it does not.
 6. `render_final(...)` - returns `job_id` and the estimate. Tell the user how long it will take.
-7. `render_status(job_id)` until `status` is `done`; report `eta.human` while waiting. Then `render_download(job_id)`:
-   the links need no key and work for about 24 hours. Show the image link inline; give the MP4 link to the user, or
-   fetch it with `curl -o output.mp4 <link>` when a local file is wanted.
+7. `render_status(job_id)` until `status` is `done`; report `eta.human` while waiting. Then `render_download(job_id)`
+   (default: the MP4 or sheet plus the first frames; `only="frames"` lists every PNG): the links need no key and work for
+   about 24 hours. Show the image link inline; give the MP4 link to the user, or fetch it with `curl -o output.mp4 <link>`
+   when a local file is wanted.
 
 ## Writing a scene script
 
