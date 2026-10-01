@@ -525,12 +525,12 @@ def render_cancel(job_id: str) -> str:
 
 
 @mcp.tool()
-def render_share(job_id: str, title: str = "", note: str = "", include_script: bool = False, listed: bool = True,
+def render_share(job_id: str, title: str = "", note: str = "", include_script: bool = False, listed: bool = False,
                  prompt: str = "") -> str:
     """Publish a finished render as a public page the user can send to anyone (X, Discord, a client): the image or
     video, the render conditions, an optional title and note, and the bpy script if include_script=True. The page
-    keeps a copy of the result after the job's 24-hour expiry, until render_unshare. listed=True also puts it in the
-    public gallery. prompt: what the user asked you, in their words (shown on the page as 'what the user asked the
+    keeps a copy of the result after the job's 24-hour expiry, until render_unshare. listed=True asks for it to appear
+    in the public gallery after the operator reviews it. prompt: what the user asked you, in their words (shown on the page as 'what the user asked the
     agent'). Ask the user before sharing; return the url to them."""
     try:
         return _j(_client().share(job_id, title=title, note=note, include_script=include_script, listed=listed, prompt=prompt))

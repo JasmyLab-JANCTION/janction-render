@@ -563,7 +563,7 @@ def job(job_id: str, conn: Optional[Connection] = None) -> Dict[str, Any]:
     return _json(conn or connect(), "GET", "/v1/jobs/%s" % job_id)
 
 
-def share(job_id: str, title: str = "", note: str = "", include_script: bool = False, listed: bool = True,
+def share(job_id: str, title: str = "", note: str = "", include_script: bool = False, listed: bool = False,
           conn: Optional[Connection] = None) -> Dict[str, Any]:
     """POST /v1/jobs/{job_id}/share: a public page for a finished job. Returns {share_id, url, ...}."""
     return _json(conn or connect(), "POST", "/v1/jobs/%s/share" % job_id,

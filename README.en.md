@@ -109,7 +109,7 @@ Then, in Claude Code:
 | `render_final(scene_id, frame_start, frame_end, width, height, samples, fps, output, environment?, blender?, engine?, transparent?, notify_url?)` | frames (png / exr) or video (mp4 / webm / prores / gif / webp); `transparent=True` keeps an alpha background (png / exr / webm / gif / webp); `notify_url` gets one JSON POST when the job finishes; returns job_id + estimate |
 | `render_status(job_id)` | progress and ETA (`eta.human`); `render_download(job_id, only="mp4" / "frames" / "all")` files or links; `render_cancel(job_id)` |
 | `billing()` | free-beta quota (used today, daily limit, reset time); later balance and top-up link |
-| `render_share(job_id, title?, note?, include_script?, listed?)` | a public page `/r/<id>` with the image or video, the conditions and (optionally) the script; survives the 24-hour expiry until `render_unshare`; listed pages appear in `/gallery` |
+| `render_share(job_id, title?, note?, include_script?, listed?)` | a public page `/r/<id>` with the image or video, the conditions and (optionally) the script; survives the 24-hour expiry until `render_unshare`; with `listed=True` it appears in `/gallery` after a review |
 | `asset_search(query, kind)` | CC0 models / textures / HDRIs on Poly Haven by words; results carry `polyhaven:<id>` and the entry file |
 | `render_info()` | workers online or gated (GPU lent to another workload), queue, expected wait, supported inputs, environment presets, Blender versions |
 

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "janction-render"
-version = "0.4.6"
+version = "0.4.7"
 description = "Cloud GPU render farm for Blender, for AI agents: MCP server (remote + stdio) and CLI. Render Blender without a GPU from Claude, ChatGPT, Claude Code, Codex, Cursor."
 readme = "README.md"
 requires-python = ">=3.11"
