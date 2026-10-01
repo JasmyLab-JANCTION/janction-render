@@ -11,6 +11,9 @@ without a GPU, or when rendering locally is slow.
 - `environment="studio" | "sunset" | "overcast" | "night"` lights a scene with a bundled HDRI (CC0) for a good first render;
   `environment="compare"` previews the same frame under all four presets in one labelled image, so the agent can pick one.
 - A `.gltf` or `.obj` brings its `.bin` / `.mtl` / textures along automatically (from the same folder or the same URL folder).
+- `orbit=True` turns any scene or imported model into a turntable: an orbit camera circles it once (`orbit_frames`, default 24;
+  a preview shows 0/90/180/270 degrees, a final render without `frame_end` gives the whole turn as an MP4).
+- While a job renders, `render_status` counts finished frames inside the running chunk, so the ETA updates every few seconds.
 - `scene_info` reads the scene without rendering (cameras, frame range, missing files).
 - `render_preview` returns 1-4 low-cost frames tiled in one image within seconds, so the agent can look, fix, and repeat.
 - `render_estimate` says how long a render will take ("about 3 minutes") and whether it fits today's free quota.
@@ -94,8 +97,9 @@ Then, in Claude Code:
 | `billing()` | free-beta quota (used today, daily limit, reset time); later balance and top-up link |
 | `render_info()` | workers online or gated (GPU lent to another workload), queue, expected wait, supported inputs, environment presets, Blender versions |
 
-Options on `render_preview` / `render_final`: `environment` (`studio`, `sunset`, `overcast`, `night`; `environment_strength`,
-`environment_visible=False` for a flat grey backdrop with HDRI lighting), `blender` (`"5.2"`), and `assets` (stdio: local files
+Options on `render_preview` / `render_final`: `environment` (`studio`, `sunset`, `overcast`, `night`, `compare` on previews; `environment_strength`,
+`environment_visible=False` for a flat grey backdrop with HDRI lighting), `orbit` / `orbit_frames` / `orbit_elevation` (turntable),
+`blender` (`"5.2"`), and `assets` (stdio: local files
 sent with the scene, found in the script through `os.environ["JR_ASSETS_DIR"]`; a `.blend`'s external files are collected
 automatically with `pip install janction-render[blend]`) or `asset_urls` (remote).
 
@@ -128,7 +132,7 @@ POST /v1/files  multipart "file" (.blend|.py|.glb|.fbx|.usd|.obj|...)   -> {scen
 POST /v1/files/{id}/assets  multipart "files"   textures, glTF .bin ...   GET /v1/files/lookup?sha256=  reuse an upload
 POST /v1/estimate {kind, frames|frame_start/frame_end, width, height, samples, scene_id?} -> seconds, wall_seconds, human, quota
 POST /v1/jobs   {scene_id, kind: info|preview|final, frames|frame_start/frame_end, width, height, samples, camera, fps, output,
-                 environment, environment_strength, environment_visible, blender}
+                 environment, environment_strength, environment_visible, blender, orbit, orbit_frames, orbit_elevation}
 GET  /v1/jobs/{id}      status, progress, eta, artifacts[], cost, warnings, info    DELETE /v1/jobs/{id}  cancel
 GET  /v1/jobs/{id}/artifacts/{name}             PNG / MP4
 POST /mcp                                       remote MCP (Streamable HTTP; Bearer api key or OAuth)

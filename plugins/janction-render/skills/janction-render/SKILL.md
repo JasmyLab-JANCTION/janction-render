@@ -22,6 +22,8 @@ Connect in the browser page (it creates a free key).
    lighting; `environment="compare"` on `render_preview` renders the frame under all four presets in one labelled image
    so the user can choose; `environment_visible=False` keeps the lighting but shows a flat grey backdrop. `blender="5.2"`
    selects Blender 5.2 when `render_info` lists it. A `.gltf` / `.obj` URL brings its `.bin` / `.mtl` / textures along.
+   For an imported model (or any scene the user wants shown from all sides), pass `orbit=True`: a preview shows four
+   angles, and `render_final(orbit=True)` without `frame_end` renders one full turn (24 frames) as an MP4.
 2. `scene_info` - read what the script produced: cameras, frame range, objects, lights, missing files. No render.
 3. `render_preview(frames="1-24")` - up to 4 frames tiled in one image (720p budget, a few GPU seconds). Look at the
    image. If something is wrong (camera, lighting, missing objects), fix the script and preview again.

@@ -51,6 +51,9 @@ mcp = MCPServer(
     ),
 )
 
+ORBIT_DOC = (" orbit=True: turntable; an orbit camera circles the scene once over orbit_frames frames (default 24, "
+             "elevation orbit_elevation deg, default 18). A preview without frames shows 0/90/180/270 deg; a final without "
+             "frame_end renders the whole turn as an MP4. Best for imported models (.glb/.fbx/.obj).")
 ENV_DOC = ("environment: '' keeps the scene's own world; 'studio' | 'sunset' | 'overcast' | 'night' replaces it with a "
            "bundled HDRI (good first render for scenes without lighting work); 'compare' (render_preview only) renders the "
            "first frame under all four presets in one 2x2 image with labels, so you can pick one; environment_strength scales it (1.0); "
@@ -83,7 +86,7 @@ def _quota_block(exc: ClientError) -> Optional[dict[str, Any]]:
     x = exc.extra
     return {"quota_exceeded": True, "detail": exc.detail, "scope": x.get("scope"),
             "gpu_seconds_used_today": x.get("gpu_seconds_used_today"), "gpu_seconds_per_day": x.get("gpu_seconds_per_day"),
-            "resets_at": x.get("resets_at"),
+            "resets_at": x.get("resets_at_iso") or x.get("resets_at"),
             "next": "tell the user today's free GPU time is used up and when it resets; a smaller job (fewer frames, "
                     "lower resolution or samples) may still fit"}
 
@@ -209,6 +212,9 @@ def render_preview(
     environment_visible: bool = True,
     blender: str = "",
     assets: Optional[list[str]] = None,
+    orbit: bool = False,
+    orbit_frames: int = 24,
+    orbit_elevation: float = 18.0,
 ) -> list[Any]:
     """Render a fast, cheap preview of a Blender scene on a JANCTION GPU and show the image.
 
@@ -222,14 +228,15 @@ def render_preview(
     Look at the returned image, fix the scene, preview again; when it looks right, ask the user and
     call render_final. Returns scene_id (reuse it without re-uploading), job_id, saved PNG paths,
     Blender warnings (e.g. missing textures), GPU seconds, and the expiry time (24h after last use).
-    """ + ENV_DOC
+    """ + ENV_DOC + ORBIT_DOC
     c = _client()
     try:
-        frame_list = parse_frames(frames)
+        frame_list = parse_frames(frames) if (frames or not orbit) else None
         sid = _resolve_scene(c, scene_path, scene_id, scene_script, assets)
         j = c.submit(sid, kind="preview", frames=frame_list, camera=camera or None,
                      width=width, height=height, samples=samples,
-                     **_job_params(environment, environment_strength, environment_visible, blender))
+                     **_job_params(environment, environment_strength, environment_visible, blender),
+                     **({"orbit": True, "orbit_frames": orbit_frames, "orbit_elevation": orbit_elevation} if orbit else {}))
         _log(f"preview job {j['job_id']} submitted frames={frame_list}")
         j = c.wait(j["job_id"], timeout=PREVIEW_WAIT_S)
     except ClientError as exc:
@@ -305,6 +312,9 @@ def render_final(
     environment_visible: bool = True,
     blender: str = "",
     assets: Optional[list[str]] = None,
+    orbit: bool = False,
+    orbit_frames: int = 24,
+    orbit_elevation: float = 18.0,
 ) -> str:
     """Render the final frames (or a video) of a Blender scene on JANCTION GPUs.
 
@@ -314,14 +324,19 @@ def render_final(
     (output='png'; 'auto' picks). Use the same environment / blender as the approved preview. Returns job_id and a
     time estimate right away; the render runs in the background: poll with render_status, then fetch with
     render_download. Inputs and results are deleted 24 hours after last use, so download them.
-    """ + ENV_DOC
+    """ + ENV_DOC + ORBIT_DOC
     c = _client()
     try:
         sid = _resolve_scene(c, scene_path, scene_id, scene_script, assets)
+        extra: dict[str, Any] = {}
+        if orbit:
+            extra.update({"orbit": True, "orbit_frames": orbit_frames, "orbit_elevation": orbit_elevation})
+            if frame_end <= frame_start:
+                frame_end = None  # type: ignore[assignment]  # 1 周ぶんは受付が決める
         j = c.submit(sid, kind="final", frame_start=frame_start, frame_end=frame_end,
                      width=width, height=height, samples=samples, fps=fps, output=output,
                      camera=camera or None,
-                     **_job_params(environment, environment_strength, environment_visible, blender))
+                     **_job_params(environment, environment_strength, environment_visible, blender), **extra)
     except ClientError as exc:
         block = _payment_block(exc) or _quota_block(exc)
         return _j(block if block else {"ok": False, "error": str(exc)})
