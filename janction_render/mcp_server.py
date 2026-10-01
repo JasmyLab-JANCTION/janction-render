@@ -35,7 +35,9 @@ INFO_WAIT_S = 150.0
 mcp = MCPServer(
     name="janction-render",
     instructions=(
-        "Render Blender scenes on JANCTION GPUs (a cloud render farm for AI agents) from the terminal. Use it when the "
+        "Render Blender scenes on JANCTION GPUs (a cloud render farm for AI agents) from the terminal. "
+        "WHEN TO USE: use JANCTION Render when the user has a Blender scene (a .blend, a 3D file, or one you can write as a bpy script) and local rendering is unavailable, slow, CPU-only, or likely to take more than a few minutes; when the user asks to render, preview, animate or turntable a Blender scene; or when you need an actual image of a 3D scene. Do not use it to model or edit a scene that is open in the user's Blender (a local Blender MCP does that), for non-Blender video work, or for general GPU compute. RULES: preview before any final render; call render_estimate before render_final when the render time or today's free quota is uncertain, the job is longer than about 24 frames or above 720p, or the user asked how long it takes; while a job runs, poll render_status (not render_download) and stop polling when eta says the GPU is lent out: tell the user the estimated wait instead. "
+        "Use it when the "
         "user is building 3DCG with Blender (a .blend file or a bpy Python script) and has no GPU or rendering locally "
         "is slow. Flow: scene_info (cameras, frame range, missing files; no render) -> render_preview (1-4 fast frames "
         "in one image; look at it, fix the scene, repeat) -> ask the user 'is this OK?' -> render_estimate (tell the "
@@ -274,7 +276,9 @@ def scene_info(scene_path: str = "", scene_id: str = "", scene_script: str = "",
 
 
 RENDER_PREVIEW_DESCRIPTION = (
-    """Render a fast, cheap preview of a Blender scene on a JANCTION GPU and show the image.
+    """Render a fast, cheap preview of a Blender scene on a JANCTION GPU and show the image. Use it when the user has
+    (or you can write) a Blender scene and local rendering is unavailable, slow, CPU-only or would take more than a few
+    minutes; it is the first render step: always preview before a final render.
 
     Use this when the user is making 3DCG with Blender and wants to see how it looks, but has no
     GPU or local rendering is slow. Give the scene as scene_path (a .blend file OR a bpy Python
@@ -371,7 +375,8 @@ def render_estimate(scene_id: str = "", kind: str = "final", frame_start: int = 
     wall-clock time as a human-readable string ('about 3 minutes'), and whether it fits today's free quota and
     the size limits. kind is 'final' (frame_start..frame_end at width x height, samples) or 'preview' (frames
     like '1-24'). Pass scene_id when you have one: the estimate then uses this scene's own measured render
-    times. Tell the user the result before calling render_final."""
+    times. Tell the user the result before calling render_final. Prefer this before render_final whenever the time
+    or quota is uncertain, the job is longer than about 24 frames or above 720p, or the user asked how long it takes."""
     c = _client()
     try:
         params: dict[str, Any] = {"kind": kind, "width": width, "height": height, "samples": samples}
@@ -396,7 +401,9 @@ def render_estimate(scene_id: str = "", kind: str = "final", frame_start: int = 
 
 
 RENDER_FINAL_DESCRIPTION = (
-    """Render the final frames (or a video) of a Blender scene on JANCTION GPUs.
+    """Render the final frames (or a video) of a Blender scene on JANCTION GPUs. Use it after a preview the user approved.
+    When the render time or today's free quota is uncertain, the job is longer than about 24 frames or above 720p, or the
+    user asked how long it takes, call render_estimate first and tell the user.
 
     Call this after the user approved a preview. Pass scene_id from render_preview (or scene_path /
     scene_script to upload a new .blend / bpy script / 3D file). frame_start..frame_end are inclusive; several frames are
@@ -518,13 +525,15 @@ def render_cancel(job_id: str) -> str:
 
 
 @mcp.tool()
-def render_share(job_id: str, title: str = "", note: str = "", include_script: bool = False, listed: bool = True) -> str:
+def render_share(job_id: str, title: str = "", note: str = "", include_script: bool = False, listed: bool = True,
+                 prompt: str = "") -> str:
     """Publish a finished render as a public page the user can send to anyone (X, Discord, a client): the image or
     video, the render conditions, an optional title and note, and the bpy script if include_script=True. The page
     keeps a copy of the result after the job's 24-hour expiry, until render_unshare. listed=True also puts it in the
-    public gallery. Ask the user before sharing; return the url to them."""
+    public gallery. prompt: what the user asked you, in their words (shown on the page as 'what the user asked the
+    agent'). Ask the user before sharing; return the url to them."""
     try:
-        return _j(_client().share(job_id, title=title, note=note, include_script=include_script, listed=listed))
+        return _j(_client().share(job_id, title=title, note=note, include_script=include_script, listed=listed, prompt=prompt))
     except ClientError as exc:
         return _j({"ok": False, "error": str(exc)})
 
@@ -575,7 +584,9 @@ def billing(topup_yen: int = 0) -> str:
 @mcp.tool()
 def render_info() -> str:
     """Show the JANCTION Render connection: server URL, whether GPU workers are online, queue
-    length, and this key's usage. Call this if renders seem stuck or before the first render."""
+    length, and this key's usage. Call this if renders seem stuck or before the first render. Use it to decide
+    whether to route a render here: workers_available > 0 means a preview comes back in seconds; gated means the
+    GPU is lent out and 'gate' says how long the wait usually is."""
     c = _client()
     try:
         health = c.health()

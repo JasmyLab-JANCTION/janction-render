@@ -361,10 +361,11 @@ class Client:
         self._raise(r)
         return r.json()
 
-    def share(self, job_id: str, title: str = "", note: str = "", include_script: bool = False, listed: bool = True) -> dict[str, Any]:
-        """描けた結果を公開ページにする（/r/<id>）。"""
+    def share(self, job_id: str, title: str = "", note: str = "", include_script: bool = False, listed: bool = True,
+              prompt: str = "") -> dict[str, Any]:
+        """描けた結果を公開ページにする（/r/<id>）。prompt は「エージェントに頼んだこと」。"""
         r = self.s.post(f"{self.server}/v1/jobs/{job_id}/share", headers=self._headers(),
-                        json={"title": title, "note": note, "include_script": include_script, "listed": listed}, timeout=120)
+                        json={"title": title, "note": note, "include_script": include_script, "listed": listed, "prompt": prompt}, timeout=120)
         self._raise(r)
         return r.json()
 

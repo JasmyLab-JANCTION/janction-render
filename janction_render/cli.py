@@ -137,7 +137,8 @@ def cmd_cancel(c: Client, args: argparse.Namespace) -> int:
 
 
 def cmd_share(c: Client, args: argparse.Namespace) -> int:
-    v = c.share(args.job, title=args.title or "", note=args.note or "", include_script=bool(args.script), listed=not args.unlisted)
+    v = c.share(args.job, title=args.title or "", note=args.note or "", include_script=bool(args.script), listed=not args.unlisted,
+                prompt=args.prompt or "")
     print(v["url"])
     return 0
 
@@ -236,6 +237,7 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("job")
     s.add_argument("--title", default=None)
     s.add_argument("--note", default=None)
+    s.add_argument("--prompt", default=None, help="what you asked the agent (shown on the page)")
     s.add_argument("--script", action="store_true", help="include the bpy script on the page")
     s.add_argument("--unlisted", action="store_true", help="do not list the page in the gallery")
     s.set_defaults(fn=cmd_share)
