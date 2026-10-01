@@ -1,5 +1,5 @@
 # PyPI へ上げる（Trusted Publishing。PyPI 側で「pending publisher」に
-#   owner=JasmyLab-JANCTION / repository=janction-render / workflow=publish.yml / environment=pypi を登録しておく。2026-10-01 に KJdayo から移管）
+#   owner=JasmyLab-JANCTION / repository=janction-render / workflow=publish.yml / environment=pypi を登録しておく）
 # タグ v0.1.0 を push すると走る。
 name: publish
 on:
