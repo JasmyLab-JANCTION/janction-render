@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>JANCTION Render</title>
+<style>
+  :root { color-scheme: light dark; --fg: #1b1b1f; --muted: #5f6368; --line: #d9dbe0; --bg: #ffffff; --accent: #1f3a8a; --ok: #1a7f37; --warn: #b26a00; --bad: #b3261e; }
+  @media (prefers-color-scheme: dark) { :root { --fg: #e8eaed; --muted: #9aa0a6; --line: #3c4043; --bg: #1b1b1f; --accent: #8ab4f8; --ok: #6ddb8a; --warn: #f2b84b; --bad: #f28b82; } }
+  html, body { margin: 0; padding: 0; background: transparent; color: var(--fg); font: 14px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  .card { padding: 12px 14px; }
+  .head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .kind { font-weight: 600; }
+  .pill { font-size: 12px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
+  .pill.done { color: var(--ok); border-color: var(--ok); }
+  .pill.run { color: var(--accent); border-color: var(--accent); }
+  .pill.bad { color: var(--bad); border-color: var(--bad); }
+  .muted { color: var(--muted); font-size: 12px; }
+  img.sheet { display: block; max-width: 100%; height: auto; border-radius: 8px; margin: 10px 0 6px; border: 1px solid var(--line); }
+  video { display: block; max-width: 100%; border-radius: 8px; margin: 10px 0 6px; border: 1px solid var(--line); }
+  .bar { height: 8px; background: var(--line); border-radius: 4px; overflow: hidden; margin: 8px 0 4px; }
+  .bar > i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .4s; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+  button { font: inherit; font-size: 13px; padding: 6px 12px; border-radius: 6px; border: 1px solid var(--accent); background: transparent; color: var(--accent); cursor: pointer; }
+  button.primary { background: var(--accent); color: #fff; }
+  button:disabled { opacity: .5; cursor: default; }
+  details { margin-top: 8px; } summary { cursor: pointer; color: var(--muted); font-size: 12px; }
+  ul.warn { margin: 4px 0 0 18px; padding: 0; font-size: 12px; color: var(--warn); }
+  .err { color: var(--bad); white-space: pre-wrap; font-size: 12px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 8px; }
+</style>
+</head>
+<body>
+<div class="card" id="root"><span class="muted">JANCTION Render</span></div>
+<script type="module">
+import { App } from "https://unpkg.com/@modelcontextprotocol/ext-apps@0.4.0/app-with-deps";
+
+const root = document.getElementById("root");
+const app = new App({ name: "JANCTION Render", version: "1.0.0" });
+let state = { job: null, image: null, toolName: "", pollTimer: null, polls: 0 };
+const PRESETS = ["studio", "sunset", "overcast", "night"];
+
+function parseResult(result) {
+  const content = result?.content || [];
+  const text = content.find(c => c.type === "text")?.text || "";
+  let job = null;
+  try { job = JSON.parse(text); } catch (e) { job = { raw: text }; }
+  const img = content.find(c => c.type === "image");
+  return { job, image: img ? `data:${img.mimeType || "image/png"};base64,${img.data}` : null };
+}
+
+function esc(s) { return String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
+
+function progressOf(job) {
+  const m = /(\d+)\/(\d+) frames/.exec(job?.progress || "");
+  if (!m) return null;
+  const done = +m[1], total = +m[2];
+  return { done, total, pct: total ? Math.round(100 * done / total) : 0 };
+}
+
+function isCompare(job) {
+  const w = job?.warnings || [];
+  return w.some(x => String(x).startsWith("compare:"));
+}
+
+function render() {
+  const job = state.job;
+  if (!job) { root.innerHTML = '<span class="muted">JANCTION Render</span>'; return; }
+  if (job.ok === false || job.error && !job.status) {
+    root.innerHTML = `<div class="head"><span class="kind">JANCTION Render</span><span class="pill bad">error</span></div><div class="err">${esc(job.error || job.detail || "")}\n${esc(job.detail || "")}</div>`;
+    return;
+  }
+  const status = job.status || "";
+  const pillClass = status === "done" ? "done" : (status === "failed" || status === "canceled") ? "bad" : "run";
+  const kind = job.kind === "preview" ? "Preview" : job.kind === "final" ? "Final render" : job.kind === "info" ? "Scene info" : "Render";
+  let html = `<div class="head"><span class="kind">${esc(kind)}</span><span class="pill ${pillClass}">${esc(status || "ready")}</span>`;
+  if (job.frames) html += `<span class="muted">frames ${esc(job.frames)}</span>`;
+  if (job.gpu_seconds) html += `<span class="muted">${esc(job.gpu_seconds)} GPU s</span>`;
+  if (job.device) html += `<span class="muted">${esc(job.device)}</span>`;
+  html += `</div>`;
+  const eta = job.eta?.human || job.estimate?.human;
+  if (status === "queued" || status === "running") {
+    const p = progressOf(job);
+    if (p) html += `<div class="bar"><i style="width:${p.pct}%"></i></div><div class="muted">${p.done}/${p.total} frames${eta ? " · " + esc(eta) : ""}</div>`;
+    else if (eta) html += `<div class="muted">${esc(eta)}</div>`;
+  } else if (eta && status === "done") {
+    html += `<div class="muted">${esc(eta)}</div>`;
+  }
+  if (state.image) html += `<img class="sheet" src="${state.image}" alt="render preview">`;
+  const out = job.output_url;
+  const links = job.links || {};
+  if (status === "done" && out && /\.mp4(\?|$)/.test(out)) {
+    html += `<video controls playsinline src="${esc(out)}"></video>`;
+  }
+  if (status === "done" && isCompare(job)) {
+    html += `<div class="muted">Pick the lighting for the final render:</div><div class="grid">` +
+      PRESETS.map(p => `<button data-preset="${p}">Use ${p}</button>`).join("") + `</div>`;
+  }
+  html += `<div class="row">`;
+  if (status === "queued" || status === "running") html += `<button data-act="refresh">Refresh</button>`;
+  if (status === "done" && out) html += `<button class="primary" data-open="${esc(out)}">Open ${/\.mp4/.test(out) ? "MP4" : "image"}</button>`;
+  const frameLinks = Object.entries(links).filter(([n]) => n.startsWith("frame_"));
+  if (status === "done" && frameLinks.length) html += `<button data-open="${esc(frameLinks[0][1])}">Open first frame</button>`;
+  if (status === "done" && job.kind === "preview") html += `<button data-say="This preview looks right. Please ask me about frames, resolution and samples, then render the final.">Looks good, go final</button><button data-say="Please adjust the scene and preview again.">Needs changes</button>`;
+  html += `</div>`;
+  const warns = (job.warnings || []).filter(w => !String(w).startsWith("compare:"));
+  if (warns.length) html += `<details><summary>${warns.length} note${warns.length > 1 ? "s" : ""} from Blender</summary><ul class="warn">${warns.map(w => `<li>${esc(w)}</li>`).join("")}</ul></details>`;
+  if (job.expires_at) html += `<div class="muted">files kept until ${esc(job.expires_at)}</div>`;
+  root.innerHTML = html;
+  root.querySelectorAll("button[data-open]").forEach(b => b.addEventListener("click", () => app.openLink({ url: b.dataset.open })));
+  root.querySelectorAll("button[data-say]").forEach(b => b.addEventListener("click", () => app.sendMessage({ role: "user", content: { type: "text", text: b.dataset.say } })));
+  root.querySelectorAll("button[data-preset]").forEach(b => b.addEventListener("click", () => app.sendMessage({ role: "user", content: { type: "text", text: `Use the ${b.dataset.preset} lighting preset (environment="${b.dataset.preset}") for the final render. Ask me about frames, resolution and samples first.` } })));
+  root.querySelector("button[data-act=refresh]")?.addEventListener("click", refresh);
+  schedulePoll();
+}
+
+async function refresh() {
+  const id = state.job?.job_id;
+  if (!id) return;
+  try {
+    const r = await app.callServerTool({ name: "render_status", arguments: { job_id: id } });
+    const parsed = parseResult(r);
+    if (parsed.job && parsed.job.job_id) state.job = parsed.job;
+    if (parsed.image) state.image = parsed.image;
+    if (state.job.status === "done" && !state.image && state.job.kind === "preview") {
+      const d = await app.callServerTool({ name: "render_download", arguments: { job_id: id } });
+      const p2 = parseResult(d);
+      if (p2.image) state.image = p2.image;
+      if (p2.job && p2.job.job_id) state.job = p2.job;
+    }
+    render();
+  } catch (e) { console.error(e); }
+}
+
+function schedulePoll() {
+  if (state.pollTimer) { clearTimeout(state.pollTimer); state.pollTimer = null; }
+  const s = state.job?.status;
+  if ((s === "queued" || s === "running") && state.polls < 120) {
+    state.polls += 1;
+    state.pollTimer = setTimeout(refresh, 5000);
+  }
+}
+
+app.ontoolresult = (result) => {
+  const parsed = parseResult(result);
+  state.job = parsed.job; state.image = parsed.image; state.polls = 0;
+  render();
+};
+app.ontoolinput = () => { root.innerHTML = '<span class="muted">Rendering on JANCTION…</span>'; };
+
+await app.connect();
+const ctx = app.getHostContext?.();
+state.toolName = ctx?.toolInfo?.tool?.name || "";
+</script>
+</body>
+</html>

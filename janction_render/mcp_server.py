@@ -55,6 +55,23 @@ ORBIT_DOC = (" orbit=True: turntable; an orbit camera circles the scene once ove
              "elevation orbit_elevation deg, default 18). Flat floors/walls are ignored when framing; orbit_target = an "
              "object name or 'x,y,z' centres on that, orbit_distance scales the distance (1.0). A preview without frames "
              "shows 0/90/180/270 deg; a final without frame_end renders the whole turn as an MP4. Best for imported models.")
+# ---- MCP Apps（Claude Desktop など対応ホストに、絵と進み具合のパネルを出す。対応していないホストは無視する）
+UI_URI = "ui://janction-render/app.html"
+UI_MIME = "text/html;profile=mcp-app"
+
+
+def ui_enabled() -> bool:
+    return (os.environ.get("JR_MCP_APPS") or "1").strip().lower() not in ("0", "false", "no", "off")
+
+
+def _ui_meta() -> Optional[dict[str, Any]]:
+    return {"ui": {"resourceUri": UI_URI}, "ui/resourceUri": UI_URI} if ui_enabled() else None
+
+
+def ui_html() -> str:
+    return (Path(__file__).resolve().parent / "mcp_app.html").read_text(encoding="utf-8")
+
+
 ENV_DOC = ("environment: '' keeps the scene's own world; 'studio' | 'sunset' | 'overcast' | 'night' replaces it with a "
            "bundled HDRI (good first render for scenes without lighting work); 'compare' (render_preview only) renders the "
            "first frame under all four presets in one 2x2 image with labels, so you can pick one; environment_strength scales it (1.0); "
@@ -218,7 +235,7 @@ def scene_info(scene_path: str = "", scene_id: str = "", scene_script: str = "",
     return _j(_attach_upload_notes(info))
 
 
-@mcp.tool(structured_output=False)
+@mcp.tool(structured_output=False, meta=_ui_meta())
 def render_preview(
     scene_path: str = "",
     scene_id: str = "",
@@ -319,7 +336,7 @@ def render_estimate(scene_id: str = "", kind: str = "final", frame_start: int = 
     return _j(out)
 
 
-@mcp.tool()
+@mcp.tool(meta=_ui_meta())
 def render_final(
     scene_path: str = "",
     scene_id: str = "",
@@ -377,7 +394,7 @@ def render_final(
     return _j(_attach_upload_notes(brief))
 
 
-@mcp.tool()
+@mcp.tool(meta=_ui_meta())
 def render_status(job_id: str) -> str:
     """Check a JANCTION render job: status (queued/running/done/failed/canceled), frames done,
     how many chunks are queued ahead, the ETA (eta.human = remaining time including queue wait),
@@ -393,7 +410,7 @@ def render_status(job_id: str) -> str:
     return _j(b)
 
 
-@mcp.tool()
+@mcp.tool(meta=_ui_meta())
 def render_download(job_id: str, out_dir: str = "", wait_seconds: int = 0, only: str = "all") -> str:
     """Download a JANCTION render job's files to out_dir (default ~/janction-render/<job_id>).
     only: 'all' (default: every PNG frame plus output.mp4 / sheet.png), 'mp4' (just the video), 'frames'
@@ -481,6 +498,15 @@ def render_info() -> str:
                "features": health.get("features"),
                "key": me, "downloads_go_to": str(_out_root()),
                "remote_mcp": f"{c.server}/mcp (Streamable HTTP; for Claude.ai, ChatGPT, Cursor: add this URL as a connector)"})
+
+
+if ui_enabled():
+    @mcp.resource(UI_URI, name="JANCTION Render app", title="JANCTION Render", mime_type=UI_MIME,
+                  description="Interactive view for JANCTION Render results: preview image, progress, ETA, links, preset picker.",
+                  meta={"ui": {"csp": {"resourceDomains": ["https://unpkg.com", "https://render.janction.jp"], "connectDomains": []},
+                               "prefersBorder": True}})
+    def janction_render_app() -> str:
+        return ui_html()
 
 
 def main() -> None:

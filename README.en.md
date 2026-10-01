@@ -18,6 +18,7 @@ without a GPU, or when rendering locally is slow.
 - While a job renders, `render_status` counts finished frames inside the running chunk, so the ETA updates every few seconds.
 - In hosts that support MCP Apps (Claude web and desktop, among others), previews, progress and download links also appear
   as an interactive panel in the chat: the image, a progress bar, "Open MP4", and preset buttons after an `environment="compare"` preview.
+  Both the remote connector and the stdio package ship the panel (`janction_render/mcp_app.html`); set `JR_MCP_APPS=0` to turn it off.
 - `scene_info` reads the scene without rendering (cameras, frame range, missing files).
 - `render_preview` returns 1-4 low-cost frames tiled in one image within seconds, so the agent can look, fix, and repeat.
 - `render_estimate` says how long a render will take ("about 3 minutes") and whether it fits today's free quota.
