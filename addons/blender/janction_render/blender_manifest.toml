@@ -1,0 +1,28 @@
+schema_version = "1.0.0"
+
+id = "janction_render"
+version = "0.1.0"
+name = "JANCTION Render"
+tagline = "Render this file on JANCTION cloud GPUs (free beta)"
+maintainer = "JasmyLab"
+type = "add-on"
+
+website = "https://render.janction.jp"
+tags = ["Render"]
+
+blender_version_min = "4.2.0"
+license = ["SPDX:GPL-3.0-or-later"]
+copyright = ["2026 JasmyLab Inc."]
+
+[permissions]
+network = "Uploads the scene to render.janction.jp and downloads results"
+files = "Reads the .blend and its textures, writes results beside it"
+
+[build]
+paths_exclude_pattern = [
+  "__pycache__/",
+  "/.git/",
+  "*.pyc",
+  "*.zip",
+  "/tests/",
+]

@@ -8,7 +8,7 @@ JST = 9 * 3600
 
 
 def iso(ts: float | int | None) -> str | None:
-    """epoch 秒 → "2026-10-02T04:12:00Z (2026-10-02 13:12 JST)"。エージェントがそのまま伝えられる形。"""
+    """epoch 秒 → "2026-10-01T04:12:00Z (2026-10-01 13:12 JST)"。エージェントがそのまま伝えられる形。"""
     if ts is None:
         return None
     try:

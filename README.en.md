@@ -34,7 +34,8 @@ Free beta. Service page: `https://render.janction.jp` (`/v1/health`, `/llms.txt`
 Guides: [render farm for agents](https://render.janction.jp/blender-render-farm) · [without a GPU](https://render.janction.jp/render-blender-without-gpu) ·
 [Claude](https://render.janction.jp/claude-blender) · [ChatGPT](https://render.janction.jp/chatgpt-blender) · [Claude Code](https://render.janction.jp/claude-code-blender) ·
 [Codex](https://render.janction.jp/codex-blender) · [bpy scripts](https://render.janction.jp/bpy-script-cloud-gpu) · [API](https://render.janction.jp/blender-render-api) ·
-[comparison](https://render.janction.jp/blender-render-farm-api-comparison) · 日本語は `/ja/`
+[comparison](https://render.janction.jp/blender-render-farm-api-comparison) · [Blender add-on](https://render.janction.jp/blender-addon) ·
+[Maya / Houdini / Cinema 4D](https://render.janction.jp/maya-houdini-cinema4d) · 日本語は `/ja/`
 
 ## Connect (remote MCP, nothing to install)
 
@@ -149,11 +150,24 @@ GET  /llms.txt  /llms-full.txt  /ja/llms.txt  /faq  /terms  /privacy  /legal  /s
 During the free beta a `429 quota_exceeded` response carries `resets_at`; a `400 beta_limit` means the job is too big
 (split it). Once paid plans start, a `402 payment_required` response carries `checkout_url`.
 
+## Blender add-on and DCC tools (for people, not agents)
+
+- **Blender extension** (`addons/blender/`, Blender 4.2+): a JANCTION Render panel under Properties → Render with Preview,
+  Estimate and Final. A copy of the open file and the textures it references with relative paths are uploaded; results land
+  next to the .blend. Install from the extension repository `https://render.janction.jp/extensions/index.json`
+  (Preferences → Get Extensions → Repositories → + → Add Remote Repository), or install the zip from
+  `https://render.janction.jp/extensions/janction_render-0.1.0.zip` (`python scripts/build_blender_addon.py` builds it
+  from this repository). Guide: https://render.janction.jp/blender-addon
+- **Maya, Houdini, Cinema 4D** (`integrations/`): export to USD / FBX / Alembic, upload with textures, render with Cycles,
+  open the result; Preview, Final (MP4) and Turntable. Standard-library Python only; `jr_submit.py` is the shared client.
+  Guide: https://render.janction.jp/maya-houdini-cinema4d
+
 ## Self-hosting
 
 The server (FastAPI + SQLite, with the remote MCP endpoint) and the worker (Blender in disposable Docker containers,
 `--network none --cap-drop ALL`) live in the internal repository and are not part of this package yet. This repository
-holds the client side: stdio MCP server, CLI, HTTP client, samples and the Claude Code plugin.
+holds the client side: stdio MCP server, CLI, HTTP client, samples, the Claude Code plugin, the Blender add-on and the
+DCC tools.
 
 ## MCP registry
 
@@ -163,4 +177,5 @@ mcp-name: io.github.JasmyLab-JANCTION/janction-render
 
 ## License
 
-MIT (see LICENSE). Operated by JasmyLab Inc.
+MIT (see LICENSE) for the package, the MCP servers, the CLI and the DCC tools. The Blender extension under
+`addons/blender/` is GPL-3.0-or-later, as Blender requires for add-ons. Operated by JasmyLab Inc.
