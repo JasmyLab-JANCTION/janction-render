@@ -32,7 +32,8 @@ without a GPU, or when rendering locally is slow.
 - `render_final` renders the frames on GPUs and joins them into an MP4; `render_status` reports the remaining time.
 - Free beta: no charges. Each key gets 10 GPU-minutes per day; a final render is up to 240 frames at 1080p.
   Paid plans (per GPU second, prepaid credit) will be announced on the service page before they start.
-- Inputs and results are deleted 24 hours after last use and are never used for training.
+- Inputs and results are deleted 24 hours after last use and are never used for training. A render you choose to
+  share (`render_share`) gets a public page (`/r/<id>`, OGP for X and Discord) that stays until you unshare it.
 
 ## Status
 
@@ -108,6 +109,7 @@ Then, in Claude Code:
 | `render_final(scene_id, frame_start, frame_end, width, height, samples, fps, output, environment?, blender?, engine?, transparent?, notify_url?)` | frames (png / exr) or video (mp4 / webm / prores / gif / webp); `transparent=True` keeps an alpha background (png / exr / webm / gif / webp); `notify_url` gets one JSON POST when the job finishes; returns job_id + estimate |
 | `render_status(job_id)` | progress and ETA (`eta.human`); `render_download(job_id, only="mp4" / "frames" / "all")` files or links; `render_cancel(job_id)` |
 | `billing()` | free-beta quota (used today, daily limit, reset time); later balance and top-up link |
+| `render_share(job_id, title?, note?, include_script?, listed?)` | a public page `/r/<id>` with the image or video, the conditions and (optionally) the script; survives the 24-hour expiry until `render_unshare`; listed pages appear in `/gallery` |
 | `asset_search(query, kind)` | CC0 models / textures / HDRIs on Poly Haven by words; results carry `polyhaven:<id>` and the entry file |
 | `render_info()` | workers online or gated (GPU lent to another workload), queue, expected wait, supported inputs, environment presets, Blender versions |
 
@@ -117,7 +119,7 @@ Options on `render_preview` / `render_final`: `environment` (`studio`, `sunset`,
 sent with the scene, found in the script through `os.environ["JR_ASSETS_DIR"]`; a `.blend`'s external files are collected
 automatically with `pip install janction-render[blend]`) or `asset_urls` (remote).
 
-CLI: `janction-render inspect|preview|render|status|download|cancel|jobs|balance|topup|info`.
+CLI: `janction-render inspect|preview|render|status|download|share|unshare|cancel|jobs|balance|topup|info`.
 
 ## Writing a scene script
 
@@ -149,6 +151,8 @@ POST /v1/jobs   {scene_id, kind: info|preview|final, frames|frame_start/frame_en
                  environment, environment_strength, environment_visible, blender, orbit, orbit_frames, orbit_elevation}
 GET  /v1/jobs/{id}      status, progress, eta, artifacts[], cost, warnings, info    DELETE /v1/jobs/{id}  cancel
 GET  /v1/jobs/{id}/artifacts/{name}             PNG / MP4
+POST /v1/jobs/{id}/share {title?, note?, include_script?, listed?} -> {share_id, url}   DELETE /v1/jobs/{id}/share   GET /v1/shares
+GET  /r/{share_id}  public page (no key)   GET /gallery
 GET  /v1/assets/search?q=&kind=models|textures|hdris   CC0 assets (Poly Haven) -> spec polyhaven:<id>
 POST /v1/files/{id}/assets/urls {urls: ["https://...", "polyhaven:<id>"]}   fetch assets server-side
 POST /mcp                                       remote MCP (Streamable HTTP; Bearer api key or OAuth)

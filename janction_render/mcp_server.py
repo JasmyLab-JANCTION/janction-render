@@ -518,6 +518,27 @@ def render_cancel(job_id: str) -> str:
 
 
 @mcp.tool()
+def render_share(job_id: str, title: str = "", note: str = "", include_script: bool = False, listed: bool = True) -> str:
+    """Publish a finished render as a public page the user can send to anyone (X, Discord, a client): the image or
+    video, the render conditions, an optional title and note, and the bpy script if include_script=True. The page
+    keeps a copy of the result after the job's 24-hour expiry, until render_unshare. listed=True also puts it in the
+    public gallery. Ask the user before sharing; return the url to them."""
+    try:
+        return _j(_client().share(job_id, title=title, note=note, include_script=include_script, listed=listed))
+    except ClientError as exc:
+        return _j({"ok": False, "error": str(exc)})
+
+
+@mcp.tool()
+def render_unshare(job_id: str) -> str:
+    """Remove the public share page of a job (the copy of the result is deleted)."""
+    try:
+        return _j(_client().unshare(job_id))
+    except ClientError as exc:
+        return _j({"ok": False, "error": str(exc)})
+
+
+@mcp.tool()
 def billing(topup_yen: int = 0) -> str:
     """Check the account's quota or credit. During the free beta it returns today's GPU-time usage,
     the daily quota and when it resets (no charges). Once paid plans start: with topup_yen = 0 it

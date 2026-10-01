@@ -136,6 +136,17 @@ def cmd_cancel(c: Client, args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_share(c: Client, args: argparse.Namespace) -> int:
+    v = c.share(args.job, title=args.title or "", note=args.note or "", include_script=bool(args.script), listed=not args.unlisted)
+    print(v["url"])
+    return 0
+
+
+def cmd_unshare(c: Client, args: argparse.Namespace) -> int:
+    print(_j(c.unshare(args.job)))
+    return 0
+
+
 def cmd_jobs(c: Client, args: argparse.Namespace) -> int:
     rows = c.jobs(args.limit)
     for j in rows:
@@ -221,6 +232,16 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--wait", type=float, default=0, help="seconds to wait for the job first")
     s.set_defaults(fn=cmd_download)
 
+    s = sub.add_parser("share", help="publish a finished job as a public page (/r/<id>)")
+    s.add_argument("job")
+    s.add_argument("--title", default=None)
+    s.add_argument("--note", default=None)
+    s.add_argument("--script", action="store_true", help="include the bpy script on the page")
+    s.add_argument("--unlisted", action="store_true", help="do not list the page in the gallery")
+    s.set_defaults(fn=cmd_share)
+    s = sub.add_parser("unshare", help="remove the public page of a job")
+    s.add_argument("job")
+    s.set_defaults(fn=cmd_unshare)
     s = sub.add_parser("cancel")
     s.add_argument("job")
     s.set_defaults(fn=cmd_cancel)

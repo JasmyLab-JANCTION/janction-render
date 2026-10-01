@@ -71,4 +71,6 @@ scene.collection.objects.link(sun)
 - Need furniture, props, materials or an HDRI without files? `asset_search("wooden table")` (Poly Haven, CC0), then pass
   `polyhaven:<id>` in `asset_urls`; in the script `import jr_assets` and use `jr_assets.import_model('<id>')`,
   `jr_assets.apply(obj, jr_assets.material('<texture_id>'))`, `jr_assets.world_hdri('<hdri_id>')`.
+- When the user wants to show the result to someone (X, Discord, a client): ask, then `render_share(job_id, title)` and
+  give them the url. `render_unshare(job_id)` removes the page.
 - A failed job carries `error` and `log_tail` (Blender's log): fix the script and try again.

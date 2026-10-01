@@ -28,7 +28,8 @@ From the extension repository (installs and updates without a zip):
 
 From a zip:
 
-1. Download `https://render.janction.jp/extensions/janction_render-0.1.0.zip`, or build it
+1. Download `https://render.janction.jp/extensions/janction_render-0.1.0.zip` (also attached to the GitHub
+   release `blender-addon-0.1.0`), or build it
    (`python scripts/build_blender_addon.py` in this repository writes it to `dist/`;
    `blender --command extension build --source-dir addons/blender/janction_render --output-dir dist`
    is the official equivalent).

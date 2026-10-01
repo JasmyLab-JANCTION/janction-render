@@ -361,6 +361,23 @@ class Client:
         self._raise(r)
         return r.json()
 
+    def share(self, job_id: str, title: str = "", note: str = "", include_script: bool = False, listed: bool = True) -> dict[str, Any]:
+        """描けた結果を公開ページにする（/r/<id>）。"""
+        r = self.s.post(f"{self.server}/v1/jobs/{job_id}/share", headers=self._headers(),
+                        json={"title": title, "note": note, "include_script": include_script, "listed": listed}, timeout=120)
+        self._raise(r)
+        return r.json()
+
+    def unshare(self, job_id: str) -> dict[str, Any]:
+        r = self.s.delete(f"{self.server}/v1/jobs/{job_id}/share", headers=self._headers(), timeout=60)
+        self._raise(r)
+        return r.json()
+
+    def shares(self) -> dict[str, Any]:
+        r = self.s.get(f"{self.server}/v1/shares", headers=self._headers(), timeout=30)
+        self._raise(r)
+        return r.json()
+
     def fetch_asset_urls(self, scene_id: str, urls: list[str]) -> dict[str, Any]:
         """URL か polyhaven:<id> の素材を受付に取らせてシーンに足す（受付が取るので手元には要らない）。"""
         r = self.s.post(f"{self.server}/v1/files/{scene_id}/assets/urls", headers=self._headers(),
