@@ -20,6 +20,9 @@ without a GPU, or when rendering locally is slow.
 - In hosts that support MCP Apps (Claude web and desktop, among others), previews, progress and download links also appear
   as an interactive panel in the chat: the image, a progress bar, "Open MP4", and preset buttons after an `environment="compare"` preview.
   Both the remote connector and the stdio package ship the panel (`janction_render/mcp_app.html`); set `JR_MCP_APPS=0` to turn it off.
+- CC0 assets by name: `asset_search("wooden table")` finds Poly Haven models, textures and HDRIs; pass `polyhaven:<id>` in
+  `asset_urls` (remote) or `assets` (stdio) and the files land in `JR_ASSETS_DIR/<id>/` on the GPU, ready to import
+  (`bpy.ops.import_scene.gltf(filepath=os.path.join(os.environ['JR_ASSETS_DIR'], 'wooden_table_02', 'wooden_table_02_1k.gltf'))`).
 - `scene_info` reads the scene without rendering (cameras, frame range, missing files).
 - `render_preview` returns 1-4 low-cost frames tiled in one image within seconds, so the agent can look, fix, and repeat.
 - `render_estimate` says how long a render will take ("about 3 minutes") and whether it fits today's free quota.
@@ -102,6 +105,7 @@ Then, in Claude Code:
 | `render_final(scene_id, frame_start, frame_end, width, height, samples, fps, output, environment?, blender?, engine?, transparent?, notify_url?)` | frames (png / exr) or video (mp4 / webm / prores / gif / webp); `transparent=True` keeps an alpha background (png / exr / webm / gif / webp); `notify_url` gets one JSON POST when the job finishes; returns job_id + estimate |
 | `render_status(job_id)` | progress and ETA (`eta.human`); `render_download(job_id, only="mp4" / "frames" / "all")` files or links; `render_cancel(job_id)` |
 | `billing()` | free-beta quota (used today, daily limit, reset time); later balance and top-up link |
+| `asset_search(query, kind)` | CC0 models / textures / HDRIs on Poly Haven by words; results carry `polyhaven:<id>` and the entry file |
 | `render_info()` | workers online or gated (GPU lent to another workload), queue, expected wait, supported inputs, environment presets, Blender versions |
 
 Options on `render_preview` / `render_final`: `environment` (`studio`, `sunset`, `overcast`, `night`, `compare` on previews; `environment_strength`,
@@ -142,6 +146,8 @@ POST /v1/jobs   {scene_id, kind: info|preview|final, frames|frame_start/frame_en
                  environment, environment_strength, environment_visible, blender, orbit, orbit_frames, orbit_elevation}
 GET  /v1/jobs/{id}      status, progress, eta, artifacts[], cost, warnings, info    DELETE /v1/jobs/{id}  cancel
 GET  /v1/jobs/{id}/artifacts/{name}             PNG / MP4
+GET  /v1/assets/search?q=&kind=models|textures|hdris   CC0 assets (Poly Haven) -> spec polyhaven:<id>
+POST /v1/files/{id}/assets/urls {urls: ["https://...", "polyhaven:<id>"]}   fetch assets server-side
 POST /mcp                                       remote MCP (Streamable HTTP; Bearer api key or OAuth)
 GET  /.well-known/oauth-protected-resource/mcp  OAuth discovery
 POST /v1/billing/checkout {amount_yen} -> {checkout_url}   POST /v1/billing/sync   GET /v1/ledger   GET /v1/me

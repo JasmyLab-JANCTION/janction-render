@@ -87,6 +87,10 @@ ENV_DOC = ("environment: '' keeps the scene's own world; 'studio' | 'sunset' | '
            "blender: '' (5.0) or '5.2' to render with Blender 5.2 when available. assets: local files (images, glTF "
            ".bin, ...) sent along with the scene; a .blend finds them through relative paths, a script through "
            "os.environ['JR_ASSETS_DIR'].")
+POLYHAVEN_DOC = (" assets may also hold 'polyhaven:<id>' (a CC0 model, texture or HDRI from polyhaven.com, fetched by the "
+                 "service into JR_ASSETS_DIR/<id>/; find ids with asset_search) or an https URL. Import a model with "
+                 "bpy.ops.import_scene.gltf(filepath=os.path.join(os.environ['JR_ASSETS_DIR'], '<id>', '<id>_1k.gltf')).")
+ENV_DOC = ENV_DOC + POLYHAVEN_DOC
 
 
 def _log(msg: str) -> None:
@@ -153,8 +157,28 @@ def _payment_block(exc: ClientError) -> Optional[dict[str, Any]]:
 _LAST_UPLOAD: dict[str, Any] = {}
 
 
+def _is_remote_asset(a: str) -> bool:
+    s = str(a).strip().lower()
+    return s.startswith("polyhaven:") or s.startswith("https://")
+
+
 def _resolve_scene(c: Client, scene_path: str, scene_id: str, scene_script: str = "",
                    assets: Optional[list[str]] = None) -> str:
+    """手元のファイルは upload、polyhaven:<id> と https の素材は受付に取らせる。"""
+    remote = [str(a) for a in (assets or []) if _is_remote_asset(a)]
+    local = [a for a in (assets or []) if not _is_remote_asset(a)]
+    sid = _resolve_scene_local(c, scene_path, scene_id, scene_script, local or None)
+    if remote:
+        up = c.fetch_asset_urls(sid, remote)
+        got = list(_LAST_UPLOAD.get("assets") or [])
+        _LAST_UPLOAD["assets"] = got + [x for x in (up.get("added") or []) if x not in got]
+        if up.get("polyhaven"):
+            _LAST_UPLOAD["polyhaven"] = up["polyhaven"]
+    return sid
+
+
+def _resolve_scene_local(c: Client, scene_path: str, scene_id: str, scene_script: str = "",
+                         assets: Optional[list[str]] = None) -> str:
     _LAST_UPLOAD.clear()
     if scene_id:
         if assets:
@@ -263,6 +287,20 @@ RENDER_PREVIEW_DESCRIPTION = (
     Blender warnings (e.g. missing textures), GPU seconds, and the expiry time (24h after last use).
     """ + ENV_DOC + ORBIT_DOC + TRANSPARENT_DOC
 )
+
+
+@mcp.tool()
+def asset_search(query: str, kind: str = "models") -> str:
+    """Find CC0 3D models, PBR textures or HDRIs on Poly Haven by words (name, tags, category), to furnish a scene
+    without local files. kind: 'models' (default) | 'textures' | 'hdris'. Each result has spec 'polyhaven:<id>', its
+    size in metres (models) and the entry file. Then pass the spec in assets of scene_info / render_preview /
+    render_final; the service fetches the files into JR_ASSETS_DIR/<id>/ and the scene script imports the entry with
+    bpy.ops.import_scene.gltf(filepath=os.path.join(os.environ['JR_ASSETS_DIR'], '<entry>')). No GPU time is used."""
+    c = _client()
+    try:
+        return _j(c.asset_search(query, kind))
+    except ClientError as exc:
+        return _j({"ok": False, "error": str(exc)})
 
 
 @mcp.tool(structured_output=False, meta=_ui_meta(), description=RENDER_PREVIEW_DESCRIPTION)

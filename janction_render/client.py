@@ -361,6 +361,20 @@ class Client:
         self._raise(r)
         return r.json()
 
+    def fetch_asset_urls(self, scene_id: str, urls: list[str]) -> dict[str, Any]:
+        """URL か polyhaven:<id> の素材を受付に取らせてシーンに足す（受付が取るので手元には要らない）。"""
+        r = self.s.post(f"{self.server}/v1/files/{scene_id}/assets/urls", headers=self._headers(),
+                        json={"urls": [str(u) for u in urls]}, timeout=900)
+        self._raise(r)
+        return r.json()
+
+    def asset_search(self, query: str, kind: str = "models") -> dict[str, Any]:
+        """Poly Haven（CC0）の素材を名前・タグで引く。"""
+        r = self.s.get(f"{self.server}/v1/assets/search", headers=self._headers(),
+                       params={"q": query, "kind": kind}, timeout=30)
+        self._raise(r)
+        return r.json()
+
     def upload_text(self, name: str, text: str) -> dict[str, Any]:
         """文字列で受け取った bpy スクリプトを、そのままシーンとして送る（ファイルを作らなくてよい）。"""
         import tempfile
