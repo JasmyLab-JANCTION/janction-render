@@ -41,7 +41,8 @@ mcp = MCPServer(
         "in one image; look at it, fix the scene, repeat) -> ask the user 'is this OK?' -> render_estimate (tell the "
         "user how long it takes and whether it fits today's free quota) -> render_final (frames or MP4) -> "
         "render_status / render_download. Always tell the user the time estimate (estimate.human / eta.human). "
-        "Blender 5.0 with Cycles on GPU (blender='5.2' selects Blender 5.2 when the worker has it). Inputs: a .blend, a bpy "
+        "Blender 5.0 with Cycles on GPU (blender='5.2' selects Blender 5.2 when the worker has it); engine='eevee' switches to EEVEE "
+        "(about half the per-frame cost on animations of a few dozen frames or more; each job pays ~7 s of shader compilation, so previews stay on Cycles); output='png'|'exr' returns frames, 'mp4'|'webm'|'prores' a video. Blender 5.0 API notes for scripts: materials always use nodes, so set a color on the Principled BSDF (mat.node_tree.nodes['Principled BSDF'].inputs['Base Color'].default_value = (r, g, b, 1)); mat.diffuse_color only affects the viewport. Animate with obj.keyframe_insert(); obj.animation_data.action.fcurves no longer exists (set bpy.context.preferences.edit.keyframe_new_interpolation_type='LINEAR' before inserting keyframes for constant-speed motion); do not set Material.use_nodes; leave resolution, samples and denoising to the service. Inputs: a .blend, a bpy "
         "script, or a 3D file (FBX, glTF/GLB, USD, OBJ, STL, PLY, Alembic) that is imported into an empty scene; images "
         "and other assets can be sent with the scene (assets=[...]). environment='studio'|'sunset'|'overcast'|'night' "
         "lights the scene with a bundled HDRI for a good-looking first render. Inputs and results are deleted 24 hours "
@@ -172,8 +173,11 @@ def _resolve_scene(c: Client, scene_path: str, scene_id: str, scene_script: str 
     return up["scene_id"]
 
 
-def _job_params(environment: str, environment_strength: float, environment_visible: bool, blender: str) -> dict[str, Any]:
+def _job_params(environment: str, environment_strength: float, environment_visible: bool, blender: str,
+                engine: str = "") -> dict[str, Any]:
     out: dict[str, Any] = {}
+    if engine:
+        out["engine"] = engine
     if environment:
         out.update({"environment": environment, "environment_strength": environment_strength,
                     "environment_visible": environment_visible})
@@ -256,6 +260,7 @@ def render_preview(
     orbit_elevation: float = 18.0,
     orbit_target: str = "",
     orbit_distance: float = 1.0,
+    engine: str = "",
 ) -> list[Any]:
     """Render a fast, cheap preview of a Blender scene on a JANCTION GPU and show the image.
 
@@ -276,7 +281,7 @@ def render_preview(
         sid = _resolve_scene(c, scene_path, scene_id, scene_script, assets)
         j = c.submit(sid, kind="preview", frames=frame_list, camera=camera or None,
                      width=width, height=height, samples=samples,
-                     **_job_params(environment, environment_strength, environment_visible, blender),
+                     **_job_params(environment, environment_strength, environment_visible, blender, engine=engine),
                      **({"orbit": True, "orbit_frames": orbit_frames, "orbit_elevation": orbit_elevation,
                          "orbit_target": orbit_target, "orbit_distance": orbit_distance} if orbit else {}))
         _log(f"preview job {j['job_id']} submitted frames={frame_list}")
@@ -359,6 +364,7 @@ def render_final(
     orbit_elevation: float = 18.0,
     orbit_target: str = "",
     orbit_distance: float = 1.0,
+    engine: str = "",
 ) -> str:
     """Render the final frames (or a video) of a Blender scene on JANCTION GPUs.
 
@@ -381,7 +387,7 @@ def render_final(
         j = c.submit(sid, kind="final", frame_start=frame_start, frame_end=frame_end,
                      width=width, height=height, samples=samples, fps=fps, output=output,
                      camera=camera or None,
-                     **_job_params(environment, environment_strength, environment_visible, blender), **extra)
+                     **_job_params(environment, environment_strength, environment_visible, blender, engine=engine), **extra)
     except ClientError as exc:
         block = _payment_block(exc) or _quota_block(exc)
         return _j(block if block else {"ok": False, "error": str(exc)})

@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "janction-render",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Cloud GPU rendering for Blender, built for AI agents. Preview, estimate and render Blender scenes (.blend files or bpy scripts) on JANCTION GPUs from any MCP client.",
   "author": {
     "name": "JasmyLab Inc.",

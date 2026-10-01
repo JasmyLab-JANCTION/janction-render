@@ -19,7 +19,7 @@ CACHE = Path.home() / ".janction-render.json"
 
 # 送れるシーン: .blend、bpy スクリプト、こちらの Blender が読み込める 3D ファイル
 SCENE_SUFFIXES = (".blend", ".py", ".fbx", ".glb", ".gltf", ".obj", ".stl", ".ply", ".usd", ".usda", ".usdc", ".usdz", ".abc")
-ONLY_CHOICES = ("all", "mp4", "frames", "sheet", "output")
+ONLY_CHOICES = ("all", "mp4", "frames", "sheet", "output", "video")
 
 
 def select_artifacts(artifacts: list[dict[str, Any]], only: Optional[str] = None) -> list[dict[str, Any]]:
@@ -27,14 +27,14 @@ def select_artifacts(artifacts: list[dict[str, Any]], only: Optional[str] = None
     o = (only or "all").strip().lower()
     if o in ("", "all"):
         return list(artifacts)
-    if o == "mp4":
-        return [a for a in artifacts if a["name"].endswith(".mp4")]
+    if o in ("mp4", "video"):
+        return [a for a in artifacts if a["name"].endswith((".mp4", ".webm", ".mov"))]
     if o == "frames":
         return [a for a in artifacts if a["name"].startswith("frame_")]
     if o == "sheet":
         return [a for a in artifacts if a["name"] == "sheet.png"]
     if o == "output":
-        picked = [a for a in artifacts if a["name"] in ("output.mp4", "sheet.png")]
+        picked = [a for a in artifacts if a["name"] in ("output.mp4", "output.webm", "output.mov", "sheet.png")]
         return picked or [a for a in artifacts if a["name"].startswith("frame_")][:1]
     raise ValueError("only must be one of: " + ", ".join(ONLY_CHOICES))
 

@@ -79,7 +79,7 @@ def cmd_preview(c: Client, args: argparse.Namespace) -> int:
     w, h = args.size
     frames = parse_frames(args.frames, default=args.frame)
     j = c.submit(sid, kind="preview", frames=frames, camera=args.camera, width=w, height=h,
-                 samples=args.samples)
+                 samples=args.samples, engine=args.engine)
     print(f"job {j['job_id']} queued: frames {frames} (estimate ~{j['estimate']['seconds']}s)", file=sys.stderr)
     j = c.wait(j["job_id"], timeout=args.timeout, on_progress=_progress)
     if j["status"] != "done":
@@ -98,7 +98,7 @@ def cmd_render(c: Client, args: argparse.Namespace) -> int:
     w, h = args.size
     fs, fe = args.frames
     j = c.submit(sid, kind="final", frame_start=fs, frame_end=fe, width=w, height=h,
-                 samples=args.samples, fps=args.fps, output=args.output, camera=args.camera)
+                 samples=args.samples, fps=args.fps, output=args.output, camera=args.camera, engine=args.engine)
     print(f"job {j['job_id']} queued: {fe - fs + 1} frames in {j['progress']['chunks_total']} chunks, "
           f"estimate ~{j['estimate']['seconds']}s", file=sys.stderr)
     if not args.wait:
@@ -187,6 +187,7 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--camera", default=None)
     s.add_argument("--size", type=_size, default=(1280, 720))
     s.add_argument("--samples", type=int, default=16)
+    s.add_argument("--engine", choices=["cycles", "eevee"], default=None, help="cycles (default) or eevee (cheaper drafts)")
     s.add_argument("--out", default=None)
     s.add_argument("--timeout", type=float, default=300)
     s.set_defaults(fn=cmd_preview)
@@ -197,8 +198,10 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--frames", type=_frames, required=True, help="e.g. 1-240 or 12")
     s.add_argument("--size", type=_size, default=(1920, 1080))
     s.add_argument("--samples", type=int, default=128)
+    s.add_argument("--engine", choices=["cycles", "eevee"], default=None, help="cycles (default) or eevee (cheaper drafts)")
     s.add_argument("--fps", type=int, default=24)
-    s.add_argument("--output", choices=["auto", "png", "mp4"], default="auto")
+    s.add_argument("--output", choices=["auto", "png", "exr", "mp4", "webm", "prores"], default="auto",
+                   help="png/exr = frames, mp4/webm/prores = video (auto: mp4 for a range, png for one frame)")
     s.add_argument("--camera", default=None)
     s.add_argument("--out", default=None)
     s.add_argument("--wait", action="store_true", help="wait until done and download")

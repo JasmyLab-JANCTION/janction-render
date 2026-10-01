@@ -90,7 +90,7 @@ function render() {
   if (state.image) html += `<img class="sheet" src="${state.image}" alt="render preview">`;
   const out = job.output_url;
   const links = job.links || {};
-  if (status === "done" && out && /\.mp4(\?|$)/.test(out)) {
+  if (status === "done" && out && /\.(mp4|webm|mov)(\?|$)/.test(out)) {
     html += `<video controls playsinline src="${esc(out)}"></video>`;
   }
   if (status === "done" && isCompare(job)) {
@@ -99,7 +99,7 @@ function render() {
   }
   html += `<div class="row">`;
   if (status === "queued" || status === "running") html += `<button data-act="refresh">Refresh</button>`;
-  if (status === "done" && out) html += `<button class="primary" data-open="${esc(out)}">Open ${/\.mp4/.test(out) ? "MP4" : "image"}</button>`;
+  if (status === "done" && out) html += `<button class="primary" data-open="${esc(out)}">Open ${/\.(mp4|webm|mov)/.test(out) ? "video" : "image"}</button>`;
   const frameLinks = Object.entries(links).filter(([n]) => n.startsWith("frame_"));
   if (status === "done" && frameLinks.length) html += `<button data-open="${esc(frameLinks[0][1])}">Open first frame</button>`;
   if (status === "done" && job.kind === "preview") html += `<button data-say="This preview looks right. Please ask me about frames, resolution and samples, then render the final.">Looks good, go final</button><button data-say="Please adjust the scene and preview again.">Needs changes</button>`;

@@ -97,7 +97,7 @@ Then, in Claude Code:
 | `scene_info(scene_script | scene_url | scene_path | scene_id, assets?)` | cameras, frame range, fps, resolution, objects, lights, missing files. No render. |
 | `render_preview(..., frames="1-24", environment?, blender?)` | up to 4 frames (720p budget) tiled with frame labels; returns the image inline |
 | `render_estimate(scene_id, frame_start, frame_end, width, height, samples)` | GPU seconds, queue wait, "about N minutes", fits today's free quota? No GPU time used |
-| `render_final(scene_id, frame_start, frame_end, width, height, samples, fps, output, environment?, blender?)` | PNG or MP4; returns job_id + estimate |
+| `render_final(scene_id, frame_start, frame_end, width, height, samples, fps, output, environment?, blender?, engine?)` | frames (png / exr) or video (mp4 / webm / prores); returns job_id + estimate |
 | `render_status(job_id)` | progress and ETA (`eta.human`); `render_download(job_id, only="mp4" / "frames" / "all")` files or links; `render_cancel(job_id)` |
 | `billing()` | free-beta quota (used today, daily limit, reset time); later balance and top-up link |
 | `render_info()` | workers online or gated (GPU lent to another workload), queue, expected wait, supported inputs, environment presets, Blender versions |
@@ -126,7 +126,7 @@ sun = bpy.data.objects.new("Sun", bpy.data.lights.new("Sun", "SUN"))
 scene.collection.objects.link(sun)
 ```
 
-The service sets engine (Cycles), resolution, samples and denoising; your script sets the scene, camera and frame range.
+The service sets the engine (Cycles by default; `engine="eevee"` for cheaper animations: about half the per-frame cost after ~7 s of shader compilation per job), resolution, samples and denoising; your script sets the scene, camera and frame range. In Blender 5.0 materials always use nodes: set the Principled BSDF Base Color, not `diffuse_color`.
 Scripts run in an isolated container with no network. See `samples/cube_scene.py`.
 
 ## HTTP API
@@ -136,7 +136,7 @@ POST /v1/keys                                   -> {api_key}         (header X-A
 POST /v1/files  multipart "file" (.blend|.py|.glb|.fbx|.usd|.obj|...)   -> {scene_id}
 POST /v1/files/{id}/assets  multipart "files"   textures, glTF .bin ...   GET /v1/files/lookup?sha256=  reuse an upload
 POST /v1/estimate {kind, frames|frame_start/frame_end, width, height, samples, scene_id?} -> seconds, wall_seconds, human, quota
-POST /v1/jobs   {scene_id, kind: info|preview|final, frames|frame_start/frame_end, width, height, samples, camera, fps, output,
+POST /v1/jobs   {scene_id, kind: info|preview|final, frames|frame_start/frame_end, width, height, samples, camera, fps, output (png|exr|mp4|webm|prores), engine (cycles|eevee),
                  environment, environment_strength, environment_visible, blender, orbit, orbit_frames, orbit_elevation}
 GET  /v1/jobs/{id}      status, progress, eta, artifacts[], cost, warnings, info    DELETE /v1/jobs/{id}  cancel
 GET  /v1/jobs/{id}/artifacts/{name}             PNG / MP4
