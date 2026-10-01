@@ -89,7 +89,8 @@ ENV_DOC = ("environment: '' keeps the scene's own world; 'studio' | 'sunset' | '
            "os.environ['JR_ASSETS_DIR'].")
 POLYHAVEN_DOC = (" assets may also hold 'polyhaven:<id>' (a CC0 model, texture or HDRI from polyhaven.com, fetched by the "
                  "service into JR_ASSETS_DIR/<id>/; find ids with asset_search) or an https URL. Import a model with "
-                 "bpy.ops.import_scene.gltf(filepath=os.path.join(os.environ['JR_ASSETS_DIR'], '<id>', '<id>_1k.gltf')).")
+                 "bpy.ops.import_scene.gltf(filepath=os.path.join(os.environ['JR_ASSETS_DIR'], '<id>', '<id>_1k.gltf')). "
+                 "Inside the scene script, `import jr_assets` gives helpers: jr_assets.import_model('<id>', location=(x,y,z), scale=1.0) imports a Poly Haven model (or any file under JR_ASSETS_DIR) and returns the objects; jr_assets.material('<id>', scale=1.0) builds a Principled material from a Poly Haven texture set (diff / nor_gl / rough / arm / disp); jr_assets.apply(obj, mat) assigns it; jr_assets.world_hdri('<id>', strength=1.0) uses a Poly Haven HDRI as the world.")
 ENV_DOC = ENV_DOC + POLYHAVEN_DOC
 
 

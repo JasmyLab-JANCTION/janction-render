@@ -69,5 +69,6 @@ scene.collection.objects.link(sun)
   says how long it has been out, how long it usually stays out and how much longer to expect. Tell the user that estimate
   and offer to check later; do not poll in a loop.
 - Need furniture, props, materials or an HDRI without files? `asset_search("wooden table")` (Poly Haven, CC0), then pass
-  `polyhaven:<id>` in `asset_urls` and import `JR_ASSETS_DIR/<id>/<entry>` in the script (glTF).
+  `polyhaven:<id>` in `asset_urls`; in the script `import jr_assets` and use `jr_assets.import_model('<id>')`,
+  `jr_assets.apply(obj, jr_assets.material('<texture_id>'))`, `jr_assets.world_hdri('<hdri_id>')`.
 - A failed job carries `error` and `log_tail` (Blender's log): fix the script and try again.

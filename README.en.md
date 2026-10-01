@@ -23,6 +23,9 @@ without a GPU, or when rendering locally is slow.
 - CC0 assets by name: `asset_search("wooden table")` finds Poly Haven models, textures and HDRIs; pass `polyhaven:<id>` in
   `asset_urls` (remote) or `assets` (stdio) and the files land in `JR_ASSETS_DIR/<id>/` on the GPU, ready to import
   (`bpy.ops.import_scene.gltf(filepath=os.path.join(os.environ['JR_ASSETS_DIR'], 'wooden_table_02', 'wooden_table_02_1k.gltf'))`).
+  Scene scripts can `import jr_assets` for one-liners: `jr_assets.import_model('wooden_table_02')`,
+  `jr_assets.apply(floor, jr_assets.material('wood_floor_deck', scale=2))` (diff / normal / roughness / metal wired into a
+  Principled BSDF), `jr_assets.world_hdri('studio_small_09')`. See `samples/polyhaven_room.py`.
 - `scene_info` reads the scene without rendering (cameras, frame range, missing files).
 - `render_preview` returns 1-4 low-cost frames tiled in one image within seconds, so the agent can look, fix, and repeat.
 - `render_estimate` says how long a render will take ("about 3 minutes") and whether it fits today's free quota.
