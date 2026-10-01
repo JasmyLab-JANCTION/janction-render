@@ -39,6 +39,53 @@ def select_artifacts(artifacts: list[dict[str, Any]], only: Optional[str] = None
     raise ValueError("only must be one of: " + ", ".join(ONLY_CHOICES))
 
 
+def companion_refs(kind: str, text: str) -> list[str]:
+    """glTF（JSON）か OBJ の中で参照している外部ファイルの相対パス（data: URI と絶対パスは除く）。
+    OBJ は mtllib の .mtl だけを返す（.mtl の中の画像は mtl_refs で）。"""
+    import json as _json
+    import re as _re
+
+    out: list[str] = []
+
+    def add(ref: str) -> None:
+        ref = (ref or "").strip().replace("\\", "/")
+        if not ref or ref.startswith(("data:", "http://", "https://", "/")) or ".." in ref.split("/"):
+            return
+        if ref not in out:
+            out.append(ref)
+
+    if kind == "gltf":
+        try:
+            doc = _json.loads(text)
+        except ValueError:
+            return out
+        for key in ("buffers", "images"):
+            for item in doc.get(key) or []:
+                if isinstance(item, dict) and isinstance(item.get("uri"), str):
+                    add(item["uri"])
+        return out
+    if kind == "obj":
+        for line in text.splitlines():
+            parts = line.strip().split(None, 1)
+            if len(parts) == 2 and parts[0].lower() == "mtllib":
+                for name in parts[1].split():
+                    add(name)
+        return out
+    if kind == "mtl":
+        for line in text.splitlines():
+            parts = line.strip().split()
+            if len(parts) >= 2 and parts[0].lower() in ("map_kd", "map_ks", "map_ka", "map_ns", "map_d", "map_bump", "bump",
+                                                        "disp", "decal", "norm", "map_ke", "refl"):
+                add(parts[-1])
+        return out
+    return out
+
+
+def companion_kind(name: str) -> str:
+    ext = Path(name).suffix.lower()
+    return {".gltf": "gltf", ".obj": "obj", ".mtl": "mtl"}.get(ext, "")
+
+
 def sha256_of(path: Path) -> str:
     import hashlib
 
@@ -263,6 +310,25 @@ class Client:
         missing: list[str] = []
         if p.suffix.lower() == ".blend" and trace_assets:
             items, missing = trace_blend_assets(p)
+        elif companion_kind(p.name) in ("gltf", "obj") and trace_assets:
+            # glTF の .bin と画像、OBJ の .mtl とその画像を、ファイルの横から集める
+            base = p.parent
+            queue = companion_refs(companion_kind(p.name), p.read_text(encoding="utf-8", errors="replace"))
+            seen: set[str] = set()
+            while queue:
+                rel = queue.pop(0)
+                if rel in seen:
+                    continue
+                seen.add(rel)
+                fp = base / rel
+                if not fp.is_file():
+                    missing.append(rel)
+                    continue
+                items.append((rel, fp))
+                if companion_kind(rel) == "mtl":
+                    folder = Path(rel).parent.as_posix()
+                    for sub in companion_refs("mtl", fp.read_text(encoding="utf-8", errors="replace")):
+                        queue.append(sub if folder in ("", ".") else f"{folder}/{sub}")
         for a in assets or []:
             ap = Path(a)
             if not ap.is_file():

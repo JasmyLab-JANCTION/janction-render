@@ -8,7 +8,9 @@ without a GPU, or when rendering locally is slow.
 
 - Input: a `.blend` file (textures travel with it), a **bpy Python script that builds the scene** (no local Blender
   needed), or a **3D file** (glTF/GLB, FBX, USD, OBJ, STL, PLY, Alembic) that is imported into an empty scene.
-- `environment="studio" | "sunset" | "overcast" | "night"` lights a scene with a bundled HDRI (CC0) for a good first render.
+- `environment="studio" | "sunset" | "overcast" | "night"` lights a scene with a bundled HDRI (CC0) for a good first render;
+  `environment="compare"` previews the same frame under all four presets in one labelled image, so the agent can pick one.
+- A `.gltf` or `.obj` brings its `.bin` / `.mtl` / textures along automatically (from the same folder or the same URL folder).
 - `scene_info` reads the scene without rendering (cameras, frame range, missing files).
 - `render_preview` returns 1-4 low-cost frames tiled in one image within seconds, so the agent can look, fix, and repeat.
 - `render_estimate` says how long a render will take ("about 3 minutes") and whether it fits today's free quota.
@@ -90,7 +92,7 @@ Then, in Claude Code:
 | `render_final(scene_id, frame_start, frame_end, width, height, samples, fps, output, environment?, blender?)` | PNG or MP4; returns job_id + estimate |
 | `render_status(job_id)` | progress and ETA (`eta.human`); `render_download(job_id, only="mp4" / "frames" / "all")` files or links; `render_cancel(job_id)` |
 | `billing()` | free-beta quota (used today, daily limit, reset time); later balance and top-up link |
-| `render_info()` | workers online, queue, expected wait, supported inputs, environment presets, Blender versions |
+| `render_info()` | workers online or gated (GPU lent to another workload), queue, expected wait, supported inputs, environment presets, Blender versions |
 
 Options on `render_preview` / `render_final`: `environment` (`studio`, `sunset`, `overcast`, `night`; `environment_strength`,
 `environment_visible=False` for a flat grey backdrop with HDRI lighting), `blender` (`"5.2"`), and `assets` (stdio: local files

@@ -19,8 +19,9 @@ Connect in the browser page (it creates a free key).
    (glTF/GLB, FBX, USD, OBJ, STL, PLY, Alembic) on the web can be passed as `scene_url` (https); textures or glTF `.bin`
    files go in `asset_urls`. Reuse the returned `scene_id` afterwards instead of re-sending the script.
    If the user has not described lighting, pass `environment="studio"` (or `sunset` / `overcast` / `night`) for HDRI
-   lighting; `environment_visible=False` keeps the lighting but shows a flat grey backdrop. `blender="5.2"` selects
-   Blender 5.2 when `render_info` lists it.
+   lighting; `environment="compare"` on `render_preview` renders the frame under all four presets in one labelled image
+   so the user can choose; `environment_visible=False` keeps the lighting but shows a flat grey backdrop. `blender="5.2"`
+   selects Blender 5.2 when `render_info` lists it. A `.gltf` / `.obj` URL brings its `.bin` / `.mtl` / textures along.
 2. `scene_info` - read what the script produced: cameras, frame range, objects, lights, missing files. No render.
 3. `render_preview(frames="1-24")` - up to 4 frames tiled in one image (720p budget, a few GPU seconds). Look at the
    image. If something is wrong (camera, lighting, missing objects), fix the script and preview again.
@@ -60,5 +61,6 @@ scene.collection.objects.link(sun)
 
 - `quota_exceeded` (429): today's free GPU time is used up; say when it resets (`resets_at`) or make the job smaller.
 - `beta_limit` (400): too many frames or too large a resolution for the free beta; split the job.
-- No worker online (`render_info`): the GPU is lent to inference right now; jobs queue and start when it returns.
+- `workers_gated` in `render_info` / the estimate: the GPU is lent to another workload right now; jobs queue and start
+  when it returns (usually within minutes). Tell the user instead of retrying in a loop.
 - A failed job carries `error` and `log_tail` (Blender's log): fix the script and try again.
