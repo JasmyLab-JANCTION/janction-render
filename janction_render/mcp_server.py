@@ -110,8 +110,10 @@ def _wait_unless_gated(c: Client, job: dict[str, Any], timeout: float) -> dict[s
 
 def _gated_hint(j: dict[str, Any], again: str) -> str:
     if j.get("gated"):
-        return (f"the GPU is lent to another workload right now; the job stays queued and starts when the GPU returns. "
-                f"Tell the user and offer to check later with {again}; do not poll continuously")
+        # 受付の eta.human に「閉じてからの経過・ふだん戻るまでの時間・あと何分」が入っている
+        why = str((j.get("eta") or {}).get("human") or "the GPU is lent to another workload right now; the job stays queued and starts when the GPU returns")
+        return (f"{why}. Tell the user how long the wait is likely to be and offer to check later with {again}; "
+                "do not poll continuously")
     return ""
 
 

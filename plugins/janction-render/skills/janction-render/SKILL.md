@@ -65,5 +65,7 @@ scene.collection.objects.link(sun)
 - `quota_exceeded` (429): today's free GPU time is used up; say when it resets (`resets_at`) or make the job smaller.
 - `beta_limit` (400): too many frames or too large a resolution for the free beta; split the job.
 - `workers_gated` in `render_info` / the estimate, or a `hint` saying the GPU is lent out: jobs queue and start when the
-  GPU returns (usually within minutes). Tell the user and offer to check later; do not poll in a loop.
+  GPU returns. `eta.human` (and `eta.gate`: closed_for_seconds, typical_seconds, long_seconds, expected_remaining_seconds)
+  says how long it has been out, how long it usually stays out and how much longer to expect. Tell the user that estimate
+  and offer to check later; do not poll in a loop.
 - A failed job carries `error` and `log_tail` (Blender's log): fix the script and try again.

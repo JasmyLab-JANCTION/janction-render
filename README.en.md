@@ -14,7 +14,8 @@ without a GPU, or when rendering locally is slow.
 - `orbit=True` turns any scene or imported model into a turntable: an orbit camera circles it once (`orbit_frames`, default 24;
   a preview shows 0/90/180/270 degrees, a final render without `frame_end` gives the whole turn as an MP4). Flat floors and
   walls are ignored when framing; `orbit_target` (object name or `x,y,z`) and `orbit_distance` (multiplier) adjust the shot.
-- While the GPU is lent to another workload, tools answer right away with the queued job and a note instead of waiting.
+- While the GPU is lent to another workload, tools answer right away with the queued job and a wait estimate (how long it
+  has been out, how long it usually stays out, how much longer to expect; `eta.gate`) instead of waiting.
 - While a job renders, `render_status` counts finished frames inside the running chunk, so the ETA updates every few seconds.
 - In hosts that support MCP Apps (Claude web and desktop, among others), previews, progress and download links also appear
   as an interactive panel in the chat: the image, a progress bar, "Open MP4", and preset buttons after an `environment="compare"` preview.

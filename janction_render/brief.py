@@ -34,7 +34,7 @@ def eta_brief(e: dict[str, Any] | None) -> dict[str, Any] | None:
     if not e:
         return None
     keep = ("human", "remaining_seconds", "queue_wait_seconds", "remaining_gpu_seconds", "elapsed_seconds",
-            "running_for_seconds", "took_seconds", "workers_online", "basis")
+            "running_for_seconds", "took_seconds", "workers_online", "basis", "gate")
     return {k: e[k] for k in keep if e.get(k) is not None}
 
 
@@ -42,7 +42,7 @@ def estimate_brief(e: dict[str, Any] | None) -> dict[str, Any] | None:
     if not e:
         return None
     keep = ("human", "seconds", "wall_seconds", "queue_wait_seconds", "per_frame_seconds", "frames", "chunks",
-            "workers_online", "basis", "basis_note", "note", "quota", "cost")
+            "workers_online", "basis", "basis_note", "note", "quota", "cost", "gate")
     return {k: e[k] for k in keep if e.get(k) is not None}
 
 
