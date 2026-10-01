@@ -98,7 +98,8 @@ def cmd_render(c: Client, args: argparse.Namespace) -> int:
     w, h = args.size
     fs, fe = args.frames
     j = c.submit(sid, kind="final", frame_start=fs, frame_end=fe, width=w, height=h,
-                 samples=args.samples, fps=args.fps, output=args.output, camera=args.camera, engine=args.engine)
+                 samples=args.samples, fps=args.fps, output=args.output, camera=args.camera, engine=args.engine,
+                 transparent=args.transparent or None, notify_url=args.notify_url or None)
     print(f"job {j['job_id']} queued: {fe - fs + 1} frames in {j['progress']['chunks_total']} chunks, "
           f"estimate ~{j['estimate']['seconds']}s", file=sys.stderr)
     if not args.wait:
@@ -200,8 +201,10 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--samples", type=int, default=128)
     s.add_argument("--engine", choices=["cycles", "eevee"], default=None, help="cycles (default) or eevee (cheaper drafts)")
     s.add_argument("--fps", type=int, default=24)
-    s.add_argument("--output", choices=["auto", "png", "exr", "mp4", "webm", "prores"], default="auto",
-                   help="png/exr = frames, mp4/webm/prores = video (auto: mp4 for a range, png for one frame)")
+    s.add_argument("--output", choices=["auto", "png", "exr", "mp4", "webm", "prores", "gif", "webp"], default="auto",
+                   help="png/exr = frames, mp4/webm/prores/gif/webp = video (auto: mp4 for a range, png for one frame)")
+    s.add_argument("--transparent", action="store_true", help="transparent background (png/exr/webm/gif/webp)")
+    s.add_argument("--notify-url", default=None, help="https URL that receives one JSON POST when the job finishes")
     s.add_argument("--camera", default=None)
     s.add_argument("--out", default=None)
     s.add_argument("--wait", action="store_true", help="wait until done and download")

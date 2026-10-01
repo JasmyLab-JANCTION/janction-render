@@ -52,6 +52,13 @@ mcp = MCPServer(
     ),
 )
 
+OUTPUT_DOC = (" output: 'auto' (mp4 for a frame range, png for one frame) | 'png' | 'exr' (16-bit linear OpenEXR frames) | "
+              "'mp4' (H.264) | 'webm' (VP9) | 'prores' (ProRes 422 HQ .mov) | 'gif' | 'webp' (animated, at most 960 px wide; "
+              "good for chat and web). transparent=True renders on a transparent background (alpha): png / exr frames, webm, gif "
+              "and webp keep it, mp4 and prores cannot. notify_url: an https URL that receives one JSON POST when the job "
+              "finishes (event job.done / job.failed, artifacts with download links).")
+TRANSPARENT_DOC = (" transparent=True: transparent background (alpha) instead of the world/HDRI backdrop; the preview sheet "
+                   "shows it over dark grey.")
 ORBIT_DOC = (" orbit=True: turntable; an orbit camera circles the scene once over orbit_frames frames (default 24, "
              "elevation orbit_elevation deg, default 18). Flat floors/walls are ignored when framing; orbit_target = an "
              "object name or 'x,y,z' centres on that, orbit_distance scales the distance (1.0). A preview without frames "
@@ -241,7 +248,24 @@ def scene_info(scene_path: str = "", scene_id: str = "", scene_script: str = "",
     return _j(_attach_upload_notes(info))
 
 
-@mcp.tool(structured_output=False, meta=_ui_meta())
+RENDER_PREVIEW_DESCRIPTION = (
+    """Render a fast, cheap preview of a Blender scene on a JANCTION GPU and show the image.
+
+    Use this when the user is making 3DCG with Blender and wants to see how it looks, but has no
+    GPU or local rendering is slow. Give the scene as scene_path (a .blend file OR a bpy Python
+    script), scene_script (bpy code as text; no file and no local Blender needed), or scene_id
+    from a previous call. frames: '' = frame 1;
+    '12' = one frame; '1,8,16,24' or '1-24' = up to 4 frames tiled in ONE image (2x2, each tile
+    labeled with its frame number) so you can judge camera motion and animation. Same GPU cost as
+    one 720p frame. Quality is deliberately low (up to 1280x720, few samples, denoised).
+    Look at the returned image, fix the scene, preview again; when it looks right, ask the user and
+    call render_final. Returns scene_id (reuse it without re-uploading), job_id, saved PNG paths,
+    Blender warnings (e.g. missing textures), GPU seconds, and the expiry time (24h after last use).
+    """ + ENV_DOC + ORBIT_DOC + TRANSPARENT_DOC
+)
+
+
+@mcp.tool(structured_output=False, meta=_ui_meta(), description=RENDER_PREVIEW_DESCRIPTION)
 def render_preview(
     scene_path: str = "",
     scene_id: str = "",
@@ -263,26 +287,15 @@ def render_preview(
     orbit_target: str = "",
     orbit_distance: float = 1.0,
     engine: str = "",
+    transparent: bool = False,
 ) -> list[Any]:
-    """Render a fast, cheap preview of a Blender scene on a JANCTION GPU and show the image.
-
-    Use this when the user is making 3DCG with Blender and wants to see how it looks, but has no
-    GPU or local rendering is slow. Give the scene as scene_path (a .blend file OR a bpy Python
-    script), scene_script (bpy code as text; no file and no local Blender needed), or scene_id
-    from a previous call. frames: '' = frame 1;
-    '12' = one frame; '1,8,16,24' or '1-24' = up to 4 frames tiled in ONE image (2x2, each tile
-    labeled with its frame number) so you can judge camera motion and animation. Same GPU cost as
-    one 720p frame. Quality is deliberately low (up to 1280x720, few samples, denoised).
-    Look at the returned image, fix the scene, preview again; when it looks right, ask the user and
-    call render_final. Returns scene_id (reuse it without re-uploading), job_id, saved PNG paths,
-    Blender warnings (e.g. missing textures), GPU seconds, and the expiry time (24h after last use).
-    """ + ENV_DOC + ORBIT_DOC
+    """Render a fast, cheap preview of a Blender scene on a JANCTION GPU and show the image. (full description on the tool)."""
     c = _client()
     try:
         frame_list = parse_frames(frames) if (frames or not orbit) else None
         sid = _resolve_scene(c, scene_path, scene_id, scene_script, assets)
         j = c.submit(sid, kind="preview", frames=frame_list, camera=camera or None,
-                     width=width, height=height, samples=samples,
+                     width=width, height=height, samples=samples, transparent=(True if transparent else None),
                      **_job_params(environment, environment_strength, environment_visible, blender, engine=engine),
                      **({"orbit": True, "orbit_frames": orbit_frames, "orbit_elevation": orbit_elevation,
                          "orbit_target": orbit_target, "orbit_distance": orbit_distance} if orbit else {}))
@@ -343,7 +356,20 @@ def render_estimate(scene_id: str = "", kind: str = "final", frame_start: int = 
     return _j(out)
 
 
-@mcp.tool(meta=_ui_meta())
+RENDER_FINAL_DESCRIPTION = (
+    """Render the final frames (or a video) of a Blender scene on JANCTION GPUs.
+
+    Call this after the user approved a preview. Pass scene_id from render_preview (or scene_path /
+    scene_script to upload a new .blend / bpy script / 3D file). frame_start..frame_end are inclusive; several frames are
+    split across GPUs and joined into output.mp4 (output='mp4', fps), a single frame gives a PNG
+    (output='png'; 'auto' picks). Use the same environment / blender as the approved preview. Returns job_id and a
+    time estimate right away; the render runs in the background: poll with render_status, then fetch with
+    render_download. Inputs and results are deleted 24 hours after last use, so download them.
+    """ + ENV_DOC + ORBIT_DOC + OUTPUT_DOC
+)
+
+
+@mcp.tool(meta=_ui_meta(), description=RENDER_FINAL_DESCRIPTION)
 def render_final(
     scene_path: str = "",
     scene_id: str = "",
@@ -367,16 +393,10 @@ def render_final(
     orbit_target: str = "",
     orbit_distance: float = 1.0,
     engine: str = "",
+    transparent: bool = False,
+    notify_url: str = "",
 ) -> str:
-    """Render the final frames (or a video) of a Blender scene on JANCTION GPUs.
-
-    Call this after the user approved a preview. Pass scene_id from render_preview (or scene_path /
-    scene_script to upload a new .blend / bpy script / 3D file). frame_start..frame_end are inclusive; several frames are
-    split across GPUs and joined into output.mp4 (output='mp4', fps), a single frame gives a PNG
-    (output='png'; 'auto' picks). Use the same environment / blender as the approved preview. Returns job_id and a
-    time estimate right away; the render runs in the background: poll with render_status, then fetch with
-    render_download. Inputs and results are deleted 24 hours after last use, so download them.
-    """ + ENV_DOC + ORBIT_DOC
+    """Render the final frames (or a video) of a Blender scene on JANCTION GPUs. (full description on the tool)."""
     c = _client()
     try:
         sid = _resolve_scene(c, scene_path, scene_id, scene_script, assets)
@@ -388,7 +408,7 @@ def render_final(
                 frame_end = None  # type: ignore[assignment]  # 1 周ぶんは受付が決める
         j = c.submit(sid, kind="final", frame_start=frame_start, frame_end=frame_end,
                      width=width, height=height, samples=samples, fps=fps, output=output,
-                     camera=camera or None,
+                     camera=camera or None, transparent=(True if transparent else None), notify_url=notify_url or None,
                      **_job_params(environment, environment_strength, environment_visible, blender, engine=engine), **extra)
     except ClientError as exc:
         block = _payment_block(exc) or _quota_block(exc)

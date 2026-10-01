@@ -92,6 +92,8 @@ function render() {
   const links = job.links || {};
   if (status === "done" && out && /\.(mp4|webm|mov)(\?|$)/.test(out)) {
     html += `<video controls playsinline src="${esc(out)}"></video>`;
+  } else if (status === "done" && out && /\.(gif|webp)(\?|$)/.test(out)) {
+    html += `<img class="sheet" src="${esc(out)}" alt="animation">`;
   }
   if (status === "done" && isCompare(job)) {
     html += `<div class="muted">Pick the lighting for the final render:</div><div class="grid">` +
