@@ -23,7 +23,8 @@ Connect in the browser page (it creates a free key).
    so the user can choose; `environment_visible=False` keeps the lighting but shows a flat grey backdrop. `blender="5.2"`
    selects Blender 5.2 when `render_info` lists it. A `.gltf` / `.obj` URL brings its `.bin` / `.mtl` / textures along.
    For an imported model (or any scene the user wants shown from all sides), pass `orbit=True`: a preview shows four
-   angles, and `render_final(orbit=True)` without `frame_end` renders one full turn (24 frames) as an MP4.
+   angles, and `render_final(orbit=True)` without `frame_end` renders one full turn (24 frames) as an MP4. Floors are
+   ignored when framing; `orbit_target` (object name or `x,y,z`) and `orbit_distance` (0.7 = closer) adjust the shot.
 2. `scene_info` - read what the script produced: cameras, frame range, objects, lights, missing files. No render.
 3. `render_preview(frames="1-24")` - up to 4 frames tiled in one image (720p budget, a few GPU seconds). Look at the
    image. If something is wrong (camera, lighting, missing objects), fix the script and preview again.
@@ -63,6 +64,6 @@ scene.collection.objects.link(sun)
 
 - `quota_exceeded` (429): today's free GPU time is used up; say when it resets (`resets_at`) or make the job smaller.
 - `beta_limit` (400): too many frames or too large a resolution for the free beta; split the job.
-- `workers_gated` in `render_info` / the estimate: the GPU is lent to another workload right now; jobs queue and start
-  when it returns (usually within minutes). Tell the user instead of retrying in a loop.
+- `workers_gated` in `render_info` / the estimate, or a `hint` saying the GPU is lent out: jobs queue and start when the
+  GPU returns (usually within minutes). Tell the user and offer to check later; do not poll in a loop.
 - A failed job carries `error` and `log_tail` (Blender's log): fix the script and try again.

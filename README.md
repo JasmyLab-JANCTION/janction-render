@@ -12,8 +12,12 @@ without a GPU, or when rendering locally is slow.
   `environment="compare"` previews the same frame under all four presets in one labelled image, so the agent can pick one.
 - A `.gltf` or `.obj` brings its `.bin` / `.mtl` / textures along automatically (from the same folder or the same URL folder).
 - `orbit=True` turns any scene or imported model into a turntable: an orbit camera circles it once (`orbit_frames`, default 24;
-  a preview shows 0/90/180/270 degrees, a final render without `frame_end` gives the whole turn as an MP4).
+  a preview shows 0/90/180/270 degrees, a final render without `frame_end` gives the whole turn as an MP4). Flat floors and
+  walls are ignored when framing; `orbit_target` (object name or `x,y,z`) and `orbit_distance` (multiplier) adjust the shot.
+- While the GPU is lent to another workload, tools answer right away with the queued job and a note instead of waiting.
 - While a job renders, `render_status` counts finished frames inside the running chunk, so the ETA updates every few seconds.
+- In hosts that support MCP Apps (Claude web and desktop, among others), previews, progress and download links also appear
+  as an interactive panel in the chat: the image, a progress bar, "Open MP4", and preset buttons after an `environment="compare"` preview.
 - `scene_info` reads the scene without rendering (cameras, frame range, missing files).
 - `render_preview` returns 1-4 low-cost frames tiled in one image within seconds, so the agent can look, fix, and repeat.
 - `render_estimate` says how long a render will take ("about 3 minutes") and whether it fits today's free quota.

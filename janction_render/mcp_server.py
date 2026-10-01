@@ -52,8 +52,9 @@ mcp = MCPServer(
 )
 
 ORBIT_DOC = (" orbit=True: turntable; an orbit camera circles the scene once over orbit_frames frames (default 24, "
-             "elevation orbit_elevation deg, default 18). A preview without frames shows 0/90/180/270 deg; a final without "
-             "frame_end renders the whole turn as an MP4. Best for imported models (.glb/.fbx/.obj).")
+             "elevation orbit_elevation deg, default 18). Flat floors/walls are ignored when framing; orbit_target = an "
+             "object name or 'x,y,z' centres on that, orbit_distance scales the distance (1.0). A preview without frames "
+             "shows 0/90/180/270 deg; a final without frame_end renders the whole turn as an MP4. Best for imported models.")
 ENV_DOC = ("environment: '' keeps the scene's own world; 'studio' | 'sunset' | 'overcast' | 'night' replaces it with a "
            "bundled HDRI (good first render for scenes without lighting work); 'compare' (render_preview only) renders the "
            "first frame under all four presets in one 2x2 image with labels, so you can pick one; environment_strength scales it (1.0); "
@@ -73,6 +74,27 @@ def _client() -> Client:
 
 def _out_root() -> Path:
     return Path(os.environ.get("JANCTION_RENDER_OUT") or (Path.home() / "janction-render"))
+
+
+def _wait_unless_gated(c: Client, job: dict[str, Any], timeout: float) -> dict[str, Any]:
+    """仕事を待つ。ただし仕事を取れるワーカーが無い（GPU が貸し出し中）なら待たずに返し、hint で伝える。"""
+    if job["status"] in ("done", "failed", "canceled"):
+        return job
+    try:
+        q = c.health().get("queue") or {}
+        if int(q.get("workers_available") or 0) == 0 and job["status"] == "queued":
+            job["gated"] = True
+            return job
+    except Exception:  # noqa: BLE001
+        pass
+    return c.wait(job["job_id"], timeout=timeout)
+
+
+def _gated_hint(j: dict[str, Any], again: str) -> str:
+    if j.get("gated"):
+        return (f"the GPU is lent to another workload right now; the job stays queued and starts when the GPU returns. "
+                f"Tell the user and offer to check later with {again}; do not poll continuously")
+    return ""
 
 
 def _j(obj: Any) -> str:
@@ -174,12 +196,12 @@ def scene_info(scene_path: str = "", scene_id: str = "", scene_script: str = "",
         sid = _resolve_scene(c, scene_path, scene_id, scene_script, assets)
         j = c.submit(sid, kind="info", **_job_params("", 1.0, True, blender))
         if j["status"] != "done":
-            j = c.wait(j["job_id"], timeout=INFO_WAIT_S)
+            j = _wait_unless_gated(c, j, INFO_WAIT_S)
     except (ClientError, ValueError, FileNotFoundError) as exc:
         return _j({"ok": False, "error": str(exc)})
     if j["status"] != "done":
         b = _brief(j)
-        b["hint"] = "still queued (a GPU worker may be busy); call scene_info again in a moment" \
+        b["hint"] = (_gated_hint(j, "scene_info(scene_id)") or "still queued (a GPU worker may be busy); call scene_info again in a moment") \
             if j["status"] in ("queued", "running") else "fix the scene and try again"
         return _j(b)
     info = dict(j.get("info") or {})
@@ -215,6 +237,8 @@ def render_preview(
     orbit: bool = False,
     orbit_frames: int = 24,
     orbit_elevation: float = 18.0,
+    orbit_target: str = "",
+    orbit_distance: float = 1.0,
 ) -> list[Any]:
     """Render a fast, cheap preview of a Blender scene on a JANCTION GPU and show the image.
 
@@ -236,9 +260,10 @@ def render_preview(
         j = c.submit(sid, kind="preview", frames=frame_list, camera=camera or None,
                      width=width, height=height, samples=samples,
                      **_job_params(environment, environment_strength, environment_visible, blender),
-                     **({"orbit": True, "orbit_frames": orbit_frames, "orbit_elevation": orbit_elevation} if orbit else {}))
+                     **({"orbit": True, "orbit_frames": orbit_frames, "orbit_elevation": orbit_elevation,
+                         "orbit_target": orbit_target, "orbit_distance": orbit_distance} if orbit else {}))
         _log(f"preview job {j['job_id']} submitted frames={frame_list}")
-        j = c.wait(j["job_id"], timeout=PREVIEW_WAIT_S)
+        j = _wait_unless_gated(c, j, PREVIEW_WAIT_S)
     except ClientError as exc:
         block = _payment_block(exc) or _quota_block(exc)
         return [_j(block if block else {"ok": False, "error": str(exc)})]
@@ -246,7 +271,7 @@ def render_preview(
         return [_j({"ok": False, "error": str(exc)})]
     brief = _brief(j)
     if j["status"] != "done":
-        brief["hint"] = ("still running: call render_status(job_id) and then render_download"
+        brief["hint"] = ((_gated_hint(j, "render_status(job_id)") or "still running: call render_status(job_id) and then render_download")
                          if j["status"] in ("queued", "running")
                          else "fix the scene and try again")
         return [_j(brief)]
@@ -315,6 +340,8 @@ def render_final(
     orbit: bool = False,
     orbit_frames: int = 24,
     orbit_elevation: float = 18.0,
+    orbit_target: str = "",
+    orbit_distance: float = 1.0,
 ) -> str:
     """Render the final frames (or a video) of a Blender scene on JANCTION GPUs.
 
@@ -330,7 +357,8 @@ def render_final(
         sid = _resolve_scene(c, scene_path, scene_id, scene_script, assets)
         extra: dict[str, Any] = {}
         if orbit:
-            extra.update({"orbit": True, "orbit_frames": orbit_frames, "orbit_elevation": orbit_elevation})
+            extra.update({"orbit": True, "orbit_frames": orbit_frames, "orbit_elevation": orbit_elevation,
+                          "orbit_target": orbit_target, "orbit_distance": orbit_distance})
             if frame_end <= frame_start:
                 frame_end = None  # type: ignore[assignment]  # 1 周ぶんは受付が決める
         j = c.submit(sid, kind="final", frame_start=frame_start, frame_end=frame_end,
