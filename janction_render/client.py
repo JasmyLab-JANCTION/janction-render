@@ -379,6 +379,23 @@ class Client:
         self._raise(r)
         return r.json()
 
+    def revoke_key(self) -> dict[str, Any]:
+        """この鍵を失効させる（つながっているアプリも全部切れる）。手元の控えも消す。"""
+        r = self.s.post(f"{self.server}/v1/keys/revoke", headers=self._headers(), timeout=30)
+        self._raise(r)
+        self.forget_key()
+        return r.json()
+
+    def connections(self) -> dict[str, Any]:
+        r = self.s.get(f"{self.server}/v1/connections", headers=self._headers(), timeout=30)
+        self._raise(r)
+        return r.json()
+
+    def disconnect(self, conn_id: str) -> dict[str, Any]:
+        r = self.s.delete(f"{self.server}/v1/connections/{conn_id}", headers=self._headers(), timeout=30)
+        self._raise(r)
+        return r.json()
+
     def fetch_asset_urls(self, scene_id: str, urls: list[str]) -> dict[str, Any]:
         """URL か polyhaven:<id> の素材を受付に取らせてシーンに足す（受付が取るので手元には要らない）。"""
         r = self.s.post(f"{self.server}/v1/files/{scene_id}/assets/urls", headers=self._headers(),

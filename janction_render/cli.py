@@ -136,6 +136,24 @@ def cmd_cancel(c: Client, args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_revoke_key(c: Client, args: argparse.Namespace) -> int:
+    if not args.yes:
+        print("this revokes your key and disconnects every app that uses it; run again with --yes", file=sys.stderr)
+        return 2
+    print(_j(c.revoke_key()))
+    return 0
+
+
+def cmd_connections(c: Client, args: argparse.Namespace) -> int:
+    print(_j(c.connections()))
+    return 0
+
+
+def cmd_disconnect(c: Client, args: argparse.Namespace) -> int:
+    print(_j(c.disconnect(args.id)))
+    return 0
+
+
 def cmd_share(c: Client, args: argparse.Namespace) -> int:
     v = c.share(args.job, title=args.title or "", note=args.note or "", include_script=bool(args.script), listed=bool(args.gallery),
                 prompt=args.prompt or "")
@@ -233,6 +251,14 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--wait", type=float, default=0, help="seconds to wait for the job first")
     s.set_defaults(fn=cmd_download)
 
+    s = sub.add_parser("revoke-key", help="revoke your key (use when it leaked); every connected app stops working")
+    s.add_argument("--yes", action="store_true")
+    s.set_defaults(fn=cmd_revoke_key)
+    s = sub.add_parser("connections", help="apps connected with your key (Claude, ChatGPT, Codex ...)")
+    s.set_defaults(fn=cmd_connections)
+    s = sub.add_parser("disconnect", help="disconnect one app (id from 'connections')")
+    s.add_argument("id")
+    s.set_defaults(fn=cmd_disconnect)
     s = sub.add_parser("share", help="publish a finished job as a public page (/r/<id>)")
     s.add_argument("job")
     s.add_argument("--title", default=None)
