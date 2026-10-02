@@ -6,6 +6,9 @@ A cloud GPU render farm for Blender, built for AI agents. Render Blender scenes 
 Claude Code, Codex, Cursor or any MCP client**: an MCP server (remote and stdio) plus a CLI. Use it to render Blender
 without a GPU, or when rendering locally is slow.
 
+An execution layer for agent-authored scenes and existing `.blend` files: edit in your agent or local Blender,
+then send the scene to cloud GPUs for rendering.
+
 - Input: a `.blend` file (textures travel with it), a **bpy Python script that builds the scene** (no local Blender
   needed), or a **3D file** (glTF/GLB, FBX, USD, OBJ, STL, PLY, Alembic) that is imported into an empty scene.
 - `environment="studio" | "sunset" | "overcast" | "night"` lights a scene with a bundled HDRI (CC0) for a good first render;

@@ -39,51 +39,105 @@ def select_artifacts(artifacts: list[dict[str, Any]], only: Optional[str] = None
     raise ValueError("only must be one of: " + ", ".join(ONLY_CHOICES))
 
 
-def companion_refs(kind: str, text: str) -> list[str]:
-    """glTF（JSON）か OBJ の中で参照している外部ファイルの相対パス（data: URI と絶対パスは除く）。
-    OBJ は mtllib の .mtl だけを返す（.mtl の中の画像は mtl_refs で）。"""
+def ref_problem(ref: str) -> Optional[str]:
+    """3D ファイルの中の外部参照 1 本が「シーンのフォルダの中の相対パス」かを見る。良ければ None、悪ければ理由。
+    data: URI（中身が埋め込み）は良い。読み込み側（glTF は unquote してから開く）と同じに、%xx を戻し、\\ を / にしてから見る。"""
+    import re as _re
+    from urllib.parse import unquote
+
+    s = (ref or "").strip()
+    if not s or s[:5].lower() == "data:":
+        return None
+    for _ in range(4):
+        d = unquote(s)
+        if d == s:
+            break
+        s = d
+    if any(ord(c) < 32 or ord(c) == 127 for c in s):
+        return "control characters in a file path"
+    s = s.replace("\\", "/")
+    if _re.match(r"^[A-Za-z][A-Za-z0-9+.\-]*:", s):
+        return "URLs and drive letters are not accepted; refer to files by a relative name"
+    if s.startswith("/"):
+        return "absolute paths are not accepted; refer to files by a relative name"
+    if ".." in s.split("/"):
+        return "paths may not go above the scene's folder (..)"
+    return None
+
+
+def _raw_refs(kind: str, text: str) -> list[str]:
+    """glTF（JSON）・OBJ（mtllib）・MTL（map_*）・USDA（@...@）に書かれた外部参照を、良し悪しを見ずに全部。"""
     import json as _json
     import re as _re
 
     out: list[str] = []
-
-    def add(ref: str) -> None:
-        ref = (ref or "").strip().replace("\\", "/")
-        if not ref or ref.startswith(("data:", "http://", "https://", "/")) or ".." in ref.split("/"):
-            return
-        if ref not in out:
-            out.append(ref)
-
     if kind == "gltf":
         try:
             doc = _json.loads(text)
         except ValueError:
             return out
-        for key in ("buffers", "images"):
-            for item in doc.get(key) or []:
-                if isinstance(item, dict) and isinstance(item.get("uri"), str):
-                    add(item["uri"])
+
+        def walk(o: Any) -> None:
+            # buffers / images の uri が本筋。拡張の中の uri も同じに扱う
+            if isinstance(o, dict):
+                for k, v in o.items():
+                    if k == "uri" and isinstance(v, str):
+                        out.append(v)
+                    else:
+                        walk(v)
+            elif isinstance(o, list):
+                for v in o:
+                    walk(v)
+
+        walk(doc)
         return out
     if kind == "obj":
         for line in text.splitlines():
             parts = line.strip().split(None, 1)
             if len(parts) == 2 and parts[0].lower() == "mtllib":
-                for name in parts[1].split():
-                    add(name)
+                out.extend(parts[1].split())
         return out
     if kind == "mtl":
         for line in text.splitlines():
             parts = line.strip().split()
             if len(parts) >= 2 and parts[0].lower() in ("map_kd", "map_ks", "map_ka", "map_ns", "map_d", "map_bump", "bump",
                                                         "disp", "decal", "norm", "map_ke", "refl"):
-                add(parts[-1])
+                out.append(parts[-1])
         return out
+    if kind == "usda":
+        out.extend(m.group(1) or m.group(2) for m in _re.finditer(r"@@@(.+?)@@@|@([^@\r\n]+)@", text))
+        return out
+    return out
+
+
+def companion_refs(kind: str, text: str) -> list[str]:
+    """glTF（JSON）か OBJ の中で参照している外部ファイルの相対パス（data: URI とフォルダの外を指すものは除く）。
+    OBJ は mtllib の .mtl だけを返す（.mtl の中の画像は kind="mtl" で）。"""
+    out: list[str] = []
+    if kind not in ("gltf", "obj", "mtl"):
+        return out
+    for ref in _raw_refs(kind, text):
+        ref = (ref or "").strip().replace("\\", "/")
+        if not ref or ref[:5].lower() == "data:" or ref_problem(ref):
+            continue
+        if ref not in out:
+            out.append(ref)
+    return out
+
+
+def unsafe_refs(kind: str, text: str) -> list[tuple[str, str]]:
+    """フォルダの外・絶対パス・URL などを指す参照の [(参照, 理由)]。受付とワーカーが読み込みの前に弾く。"""
+    out: list[tuple[str, str]] = []
+    for ref in _raw_refs(kind, text):
+        why = ref_problem(ref)
+        if why and all(r != ref for r, _ in out):
+            out.append((ref, why))
     return out
 
 
 def companion_kind(name: str) -> str:
     ext = Path(name).suffix.lower()
-    return {".gltf": "gltf", ".obj": "obj", ".mtl": "mtl"}.get(ext, "")
+    return {".gltf": "gltf", ".obj": "obj", ".mtl": "mtl", ".usda": "usda"}.get(ext, "")
 
 
 def sha256_of(path: Path) -> str:
