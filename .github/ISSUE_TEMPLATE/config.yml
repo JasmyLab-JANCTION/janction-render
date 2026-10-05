@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Security report
+    url: https://render.janction.jp/security
+    about: Do not file exploitable details here. Email security@jasmylab.com (see SECURITY.md).
+  - name: Service status
+    url: https://render.janction.jp/status
+    about: GPU availability, queue and the public usage statistics.

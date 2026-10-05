@@ -1,0 +1,16 @@
+name: Question or request
+description: How do I..., a client that is not covered yet, a feature idea
+labels: ["question"]
+body:
+  - type: textarea
+    id: q
+    attributes:
+      label: Your question or request
+      description: Before asking, the FAQ (https://render.janction.jp/faq) and llms.txt (https://render.janction.jp/llms.txt) answer the common ones.
+    validations:
+      required: true
+  - type: dropdown
+    id: client
+    attributes:
+      label: Client (if relevant)
+      options: [Claude.ai, Claude Code, ChatGPT, Codex, Cursor, VS Code, Windsurf, Gemini CLI / Antigravity, Grok, Perplexity, Le Chat, Cline, Goose, CLI, HTTP API, Blender add-on, Other]
