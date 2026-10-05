@@ -60,7 +60,11 @@ also works as `Authorization: Bearer jr_...`.
 | Claude.ai (web, desktop, mobile) | Settings → Connectors → Add custom connector → paste the URL → Connect |
 | ChatGPT | Settings → Connectors → Advanced → Developer mode → Create → paste the URL (OAuth) |
 | Claude Code | `claude mcp add --transport http janction-render https://render.janction.jp/mcp`, then `/mcp` to authenticate |
-| Cursor, Windsurf, other MCP clients | Streamable HTTP at the URL above (OAuth, or a Bearer API key header) |
+| Codex | `codex mcp add janction-render --url https://render.janction.jp/mcp` |
+| Gemini CLI / Antigravity CLI | `gemini extensions install https://github.com/JasmyLab-JANCTION/janction-render` (this repository carries `gemini-extension.json`) |
+| Grok (grok.com) | Connectors → New Connector → Custom → paste the URL |
+| Perplexity (Pro / Max / Enterprise), Le Chat (workspace admin) | Add a custom remote MCP connector with the URL |
+| Cursor, Windsurf, Cline, Goose, other MCP clients | Streamable HTTP at the URL above (OAuth, or a Bearer API key header). Installer notes: [llms-install.md](llms-install.md) |
 
 Remote tools take `scene_script` (bpy code as text), `scene_url` (an https link to a `.blend`, `.py` or a 3D file) or
 `scene_id`, plus `asset_urls` for textures or glTF `.bin` files; results come back as an inline image plus download links
