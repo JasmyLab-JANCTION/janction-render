@@ -197,6 +197,17 @@ def cmd_topup(c: Client, args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_limits(c: Client, args: argparse.Namespace) -> int:
+    """支出の上限を見る・変える（有料モードで効く。1 仕事と 1 日、円）。"""
+    print(_j(c.limits(args.job, args.day)))
+    return 0
+
+
+def cmd_outcomes(c: Client, args: argparse.Namespace) -> int:
+    print(_j(c.outcomes()))
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="janction-render",
                                 description="Render Blender scenes on JANCTION GPUs from the terminal.")
@@ -288,6 +299,14 @@ def build_parser() -> argparse.ArgumentParser:
     s = sub.add_parser("topup", help="get a Stripe checkout link to add credit")
     s.add_argument("--yen", type=int, default=None, help="amount (default: the minimum)")
     s.set_defaults(fn=cmd_topup)
+
+    s = sub.add_parser("limits", help="show or change the spending caps of this key (yen per job / per day; paid mode)")
+    s.add_argument("--job", type=int, default=None, help="cap per job in yen")
+    s.add_argument("--day", type=int, default=None, help="cap per day in yen")
+    s.set_defaults(fn=cmd_limits)
+
+    s = sub.add_parser("outcomes", help="list the fixed-price outcomes (turntable, product-shot) and their prices")
+    s.set_defaults(fn=cmd_outcomes)
     return p
 
 

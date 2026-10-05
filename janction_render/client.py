@@ -509,6 +509,24 @@ class Client:
         """払い終わった決済を確かめて残高に足す（戻り先のページを開かなかったときの保険）。"""
         return self._req("POST", "/v1/billing/sync", timeout=60)
 
+    def limits(self, job_yen: Optional[int] = None, day_yen: Optional[int] = None) -> dict[str, Any]:
+        """支出の上限（1 仕事・1 日、円）を読む（引数なし）か変える。上げる前に人に聞くこと。"""
+        body = {k: int(v) for k, v in (("job_yen", job_yen), ("day_yen", day_yen)) if v is not None}
+        if not body:
+            return {"limits": self.me().get("limits")}
+        return self._req("POST", "/v1/me/limits", json=body)
+
+    def outcomes(self) -> dict[str, Any]:
+        """定額の成果の一覧（選択肢と、先に言う値段）。"""
+        return self._req("GET", "/v1/outcomes")
+
+    def outcome(self, name: str, scene_id: str, idempotency_key: Optional[str] = None, **options: Any) -> dict[str, Any]:
+        """成果を注文する（turntable / product-shot）。値段は応答の outcome.price_yen が天井。"""
+        body: dict[str, Any] = {"scene_id": scene_id, **{k: v for k, v in options.items() if v is not None}}
+        if idempotency_key:
+            body["idempotency_key"] = idempotency_key
+        return self._req("POST", f"/v1/outcomes/{name}", json=body)
+
     def ledger(self, limit: int = 50) -> dict[str, Any]:
         return self._req("GET", f"/v1/ledger?limit={int(limit)}")
 

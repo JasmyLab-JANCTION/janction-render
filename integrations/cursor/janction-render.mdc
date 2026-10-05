@@ -1,0 +1,41 @@
+---
+description: Render Blender scenes on a cloud GPU with JANCTION Render (MCP). Use when the user asks to render, preview, animate or turntable a Blender scene, a bpy script or a 3D file (glTF / FBX / USD / OBJ) and there is no local GPU or Blender, or local rendering would be slow.
+globs: ["**/*.blend", "**/*.py", "**/*.glb", "**/*.gltf", "**/*.fbx", "**/*.usd", "**/*.usdz", "**/*.obj"]
+alwaysApply: false
+---
+
+# JANCTION Render: cloud GPU rendering for Blender from Cursor
+
+JANCTION Render is a cloud GPU render farm for Blender that AI agents call as an MCP server. Send a .blend file, a bpy script or a 3D file, preview in seconds, and get frames or an MP4 back from NVIDIA GPUs. No local Blender or GPU is needed. Free beta, operated by JasmyLab Inc.
+
+## Setup (once per project or user)
+
+Add the remote server to `.cursor/mcp.json` (project) or `~/.cursor/mcp.json` (user). The first call opens a consent page that issues a free API key; nothing to sign up for.
+
+```json
+{
+  "mcpServers": {
+    "janction-render": { "url": "https://render.janction.jp/mcp" }
+  }
+}
+```
+
+## How to use the tools
+
+1. `scene_info` first: it reads cameras, frame range and missing files without rendering.
+2. `render_preview`: 1 to 4 frames tiled in one image, a few GPU seconds. Look at it, fix the scene, repeat.
+3. Ask the user "is this OK?" before anything bigger.
+4. `render_estimate` when the job is longer than about 24 frames, above 720p, or the user asked how long it takes. Tell the user `estimate.human` and whether it fits today's free quota.
+5. `render_final` for frames (png / exr) or a video (mp4 / webm / prores). Then `render_status` until done, then `render_download` (links valid about 24 hours).
+
+Rules: always preview before a final render. Poll `render_status`, not `render_download`. If `eta` says the GPU is lent out, stop polling and tell the user the estimated wait. Report `eta.human` when a render starts.
+
+## Writing scenes as bpy scripts (Blender 5.0)
+
+Scripts should set up the scene, camera and frame range only; the server sets the engine, resolution and output. Materials always use nodes: set colors on the Principled BSDF (`mat.node_tree.nodes['Principled BSDF'].inputs['Base Color'].default_value = (r, g, b, 1)`). Add a camera and a light; a scene without a camera cannot render. For a 3D file, upload it as the scene and use `orbit=true` for a turntable.
+
+## Limits during the free beta
+
+10 GPU-minutes per API key per day, up to 240 frames at 1080p per job. Inputs and results are deleted 24 hours after last use and are never used for training. Pricing after the beta is announced in advance at https://render.janction.jp/pricing (planned: 0.1 JPY per GPU-second, prepaid).
+
+More: https://render.janction.jp/cursor-blender and https://render.janction.jp/llms.txt

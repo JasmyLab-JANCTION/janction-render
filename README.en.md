@@ -64,7 +64,7 @@ also works as `Authorization: Bearer jr_...`.
 | Gemini CLI / Antigravity CLI | `gemini extensions install https://github.com/JasmyLab-JANCTION/janction-render` (this repository carries `gemini-extension.json`) |
 | Grok (grok.com) | Connectors → New Connector → Custom → paste the URL |
 | Perplexity (Pro / Max / Enterprise), Le Chat (workspace admin) | Add a custom remote MCP connector with the URL |
-| Cursor, Windsurf, Cline, Goose, other MCP clients | Streamable HTTP at the URL above (OAuth, or a Bearer API key header). Installer notes: [llms-install.md](llms-install.md) |
+| Cursor, Windsurf, Cline, Goose, other MCP clients | Streamable HTTP at the URL above (OAuth, or a Bearer API key header). Installer notes: [llms-install.md](llms-install.md). Cursor project rule (when to use it, preview-first flow): [integrations/cursor](integrations/cursor/) |
 
 Remote tools take `scene_script` (bpy code as text), `scene_url` (an https link to a `.blend`, `.py` or a 3D file) or
 `scene_id`, plus `asset_urls` for textures or glTF `.bin` files; results come back as an inline image plus download links
