@@ -1,0 +1,10 @@
+{
+  "name": "janction-render",
+  "version": "0.4.17",
+  "description": "JANCTION Render: cloud GPU render farm for Blender that AI agents call as an MCP server. Send a .blend, a bpy script or a 3D file (glTF/FBX/USD) and get frames or an MP4 back. No local Blender or GPU. Free beta.",
+  "mcpServers": {
+    "janction-render": {
+      "httpUrl": "https://render.janction.jp/mcp"
+    }
+  }
+}
