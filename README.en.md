@@ -2,9 +2,10 @@
 
 [![JasmyLab-JANCTION/janction-render MCP server](https://glama.ai/mcp/servers/JasmyLab-JANCTION/janction-render/badges/score.svg)](https://glama.ai/mcp/servers/JasmyLab-JANCTION/janction-render)
 
-A cloud GPU render farm for Blender, built for AI agents. Render Blender scenes on JANCTION GPUs from **Claude, ChatGPT,
-Claude Code, Codex, Cursor or any MCP client**: an MCP server (remote and stdio) plus a CLI. Use it to render Blender
-without a GPU, or when rendering locally is slow.
+JANCTION Render is a cloud GPU render farm for Blender that AI agents call as an MCP server or HTTP API. Send a `.blend`
+file, a bpy script or a 3D file (glTF / FBX / USD), preview in seconds, and get frames or an MP4 back from JANCTION's
+NVIDIA GPUs. No local Blender or GPU is needed. Free beta, operated by JasmyLab Inc. Works from **Claude, ChatGPT,
+Claude Code, Codex, Cursor or any MCP client**: an MCP server (remote and stdio), an HTTP API and a CLI.
 
 An execution layer for agent-authored scenes and existing `.blend` files: edit in your agent or local Blender,
 then send the scene to cloud GPUs for rendering.
