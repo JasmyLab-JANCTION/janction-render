@@ -1,57 +1,345 @@
 {
   "version": "2026-10-05",
   "note": "Fixed English question set for AIO measurement (requirements v2 §34). weekly=true marks the 20 asked by the Monday routine; the rest are for monthly or multi-engine runs. expected_entity is always JANCTION Render.",
-  "clusters": ["free", "no-gpu", "mcp", "ai-agent", "api", "compare", "brand"],
+  "clusters": [
+    "free",
+    "no-gpu",
+    "mcp",
+    "ai-agent",
+    "api",
+    "compare",
+    "brand"
+  ],
   "prompts": [
-    {"id": "en-001", "cluster": "no-gpu", "weekly": true, "query": "How can I render a Blender scene without a GPU?"},
-    {"id": "en-002", "cluster": "free", "weekly": true, "query": "Is there a free Blender cloud render farm?"},
-    {"id": "en-003", "cluster": "mcp", "weekly": true, "query": "What Blender MCP servers exist for AI agents?"},
-    {"id": "en-004", "cluster": "ai-agent", "weekly": true, "query": "How do I render Blender from Claude Code on a cloud GPU?"},
-    {"id": "en-005", "cluster": "ai-agent", "weekly": true, "query": "Can Codex run a bpy script on a cloud GPU?"},
-    {"id": "en-006", "cluster": "api", "weekly": true, "query": "Compare Blender render farm APIs."},
-    {"id": "en-007", "cluster": "no-gpu", "weekly": true, "query": "Which Blender rendering services need no local Blender install?"},
-    {"id": "en-008", "cluster": "ai-agent", "weekly": true, "query": "Is there a render farm that an AI agent can call as a tool?"},
-    {"id": "en-009", "cluster": "compare", "weekly": true, "query": "Google Colab vs a render service for Blender: which is better?"},
-    {"id": "en-010", "cluster": "api", "weekly": true, "query": "How long does a 24-frame 720p Blender animation take on a datacenter GPU?"},
-    {"id": "en-011", "cluster": "ai-agent", "weekly": true, "query": "How can an AI agent render Blender?"},
-    {"id": "en-012", "cluster": "ai-agent", "weekly": true, "query": "Blender rendering for AI agents"},
-    {"id": "en-013", "cluster": "mcp", "weekly": true, "query": "Best Blender MCP server"},
-    {"id": "en-014", "cluster": "mcp", "weekly": true, "query": "Blender MCP cloud rendering"},
-    {"id": "en-015", "cluster": "mcp", "weekly": true, "query": "Blender MCP server for Claude"},
-    {"id": "en-016", "cluster": "mcp", "weekly": true, "query": "Blender MCP for ChatGPT"},
-    {"id": "en-017", "cluster": "compare", "weekly": true, "query": "JANCTION vs BlendSwap"},
-    {"id": "en-018", "cluster": "compare", "weekly": true, "query": "SheepIt alternative"},
-    {"id": "en-019", "cluster": "api", "weekly": true, "query": "render bpy script online"},
-    {"id": "en-020", "cluster": "no-gpu", "weekly": true, "query": "render glTF on cloud GPU"},
-    {"id": "en-021", "cluster": "api", "weekly": false, "query": "convert Blender scene to MP4 API"},
-    {"id": "en-022", "cluster": "no-gpu", "weekly": false, "query": "Blender headless cloud GPU"},
-    {"id": "en-023", "cluster": "free", "weekly": false, "query": "free Blender rendering online"},
-    {"id": "en-024", "cluster": "free", "weekly": false, "query": "render a .blend file for free"},
-    {"id": "en-025", "cluster": "free", "weekly": false, "query": "free GPU rendering for Blender"},
-    {"id": "en-026", "cluster": "free", "weekly": false, "query": "free cloud Blender rendering with a daily quota"},
-    {"id": "en-027", "cluster": "no-gpu", "weekly": false, "query": "Blender cloud GPU rendering service"},
-    {"id": "en-028", "cluster": "no-gpu", "weekly": false, "query": "online Blender renderer"},
-    {"id": "en-029", "cluster": "no-gpu", "weekly": false, "query": "render Blender on a laptop without a graphics card"},
-    {"id": "en-030", "cluster": "mcp", "weekly": false, "query": "rendering MCP server"},
-    {"id": "en-031", "cluster": "mcp", "weekly": false, "query": "3D MCP server list"},
-    {"id": "en-032", "cluster": "mcp", "weekly": false, "query": "GPU MCP server"},
-    {"id": "en-033", "cluster": "mcp", "weekly": false, "query": "remote MCP server for Blender with OAuth"},
-    {"id": "en-034", "cluster": "ai-agent", "weekly": false, "query": "Claude Blender render"},
-    {"id": "en-035", "cluster": "ai-agent", "weekly": false, "query": "Codex Blender render"},
-    {"id": "en-036", "cluster": "ai-agent", "weekly": false, "query": "ChatGPT Blender rendering"},
-    {"id": "en-037", "cluster": "ai-agent", "weekly": false, "query": "Cursor Blender rendering MCP"},
-    {"id": "en-038", "cluster": "ai-agent", "weekly": false, "query": "Gemini CLI Blender MCP"},
-    {"id": "en-039", "cluster": "ai-agent", "weekly": false, "query": "AI agent generated 3D scene render"},
-    {"id": "en-040", "cluster": "api", "weekly": false, "query": "Blender render API"},
-    {"id": "en-041", "cluster": "api", "weekly": false, "query": "Blender cloud render API with estimate before rendering"},
-    {"id": "en-042", "cluster": "api", "weekly": false, "query": "automated Blender rendering API for CI"},
-    {"id": "en-043", "cluster": "api", "weekly": false, "query": "turntable video API from a glTF file"},
-    {"id": "en-044", "cluster": "compare", "weekly": false, "query": "JANCTION Render vs local Blender rendering"},
-    {"id": "en-045", "cluster": "compare", "weekly": false, "query": "cloud rendering vs GPU rental for Blender"},
-    {"id": "en-046", "cluster": "compare", "weekly": false, "query": "Blender MCP comparison"},
-    {"id": "en-047", "cluster": "compare", "weekly": false, "query": "Blender render farm comparison 2026"},
-    {"id": "en-048", "cluster": "compare", "weekly": false, "query": "FARPY vs JANCTION Render"},
-    {"id": "en-049", "cluster": "brand", "weekly": true, "query": "JANCTION Render"},
-    {"id": "en-050", "cluster": "brand", "weekly": true, "query": "Is JANCTION Render related to Render.com?"}
+    {
+      "id": "en-001",
+      "cluster": "no-gpu",
+      "weekly": true,
+      "query": "How can I render a Blender scene without a GPU?"
+    },
+    {
+      "id": "en-002",
+      "cluster": "free",
+      "weekly": true,
+      "query": "Is there a free Blender cloud render farm?"
+    },
+    {
+      "id": "en-003",
+      "cluster": "mcp",
+      "weekly": true,
+      "query": "What Blender MCP servers exist for AI agents?"
+    },
+    {
+      "id": "en-004",
+      "cluster": "ai-agent",
+      "weekly": true,
+      "query": "How do I render Blender from Claude Code on a cloud GPU?"
+    },
+    {
+      "id": "en-005",
+      "cluster": "ai-agent",
+      "weekly": true,
+      "query": "Can Codex run a bpy script on a cloud GPU?"
+    },
+    {
+      "id": "en-006",
+      "cluster": "api",
+      "weekly": true,
+      "query": "Compare Blender render farm APIs."
+    },
+    {
+      "id": "en-007",
+      "cluster": "no-gpu",
+      "weekly": true,
+      "query": "Which Blender rendering services need no local Blender install?"
+    },
+    {
+      "id": "en-008",
+      "cluster": "ai-agent",
+      "weekly": true,
+      "query": "Is there a render farm that an AI agent can call as a tool?"
+    },
+    {
+      "id": "en-009",
+      "cluster": "compare",
+      "weekly": true,
+      "query": "Google Colab vs a render service for Blender: which is better?"
+    },
+    {
+      "id": "en-010",
+      "cluster": "api",
+      "weekly": true,
+      "query": "How long does a 24-frame 720p Blender animation take on a datacenter GPU?"
+    },
+    {
+      "id": "en-011",
+      "cluster": "ai-agent",
+      "weekly": true,
+      "query": "How can an AI agent render Blender?"
+    },
+    {
+      "id": "en-012",
+      "cluster": "ai-agent",
+      "weekly": true,
+      "query": "Blender rendering for AI agents"
+    },
+    {
+      "id": "en-013",
+      "cluster": "mcp",
+      "weekly": true,
+      "query": "Best Blender MCP server"
+    },
+    {
+      "id": "en-014",
+      "cluster": "mcp",
+      "weekly": true,
+      "query": "Blender MCP cloud rendering"
+    },
+    {
+      "id": "en-015",
+      "cluster": "mcp",
+      "weekly": true,
+      "query": "Blender MCP server for Claude"
+    },
+    {
+      "id": "en-016",
+      "cluster": "mcp",
+      "weekly": true,
+      "query": "Blender MCP for ChatGPT"
+    },
+    {
+      "id": "en-017",
+      "cluster": "compare",
+      "weekly": true,
+      "query": "JANCTION vs BlendSwap"
+    },
+    {
+      "id": "en-018",
+      "cluster": "compare",
+      "weekly": true,
+      "query": "SheepIt alternative"
+    },
+    {
+      "id": "en-019",
+      "cluster": "api",
+      "weekly": true,
+      "query": "render bpy script online"
+    },
+    {
+      "id": "en-020",
+      "cluster": "no-gpu",
+      "weekly": true,
+      "query": "render glTF on cloud GPU"
+    },
+    {
+      "id": "en-021",
+      "cluster": "api",
+      "weekly": false,
+      "query": "convert Blender scene to MP4 API"
+    },
+    {
+      "id": "en-022",
+      "cluster": "no-gpu",
+      "weekly": false,
+      "query": "Blender headless cloud GPU"
+    },
+    {
+      "id": "en-023",
+      "cluster": "free",
+      "weekly": false,
+      "query": "free Blender rendering online"
+    },
+    {
+      "id": "en-024",
+      "cluster": "free",
+      "weekly": false,
+      "query": "render a .blend file for free"
+    },
+    {
+      "id": "en-025",
+      "cluster": "free",
+      "weekly": false,
+      "query": "free GPU rendering for Blender"
+    },
+    {
+      "id": "en-026",
+      "cluster": "free",
+      "weekly": false,
+      "query": "free cloud Blender rendering with a daily quota"
+    },
+    {
+      "id": "en-027",
+      "cluster": "no-gpu",
+      "weekly": false,
+      "query": "Blender cloud GPU rendering service"
+    },
+    {
+      "id": "en-028",
+      "cluster": "no-gpu",
+      "weekly": false,
+      "query": "online Blender renderer"
+    },
+    {
+      "id": "en-029",
+      "cluster": "no-gpu",
+      "weekly": false,
+      "query": "render Blender on a laptop without a graphics card"
+    },
+    {
+      "id": "en-030",
+      "cluster": "mcp",
+      "weekly": false,
+      "query": "rendering MCP server"
+    },
+    {
+      "id": "en-031",
+      "cluster": "mcp",
+      "weekly": false,
+      "query": "3D MCP server list"
+    },
+    {
+      "id": "en-032",
+      "cluster": "mcp",
+      "weekly": false,
+      "query": "GPU MCP server"
+    },
+    {
+      "id": "en-033",
+      "cluster": "mcp",
+      "weekly": false,
+      "query": "remote MCP server for Blender with OAuth"
+    },
+    {
+      "id": "en-034",
+      "cluster": "ai-agent",
+      "weekly": false,
+      "query": "Claude Blender render"
+    },
+    {
+      "id": "en-035",
+      "cluster": "ai-agent",
+      "weekly": false,
+      "query": "Codex Blender render"
+    },
+    {
+      "id": "en-036",
+      "cluster": "ai-agent",
+      "weekly": false,
+      "query": "ChatGPT Blender rendering"
+    },
+    {
+      "id": "en-037",
+      "cluster": "ai-agent",
+      "weekly": false,
+      "query": "Cursor Blender rendering MCP"
+    },
+    {
+      "id": "en-038",
+      "cluster": "ai-agent",
+      "weekly": false,
+      "query": "Gemini CLI Blender MCP"
+    },
+    {
+      "id": "en-039",
+      "cluster": "ai-agent",
+      "weekly": false,
+      "query": "AI agent generated 3D scene render"
+    },
+    {
+      "id": "en-040",
+      "cluster": "api",
+      "weekly": false,
+      "query": "Blender render API"
+    },
+    {
+      "id": "en-041",
+      "cluster": "api",
+      "weekly": false,
+      "query": "Blender cloud render API with estimate before rendering"
+    },
+    {
+      "id": "en-042",
+      "cluster": "api",
+      "weekly": false,
+      "query": "automated Blender rendering API for CI"
+    },
+    {
+      "id": "en-043",
+      "cluster": "api",
+      "weekly": false,
+      "query": "turntable video API from a glTF file"
+    },
+    {
+      "id": "en-044",
+      "cluster": "compare",
+      "weekly": false,
+      "query": "JANCTION Render vs local Blender rendering"
+    },
+    {
+      "id": "en-045",
+      "cluster": "compare",
+      "weekly": false,
+      "query": "cloud rendering vs GPU rental for Blender"
+    },
+    {
+      "id": "en-046",
+      "cluster": "compare",
+      "weekly": false,
+      "query": "Blender MCP comparison"
+    },
+    {
+      "id": "en-047",
+      "cluster": "compare",
+      "weekly": false,
+      "query": "Blender render farm comparison 2026"
+    },
+    {
+      "id": "en-048",
+      "cluster": "compare",
+      "weekly": false,
+      "query": "FARPY vs JANCTION Render"
+    },
+    {
+      "id": "en-049",
+      "cluster": "brand",
+      "weekly": true,
+      "query": "JANCTION Render"
+    },
+    {
+      "id": "en-050",
+      "cluster": "brand",
+      "weekly": true,
+      "query": "Is JANCTION Render related to Render.com?"
+    },
+    {
+      "id": "en-051",
+      "cluster": "ai-agent",
+      "weekly": false,
+      "query": "render GLB with an AI agent"
+    },
+    {
+      "id": "en-052",
+      "cluster": "ai-agent",
+      "weekly": false,
+      "query": "How can Codex render a Blender scene in the cloud?"
+    },
+    {
+      "id": "en-053",
+      "cluster": "mcp",
+      "weekly": false,
+      "query": "MCP server for Blender rendering"
+    },
+    {
+      "id": "en-054",
+      "cluster": "api",
+      "weekly": false,
+      "query": "Blender render API for AI agents"
+    },
+    {
+      "id": "en-055",
+      "cluster": "no-gpu",
+      "weekly": false,
+      "query": "render a bpy script without installing Blender"
+    }
   ]
 }
