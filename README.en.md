@@ -64,7 +64,9 @@ curl -s -X POST https://render.janction.jp/v1/jobs -H "X-API-Key: $KEY" -H "Cont
 | Gemini CLI / Antigravity CLI | `gemini extensions install https://github.com/JasmyLab-JANCTION/janction-render` (this repository carries `gemini-extension.json`) |
 | Grok (grok.com) | Connectors → New Connector → Custom → paste the URL |
 | Perplexity (Pro / Max / Enterprise), Le Chat (workspace admin) | Add a custom remote MCP connector with the URL |
-| Cursor, Windsurf, Cline, Goose, other MCP clients | Streamable HTTP at the URL above (OAuth, or a Bearer API key header). Installer notes: [llms-install.md](llms-install.md). Cursor project rule (when to use it, preview-first flow): [integrations/cursor](integrations/cursor/) |
+| Cursor | `.cursor/mcp.json` (project) or `~/.cursor/mcp.json`: `{"mcpServers": {"janction-render": {"url": "https://render.janction.jp/mcp"}}}`, then sign in when Cursor asks (OAuth). One click: [install in Cursor](cursor://anysphere.cursor-deeplink/mcp/install?name=janction-render&config=eyJ1cmwiOiJodHRwczovL3JlbmRlci5qYW5jdGlvbi5qcC9tY3AifQ==) |
+| VS Code (Copilot agent mode) | `.vscode/mcp.json`: `{"servers": {"janction-render": {"type": "http", "url": "https://render.janction.jp/mcp"}}}` or `code --add-mcp '{"name":"janction-render","type":"http","url":"https://render.janction.jp/mcp"}'`, then Start the server and sign in (OAuth) |
+| Windsurf, Cline, Goose, other MCP clients | Streamable HTTP at the URL above (OAuth, or a Bearer API key header). Installer notes: [llms-install.md](llms-install.md). Cursor project rule (when to use it, preview-first flow): [integrations/cursor](integrations/cursor/) |
 
 Remote tools take `scene_script` (bpy code as text), `scene_url` (an https link to a `.blend`, `.py` or a 3D file, or a link
 from https://render.janction.jp/upload) or `scene_id`, plus `asset_urls` for textures or glTF `.bin` files. Results come back as
@@ -136,6 +138,7 @@ POST /v1/jobs   {scene_id, kind: info|preview|final, frames|frame_start/frame_en
 GET  /v1/jobs/{id}      status, progress, eta, artifacts[], cost, warnings, info, failure (code + fix)    DELETE /v1/jobs/{id}  cancel
 GET  /v1/jobs/{id}/artifacts/{name}             PNG / MP4
 GET  /v1/outcomes       fixed-price outcomes;  POST /v1/outcomes/turntable {scene_id, size, frames}   POST /v1/outcomes/product-shot {scene_id, size, transparent?}
+POST /v1/try    JSON {scene_script | scene_url, frames?, width?, height?, environment?} (no key) -> first 720p preview + an API key to continue, in one response (1 per network per 24h)
 POST /v1/drops  multipart "file" (no key)       -> a 12-hour https link to pass as scene_url (the /upload page uses this)
 POST /v1/jobs/{id}/share {title?, note?, include_script?, listed?} -> {share_id, url}   DELETE /v1/jobs/{id}/share   GET /v1/shares
 GET  /r/{share_id}  public page (no key)   GET /gallery

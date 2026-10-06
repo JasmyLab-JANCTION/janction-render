@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any, Callable, Optional
 
 import requests
+from urllib.parse import urlsplit
 
 DEFAULT_SERVER = "http://127.0.0.1:8340"
 CACHE = Path.home() / ".janction-render.json"
@@ -240,13 +241,48 @@ class ClientError(RuntimeError):
         return out
 
 
+class _Session(requests.Session):
+    """受付に届かない（接続拒否・名前解決・タイムアウト）を ClientError(server_unreachable) にそろえる。
+
+    MCP の道具とコマンドは ClientError だけを拾うので、これが無いと requests の例外がそのまま上がり、
+    利用者には原因の無い「Error executing tool」しか見えない（2026-10-06、向き先が既定のローカルのままで発覚）。
+    """
+
+    def __init__(self, server: str) -> None:
+        super().__init__()
+        self._server = server
+
+    def request(self, method: str, url: str, *args: Any, **kwargs: Any) -> requests.Response:  # type: ignore[override]
+        try:
+            return super().request(method, url, *args, **kwargs)
+        except requests.RequestException as exc:
+            raise unreachable_error(self._server, url, exc) from exc
+
+
+def unreachable_error(server: str, url: str, exc: BaseException) -> ClientError:
+    """requests の接続系の例外を、向き先と直し方の付いた ClientError にする。"""
+    parts = urlsplit(url)
+    target = f"{parts.scheme}://{parts.netloc}" if parts.netloc else server
+    if isinstance(exc, (requests.exceptions.InvalidURL, requests.exceptions.MissingSchema, requests.exceptions.InvalidSchema)):
+        code, hint = "bad_server_url", f"JANCTION_RENDER_SERVER must be an http(s) URL, got {server!r}"
+    elif server == DEFAULT_SERVER and not os.environ.get("JANCTION_RENDER_SERVER"):
+        code = "server_unreachable"
+        hint = ("JANCTION_RENDER_SERVER is not set, so the client is calling the local dev server. "
+                "Set JANCTION_RENDER_SERVER=https://render.janction.jp to use the public service")
+    else:
+        code = "server_unreachable"
+        hint = "check the URL and your network; the service status is at https://render.janction.jp/status"
+    return ClientError(0, code, f"could not reach {target} ({type(exc).__name__}). {hint}",
+                       extra={"server": server, "url": url, "retryable": True, "hint": hint})
+
+
 class Client:
     def __init__(self, server: Optional[str] = None, api_key: Optional[str] = None, client: str = "") -> None:
         from . import __version__
 
         self.server = (server or os.environ.get("JANCTION_RENDER_SERVER") or DEFAULT_SERVER).rstrip("/")
         self._key = (api_key or os.environ.get("JANCTION_RENDER_API_KEY") or "").strip() or None
-        self.s = requests.Session()
+        self.s = _Session(self.server)
         # 受付に名乗る（どの入口から来たかを数える。個人を特定するものは入れない）
         self.s.headers["X-Client"] = f"{client or 'api'} {__version__}"
 
