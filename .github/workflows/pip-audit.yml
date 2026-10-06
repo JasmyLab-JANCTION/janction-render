@@ -1,0 +1,29 @@
+# 依存の脆弱性を毎週見る（docs/17 B10）。内部リポでは受付・ワーカーの固定一覧 requirements.lock.txt を、
+# 公開リポ（requirements.lock.txt が無い）ではパッケージそのものを入れて pip-audit にかける。
+name: pip-audit
+on:
+  schedule:
+    - cron: "0 21 * * 0"      # 月曜 06:00 JST
+  workflow_dispatch:
+  push:
+    paths:
+      - "pyproject.toml"
+      - "requirements*.txt"
+      - ".github/workflows/pip-audit.yml"
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install --upgrade pip pip-audit
+      - name: audit
+        run: |
+          if [ -f requirements.lock.txt ]; then
+            pip-audit --progress-spinner off -r requirements.lock.txt
+          else
+            python -m pip install .
+            pip-audit --progress-spinner off
+          fi
