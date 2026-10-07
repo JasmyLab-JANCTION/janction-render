@@ -6,7 +6,9 @@
 
 JANCTION Render is a cloud GPU render farm for Blender that AI agents call as an MCP server or HTTP API. Send a `.blend`
 file, a bpy script or a 3D file (glTF / FBX / USD), preview in seconds, and get frames or an MP4 back from JANCTION's
-NVIDIA GPUs. No local Blender or GPU is needed. Free beta, operated by JasmyLab Inc.
+NVIDIA GPUs. Every preview also returns a verdict on what is wrong, such as too dark, blown out, no light or an object
+out of frame, and the bpy code to fix it, so the agent can correct the scene before the final render. No local Blender
+or GPU is needed. Free beta, operated by JasmyLab Inc.
 
 AI agents can render Blender projects on JANCTION GPUs without running Blender locally. Works from **Claude, ChatGPT,
 Claude Code, Codex, Cursor or any MCP client**: an MCP server (remote and stdio), an HTTP API and a CLI.

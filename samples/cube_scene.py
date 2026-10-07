@@ -81,13 +81,13 @@ bg.inputs[0].default_value = (0.55, 0.65, 0.8, 1.0)
 bg.inputs[1].default_value = 0.6
 scene.world = world
 
-# カメラ: 中心を見ながら 24 コマで一周する
+# カメラ: 中心を見ながら 24 コマで一周する。どのコマでも全部が写る（試し描きの批評が要確認を出さない）
 target = bpy.data.objects.new("Target", None)
 target.location = (0.3, 0.3, 0.9)
 scene.collection.objects.link(target)
 
 cam_data = bpy.data.cameras.new("Camera")
-cam_data.lens = 40
+cam_data.lens = 35
 cam = bpy.data.objects.new("Camera", cam_data)
 scene.collection.objects.link(cam)
 scene.camera = cam
@@ -96,7 +96,7 @@ track.target = target
 track.track_axis = "TRACK_NEGATIVE_Z"
 track.up_axis = "UP_Y"
 
-radius, height = 9.0, 4.0
+radius, height = 12.0, 4.5   # 10/8: 24 コマのどのコマでも 4 つの物が枠に収まる距離（9.0 / 4.0 / 40 mm ではトーラスが切れた）
 for f in range(scene.frame_start, scene.frame_end + 1):
     t = (f - scene.frame_start) / (scene.frame_end - scene.frame_start + 1)
     a = 2 * math.pi * t
