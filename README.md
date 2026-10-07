@@ -11,6 +11,12 @@ NVIDIA GPUs. No local Blender or GPU is needed. Free beta, operated by JasmyLab 
 AI agents can render Blender projects on JANCTION GPUs without running Blender locally. Works from **Claude, ChatGPT,
 Claude Code, Codex, Cursor or any MCP client**: an MCP server (remote and stdio), an HTTP API and a CLI.
 
+JANCTION Render is a separate product from SmartRender (JasmyLab's distributed rendering for people at a desktop) and is
+not affiliated with Render.com or the Render Network. The numbers, as of 2026-10-07 (the primary source is
+https://render.janction.jp/facts.json): free beta, 10 GPU-minutes (600 GPU-seconds) per key per day, jobs up to 240 frames
+at 1080p, inputs and results deleted 24 hours after last use. The planned metered price is 0.1 JPY per GPU-second; it is not
+in force and will be announced on the changelog before it starts.
+
 Official site: https://render.janction.jp · MCP endpoint: `https://render.janction.jp/mcp` · Fact sheet: https://render.janction.jp/facts
 
 ## Why use it?

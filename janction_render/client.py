@@ -1,7 +1,7 @@
 """受付を呼ぶ側の共通部分。MCP とコマンドの両方がこれを使う（要件 F-01）。
 
 環境変数:
-    JANCTION_RENDER_SERVER   受付の URL（既定 http://127.0.0.1:8340）
+    JANCTION_RENDER_SERVER   受付の URL（既定 https://render.janction.jp。手元の受付なら http://127.0.0.1:8340）
     JANCTION_RENDER_API_KEY  API キー。無ければ受付に一時キーをもらい ~/.janction-render.json に覚える
 """
 from __future__ import annotations
@@ -15,7 +15,8 @@ from typing import Any, Callable, Optional
 import requests
 from urllib.parse import urlsplit
 
-DEFAULT_SERVER = "http://127.0.0.1:8340"
+DEFAULT_SERVER = "https://render.janction.jp"   # 10/7 夜: 既定を公開サービスに（uvx で入れた人がそのまま使える）。手元の受付は JANCTION_RENDER_SERVER=http://127.0.0.1:8340
+LOCAL_SERVER = "http://127.0.0.1:8340"
 CACHE = Path.home() / ".janction-render.json"
 
 # 送れるシーン: .blend、bpy スクリプト、こちらの Blender が読み込める 3D ファイル
@@ -265,10 +266,14 @@ def unreachable_error(server: str, url: str, exc: BaseException) -> ClientError:
     target = f"{parts.scheme}://{parts.netloc}" if parts.netloc else server
     if isinstance(exc, (requests.exceptions.InvalidURL, requests.exceptions.MissingSchema, requests.exceptions.InvalidSchema)):
         code, hint = "bad_server_url", f"JANCTION_RENDER_SERVER must be an http(s) URL, got {server!r}"
-    elif server == DEFAULT_SERVER and not os.environ.get("JANCTION_RENDER_SERVER"):
+    elif server.rstrip("/") == LOCAL_SERVER:
         code = "server_unreachable"
-        hint = ("JANCTION_RENDER_SERVER is not set, so the client is calling the local dev server. "
-                "Set JANCTION_RENDER_SERVER=https://render.janction.jp to use the public service")
+        hint = ("JANCTION_RENDER_SERVER points at a local dev server that is not running. "
+                "Unset it (or set JANCTION_RENDER_SERVER=https://render.janction.jp) to use the public service")
+    elif server.rstrip("/") == DEFAULT_SERVER:
+        code = "server_unreachable"
+        hint = ("could not reach the public service; check your network and the status page https://render.janction.jp/status. "
+                "For a local dev server set JANCTION_RENDER_SERVER=http://127.0.0.1:8340")
     else:
         code = "server_unreachable"
         hint = "check the URL and your network; the service status is at https://render.janction.jp/status"

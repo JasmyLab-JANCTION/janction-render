@@ -211,7 +211,7 @@ def cmd_outcomes(c: Client, args: argparse.Namespace) -> int:
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="janction-render",
                                 description="Render Blender scenes on JANCTION GPUs from the terminal.")
-    p.add_argument("--server", default=None, help="server URL (default: JANCTION_RENDER_SERVER or http://127.0.0.1:8340)")
+    p.add_argument("--server", default=None, help="server URL (default: JANCTION_RENDER_SERVER or https://render.janction.jp; a local server is http://127.0.0.1:8340)")
     p.add_argument("--key", default=None, help="API key (default: JANCTION_RENDER_API_KEY or an auto-issued temporary key)")
     sub = p.add_subparsers(dest="cmd", required=True)
 

@@ -8,7 +8,8 @@
     "ai-agent",
     "api",
     "compare",
-    "brand"
+    "brand",
+    "winning"
   ],
   "prompts": [
     {
@@ -340,6 +341,42 @@
       "cluster": "no-gpu",
       "weekly": false,
       "query": "render a bpy script without installing Blender"
+    },
+    {
+      "id": "en-winq-1",
+      "cluster": "winning",
+      "weekly": true,
+      "query": "How do I render a .blend from Claude or ChatGPT without a local GPU?"
+    },
+    {
+      "id": "en-winq-2",
+      "cluster": "winning",
+      "weekly": true,
+      "query": "Which Blender cloud render service has an MCP server or API?"
+    },
+    {
+      "id": "en-winq-3",
+      "cluster": "winning",
+      "weekly": true,
+      "query": "I have a bpy script and no Blender installed; how do I turn it into an MP4?"
+    },
+    {
+      "id": "en-winq-4",
+      "cluster": "winning",
+      "weekly": true,
+      "query": "Blender render farm with an API for AI agents"
+    },
+    {
+      "id": "en-winq-5",
+      "cluster": "winning",
+      "weekly": true,
+      "query": "How can I make a 360-degree product video with AI?"
+    },
+    {
+      "id": "en-winq-7",
+      "cluster": "winning",
+      "weekly": true,
+      "query": "Which MCP lets Claude render Blender in the cloud?"
     }
   ]
 }

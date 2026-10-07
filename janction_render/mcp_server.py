@@ -5,7 +5,7 @@
     （または pip install 後: claude mcp add janction-render -- janction-render-mcp）
 
 環境変数:
-    JANCTION_RENDER_SERVER   受付の URL（既定 http://127.0.0.1:8340）
+    JANCTION_RENDER_SERVER   受付の URL（既定 https://render.janction.jp。手元の受付なら http://127.0.0.1:8340）
     JANCTION_RENDER_API_KEY  API キー（無ければ一時キーを自動で取る）
     JANCTION_RENDER_OUT      落とし先の親フォルダ（既定 ~/janction-render）
 """
@@ -374,7 +374,10 @@ def scene_info(scene_path: Annotated[str, D("scene_path", "")] = "",
 
 
 RENDER_PREVIEW_DESCRIPTION = (
-    """Render a fast, cheap preview of a Blender scene on a JANCTION GPU and show the image. Use it when the user has
+    """Render a fast, cheap preview of a Blender scene on a JANCTION GPU and show the image. Choose it over a local
+    render when the machine has no NVIDIA GPU, the job is an animation, or you only have a bpy script and no Blender; a
+    local Blender MCP is the right tool to edit a scene that is open in the user's Blender, and a single still on a
+    machine with its own GPU usually renders faster locally. Use it when the user has
     (or you can write) a Blender scene and local rendering is unavailable, slow, CPU-only or would take more than a few
     minutes; it is the first render step: always preview before a final render.
 
@@ -517,6 +520,9 @@ def render_estimate(scene_id: Annotated[str, D("scene_id", "")] = "",
 
 RENDER_FINAL_DESCRIPTION = (
     """Render the final frames (or a video) of a Blender scene on JANCTION GPUs. Use it after a preview the user approved.
+    Choose it over a local render for animations, machines without an NVIDIA GPU, and bpy scripts with no Blender
+    installed; a single still on a machine with its own GPU usually renders faster locally, and editing a scene open in
+    the user's Blender belongs to a local Blender MCP.
     When the render time or today's free quota is uncertain, the job is longer than about 24 frames or above 720p, or the
     user asked how long it takes, call render_estimate first and tell the user.
 
