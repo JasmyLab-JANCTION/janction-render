@@ -288,8 +288,9 @@ class Client:
         self.server = (server or os.environ.get("JANCTION_RENDER_SERVER") or DEFAULT_SERVER).rstrip("/")
         self._key = (api_key or os.environ.get("JANCTION_RENDER_API_KEY") or "").strip() or None
         self.s = _Session(self.server)
-        # 受付に名乗る（どの入口から来たかを数える。個人を特定するものは入れない）
-        self.s.headers["X-Client"] = f"{client or 'api'} {__version__}"
+        # 受付に名乗る（どの入口から来たかを数える。個人を特定するものは入れない）。
+        # JANCTION_RENDER_CLIENT で上書きできる（運営の確認・テストを smoke/… と名乗らせて評価票から外す、10/7）
+        self.s.headers["X-Client"] = f"{(os.environ.get('JANCTION_RENDER_CLIENT') or '').strip() or client or 'api'} {__version__}"
 
     # ---- 鍵 ----------------------------------------------------------------
 

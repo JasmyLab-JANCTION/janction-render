@@ -32,6 +32,7 @@ from mcp.types import ToolAnnotations
 from janction_render.brief import brief as _brief, estimate_brief, final_body_after_preview, followup_after_preview, \
     next_after_preview, trim
 from janction_render.client import Client, ClientError, parse_frames
+from janction_render import tooldocs
 
 PREVIEW_WAIT_S = 240.0
 INFO_WAIT_S = 150.0
@@ -467,7 +468,8 @@ def render_preview(
     brief["files"] = [str(p) for p in paths]
     fu = _preview_followup(c, j)
     brief.update(fu)
-    brief["next"] = next_after_preview(fu, "edit it and call render_preview again", "ask the user before calling render_final")
+    brief["next"] = next_after_preview(fu, "edit it and call render_preview again", "ask the user before calling render_final",
+                                       critic=j.get("critic"))
     _attach_upload_notes(brief)
     result: list[Any] = [_j(brief)]
     if show is not None:
@@ -746,6 +748,10 @@ if ui_enabled():
                                "prefersBorder": True}})
     def janction_render_app() -> str:
         return ui_html()
+
+
+# 道具の説明の新版（stdio の既定。JR_TOOLDOCS=old で今の文面に戻る、docs/40）
+tooldocs.apply(mcp, "stdio")
 
 
 def main() -> None:

@@ -112,9 +112,22 @@ def followup_after_preview(est: dict[str, Any] | None, body: dict[str, Any] | No
     return out
 
 
-def next_after_preview(fu: dict[str, Any] | None, edit_hint: str, final_hint: str) -> str:
-    """試し描きの next 文（10/7）。見積もりがあれば、仕上げの所要時間と枠の残りを 1 文足す。"""
-    text = f"look at the image; if the scene needs changes, {edit_hint}; if it looks right, {final_hint}"
+def critic_next(critic: dict[str, Any] | None) -> str:
+    """試し描きの批評から、next の頭に置く一文（直すものがあるときだけ、10/8）。"""
+    if not critic or critic.get("verdict") in (None, "ok"):
+        return ""
+    issues = critic.get("issues") or []
+    fixes = [i for i in issues if i.get("severity") == "fix"]
+    first = (fixes or [i for i in issues if i.get("severity") == "check"] or [None])[0]
+    if not first:
+        return ""
+    head = "The critic found a problem a final render would keep" if fixes else "The critic flagged something to check"
+    return f"{head}: {first.get('message')}. Fix: {first.get('fix')}. Apply it and preview again before any final render. "
+
+
+def next_after_preview(fu: dict[str, Any] | None, edit_hint: str, final_hint: str, critic: dict[str, Any] | None = None) -> str:
+    """試し描きの next 文（10/7）。見積もりがあれば、仕上げの所要時間と枠の残りを 1 文足す。批評に直すものがあれば頭に置く（10/8）。"""
+    text = critic_next(critic) + f"look at the image; if the scene needs changes, {edit_hint}; if it looks right, {final_hint}"
     fe = (fu or {}).get("final_estimate") or {}
     if fe.get("human") or fe.get("gpu_seconds") is not None:
         text += (f". A final render of {fe.get('what')} at {fe.get('size')}/{fe.get('samples')} spp would take "
@@ -158,6 +171,11 @@ def brief(j: dict[str, Any]) -> dict[str, Any]:
         out["output"] = j["output"]["name"]
     if j.get("camera_files"):
         out["camera_files"] = j["camera_files"]
+    if j.get("critic"):
+        # 試し描きの批評（10/8）: verdict（ok / check / fix）と、問題ごとの直し方。数字の明細は REST の仕事の状態にある
+        c = j["critic"]
+        out["critic"] = {"verdict": c.get("verdict"), "score": c.get("score"), "summary": c.get("summary"),
+                         "issues": [{k: i.get(k) for k in ("code", "severity", "message", "fix")} for i in (c.get("issues") or [])][:6]}
     if j.get("cost"):
         c = j["cost"]
         out["cost"] = ("free" if c["free"] else
