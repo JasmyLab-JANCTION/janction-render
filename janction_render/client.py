@@ -513,6 +513,12 @@ class Client:
             p.write_text(text, encoding="utf-8")
             return self.upload(p)
 
+    def upload_url(self, url: str) -> dict[str, Any]:
+        """https の URL からシーンを取り込ませる（受付が取りに行く。手元に落とさない）。/samples/… の見本や /upload のリンクに。"""
+        if not str(url or "").strip().lower().startswith("https://"):
+            raise ValueError("scene_url must be an https URL")
+        return self._req("POST", "/v1/files/url", json={"url": str(url).strip()}, timeout=120)
+
     def submit(self, scene_id: str, **params: Any) -> dict[str, Any]:
         body = {"scene_id": scene_id}
         body.update({k: v for k, v in params.items() if v is not None})
