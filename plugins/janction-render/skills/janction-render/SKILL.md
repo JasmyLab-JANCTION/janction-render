@@ -27,7 +27,9 @@ Connect in the browser page (it creates a free key).
    ignored when framing; `orbit_target` (object name or `x,y,z`) and `orbit_distance` (0.7 = closer) adjust the shot.
 2. `scene_info` - read what the script produced: cameras, frame range, objects, lights, missing files. No render.
 3. `render_preview(frames="1-24")` - up to 4 frames tiled in one image (720p budget, a few GPU seconds). Look at the
-   image. If something is wrong (camera, lighting, missing objects), fix the script and preview again.
+   image. If something is wrong (camera, lighting, missing objects), fix the script and preview again. Every preview
+   also returns `critic`: a verdict (`ok` / `check` / `fix`), a score and `issues`, each with fix code (one bpy line or a
+   tool argument). When the verdict is `fix`, apply the fixes and preview again before any final render.
 4. Ask the user "is this OK?" and confirm frames, resolution and samples.
 5. `render_estimate(scene_id, frame_start, frame_end, width, height, samples)` - tell the user the time ("about 3
    minutes") and whether it fits today's free quota. Propose fewer frames / lower samples if it does not.
@@ -54,6 +56,7 @@ scene.collection.objects.link(sun)
 ```
 
 - Always add a camera and set `scene.camera`, and add at least one light; set `frame_start` / `frame_end` for animations; animate with keyframes.
+- To fit every object in the frame, end the script with `import jr_assets; jr_assets.frame_camera()` (keeps the camera's direction, moves it back until everything is in view; `margin=1.2` leaves more room).
 - If you start from an empty scene (`bpy.ops.wm.read_factory_settings(use_empty=True)`), there is no camera, no light and no world: add all three. Otherwise the service adds an automatic camera (framing all objects) and a sun, and tells you in `warnings`.
 - Do not set `mat.use_nodes = True` (always on in Blender 5.x; it only produces a deprecation warning). Build materials through `mat.node_tree`.
 - Blender 5.0 animation API: animate with `obj.keyframe_insert("rotation_euler", frame=n)`; do not touch `obj.animation_data.action.fcurves` (removed in 5.0). For linear motion set `bpy.context.preferences.edit.keyframe_new_interpolation_type = 'LINEAR'` before inserting keyframes.
