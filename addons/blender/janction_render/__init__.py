@@ -1,4 +1,4 @@
-"""JANCTION Render for Blender: render the open .blend on JANCTION cloud GPUs (free beta).
+"""JANCTION Render for Blender: render the open .blend on JANCTION cloud GPUs.
 
 Blender loads this package as an extension (``bl_ext.<repository>.janction_render``),
 so every import inside the package is relative. The manifest

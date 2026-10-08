@@ -215,7 +215,7 @@ def _ask_settings(start, end, width, height):
               "Final width", "Final height", "Samples (final)")
     initial = (str(start), str(end), "studio", str(width), str(height), "64")
     choice, values = hou.ui.readMultiInput(
-        "Export the scene and render it with Cycles on JANCTION GPUs (free beta).\n"
+        "Export the scene and render it with Cycles on JANCTION GPUs (10 free GPU-minutes a day).\n"
         "Preview: 4 frames across the range in one image. Final: MP4 (or PNG for one frame).\n"
         "Turntable: the current frame from 0/90/180/270 degrees.",
         input_labels=labels, initial_contents=initial, buttons=("Preview", "Final", "Turntable", "Cancel"),
@@ -278,7 +278,7 @@ def _run():
     if mode == "turntable":
         start = end = int(round(hou.frame()))
     if mode == "final" and end - start + 1 > jr.FREE_MAX_FRAMES:
-        raise RuntimeError("the free beta renders at most %d frames per job; narrow the range" % jr.FREE_MAX_FRAMES)
+        raise RuntimeError("a job renders at most %d frames; narrow the range" % jr.FREE_MAX_FRAMES)
 
     tmp = None
     assets = []

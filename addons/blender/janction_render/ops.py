@@ -46,7 +46,7 @@ def preview_frames(start: int, end: int, current: int, count: int = 4) -> list[i
 
 
 def fit_pixels(width: int, height: int, max_pixels: int = FREE_MAX_PIXELS) -> tuple[int, int]:
-    """Shrink (keeping the aspect) until width*height fits the free-beta pixel cap."""
+    """Shrink (keeping the aspect) until width*height fits the per-job pixel cap (1080p)."""
     if width * height <= max_pixels:
         return width, height
     scale = (max_pixels / float(width * height)) ** 0.5
@@ -152,7 +152,7 @@ def preview_body(context, prefs, settings) -> dict[str, Any]:
 
 
 def final_body(context, prefs, settings) -> tuple[dict[str, Any], list[str]]:
-    """The /v1/jobs body for a final render plus the free-beta adjustments made."""
+    """The /v1/jobs body for a final render plus the adjustments made for the per-job limits."""
     scene = context.scene
     notes: list[str] = []
     body = _common_body(context, prefs, settings)
@@ -161,10 +161,10 @@ def final_body(context, prefs, settings) -> tuple[dict[str, Any], list[str]]:
         fe = fs
     if fe - fs + 1 > FREE_MAX_FRAMES:
         fe = fs + FREE_MAX_FRAMES - 1
-        notes.append(f"Free beta: a job renders at most {FREE_MAX_FRAMES} frames; rendering {fs}-{fe}")
+        notes.append(f"A job renders at most {FREE_MAX_FRAMES} frames; rendering {fs}-{fe}")
     w, h = fit_pixels(body["width"], body["height"])
     if (w, h) != (body["width"], body["height"]):
-        notes.append(f"Free beta: resolution reduced to {w}x{h} (1080p cap)")
+        notes.append(f"Resolution reduced to {w}x{h} (1080p cap per job)")
         body["width"], body["height"] = w, h
     output = str(settings.output)
     if fe == fs and output == "mp4":
@@ -415,7 +415,7 @@ class JR_OT_preview(bpy.types.Operator):
 
 
 class JR_OT_final(bpy.types.Operator):
-    """Render the scene frame range on JANCTION GPUs (free beta: up to 240 frames, 1080p)"""
+    """Render the scene frame range on JANCTION GPUs (up to 240 frames at 1080p per job)"""
     bl_idname = "jr.final"
     bl_label = "Final render"
     bl_options = {'REGISTER'}

@@ -2,7 +2,7 @@
 
 A Blender extension (Blender 4.2 or newer) that renders the open .blend file on
 JANCTION cloud GPUs from the Render properties. It needs no local GPU and no
-sign-up: a free beta key is created with one click.
+sign-up: a key is created with one click, with 10 free GPU-minutes a day.
 
 What it does:
 
@@ -28,8 +28,8 @@ From the extension repository (installs and updates without a zip):
 
 From a zip:
 
-1. Download `https://render.janction.jp/extensions/janction_render-0.1.0.zip` (also attached to the GitHub
-   release `blender-addon-0.1.0`), or build it
+1. Download `https://render.janction.jp/extensions/janction_render-0.1.1.zip` (the GitHub release
+   `blender-addon-0.1.0` holds the first version), or build it
    (`python scripts/build_blender_addon.py` in this repository writes it to `dist/`;
    `blender --command extension build --source-dir addons/blender/janction_render --output-dir dist`
    is the official equivalent).
@@ -51,8 +51,10 @@ GPU minutes. The key is saved with your Blender preferences, so it survives
 restarts. Anyone with the key can use its quota; treat it like a password. To
 start over, clear the field and press the button again.
 
-Free beta: nothing is charged. Each key gets 10 GPU-minutes per day (20 per
-network); the counter resets at 00:00 UTC. The panel shows the minutes left.
+Each key gets 10 free GPU-minutes per day (20 per network); the counter resets
+at 00:00 UTC and the panel shows the minutes left. GPU time beyond that costs
+0.1 JPY per GPU-second from prepaid credit (https://render.janction.jp/pricing);
+without credit the job stops with a payment_required message.
 
 ## What gets uploaded
 
@@ -78,7 +80,7 @@ Results are written to a `janction_render` folder next to the .blend
 (`preview_<date>.png`, `final_<date>.mp4` or `final_<date>/frame_0001.png`...).
 An unsaved file uses a temporary folder; the path is shown in the panel.
 
-## Limits (free beta)
+## Limits
 
 - Preview: up to 4 frames, up to 1280x720, up to 32 samples. The scene's
   resolution and samples are used and clamped.

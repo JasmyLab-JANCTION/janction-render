@@ -232,7 +232,7 @@ class RenderDialog(gui.GeDialog if gui is not None else object):
         self.SetTitle(TITLE)
         self.GroupBegin(2000, c4d.BFH_SCALEFIT, cols=1, rows=0)
         self.GroupBorderSpace(10, 10, 10, 10)
-        self._label("Export the document and render it with Cycles on JANCTION GPUs (free beta).", c4d.BFH_SCALEFIT)
+        self._label("Export the document and render it with Cycles on JANCTION GPUs (10 free GPU-minutes a day).", c4d.BFH_SCALEFIT)
         self.GroupBegin(2002, c4d.BFH_SCALEFIT, cols=2, rows=0)
         self._label("Export as")
         self.AddComboBox(ID_FORMAT, c4d.BFH_SCALEFIT)
@@ -328,7 +328,7 @@ class RenderDialog(gui.GeDialog if gui is not None else object):
         if mode == "turntable":
             start = end = self.info["current"]
         if mode == "final" and end - start + 1 > jr.FREE_MAX_FRAMES:
-            raise RuntimeError("the free beta renders at most %d frames per job; narrow the range" % jr.FREE_MAX_FRAMES)
+            raise RuntimeError("a job renders at most %d frames; narrow the range" % jr.FREE_MAX_FRAMES)
         self._set_status("Exporting %s..." % ("USD" if use_usd else "FBX"))
         c4d.StatusSetText("%s: exporting" % TITLE)
         try:

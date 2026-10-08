@@ -6,7 +6,7 @@ alwaysApply: false
 
 # JANCTION Render: cloud GPU rendering for Blender from Cursor
 
-JANCTION Render is a cloud GPU render farm for Blender that AI agents call as an MCP server. Send a .blend file, a bpy script or a 3D file, preview in seconds, and get frames or an MP4 back from NVIDIA GPUs. No local Blender or GPU is needed. Free beta, operated by JasmyLab Inc.
+JANCTION Render is a cloud GPU render farm for Blender that AI agents call as an MCP server. Send a .blend file, a bpy script or a 3D file, preview in seconds, and get frames or an MP4 back from NVIDIA GPUs. No local Blender or GPU is needed. 10 free GPU-minutes a day, then 0.1 JPY per GPU-second; operated by JasmyLab Inc.
 
 ## Setup (once per project or user)
 
@@ -34,8 +34,8 @@ Rules: always preview before a final render. Poll `render_status`, not `render_d
 
 Scripts should set up the scene, camera and frame range only; the server sets the engine, resolution and output. Materials always use nodes: set colors on the Principled BSDF (`mat.node_tree.nodes['Principled BSDF'].inputs['Base Color'].default_value = (r, g, b, 1)`). Add a camera and a light; a scene without a camera cannot render. For a 3D file, upload it as the scene and use `orbit=true` for a turntable.
 
-## Limits during the free beta
+## Limits and price
 
-10 GPU-minutes per API key per day, up to 240 frames at 1080p per job. Inputs and results are deleted 24 hours after last use and are never used for training. Pricing after the beta is announced in advance at https://render.janction.jp/pricing (planned: 0.1 JPY per GPU-second, prepaid).
+10 free GPU-minutes per API key per day; beyond that 0.1 JPY per GPU-second from prepaid credit (https://render.janction.jp/pricing). Tell the user the price from render_estimate before going past the free time. Up to 240 frames at 1080p per job. Inputs and results are deleted 24 hours after last use and are never used for training.
 
 More: https://render.janction.jp/cursor-blender and https://render.janction.jp/llms.txt

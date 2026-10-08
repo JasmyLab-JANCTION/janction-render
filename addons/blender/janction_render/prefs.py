@@ -87,7 +87,7 @@ class JRPreferences(bpy.types.AddonPreferences):
 
     server_url: StringProperty(name="Server", default=DEFAULT_SERVER)
     api_key: StringProperty(name="API key", subtype='PASSWORD',
-                            description="Free beta key from render.janction.jp (no sign-up)")
+                            description="API key from render.janction.jp (no sign-up; 10 free GPU-minutes a day)")
     environment: EnumProperty(name="Environment", items=PREF_ENV_ITEMS, default='SCENE')
     blender_version: EnumProperty(name="Blender", items=PREF_VERSION_ITEMS, default='AUTO')
     open_results: BoolProperty(name="Open results folder when done", default=False)

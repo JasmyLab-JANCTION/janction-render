@@ -17,7 +17,7 @@ Blender's importers (USD Preview Surface, FBX Phong/PBR, OBJ/MTL); shader networ
 passes and renderer-specific nodes are not carried over. Lights rarely survive an export, so the
 tools light the scene with the `studio` HDRI preset by default.
 
-Free beta: no sign-up, 10 GPU-minutes per key per day, final renders up to 240 frames and 1080p.
+No sign-up: 10 free GPU-minutes per key per day, then 0.1 JPY per GPU-second from prepaid credit; final renders up to 240 frames and 1080p.
 
 ## Files
 
@@ -103,7 +103,7 @@ textures up by basename next to the file, which is where the service puts assets
 
 ## The key and the config file
 
-The first run creates a free-beta API key (`POST /v1/keys`) and stores it in
+The first run creates an API key (`POST /v1/keys`) and stores it in
 `~/.janction_render.json`:
 
 ```json
@@ -139,7 +139,7 @@ key is no longer known to the service, the tools create a new one once and retry
   camera and orbits the model.
 - Frame rate comes from the app's setting (Maya time unit, `hou.fps()`, `doc.GetFps()`), rounded
   to a whole number.
-- The free beta renders at most 240 frames per job and 1080p worth of pixels; the tools scale the
+- A job renders at most 240 frames and 1080p worth of pixels; the tools scale the
   final size down and refuse longer ranges with a message.
 
 ## Manual fallback from any application

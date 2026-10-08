@@ -2,6 +2,12 @@
 
 The live, per-version list is at https://render.janction.jp/changelog (Atom: https://render.janction.jp/changelog.xml). Versions are the PyPI releases of `janction-render`; the hosted service follows the same numbers.
 
+## 0.4.24 (2026-10-08)
+
+- The README (PyPI, GitHub, Glama), the Claude Code plugin description, the Cursor rule, the Blender add-on and the Maya / Houdini / Cinema 4D submit tools describe the free daily GPU time (10 GPU-minutes per key) and the price beyond it (0.1 JPY per GPU-second); the `billing()` row of the tools table was still "free-beta quota".
+- Blender add-on 0.1.1 (`/extensions/index.json`, `janction_render-0.1.1.zip`): wording only — tagline, key tooltip, final-render tooltip and the per-job limit notes.
+- `tests/test_live_wording.py` also reads README.en.md, the plugin, the add-on and the DCC tools.
+
 ## 0.4.23 (2026-10-08)
 
 - Paid use started on 2026-10-08 (`JR_BILLING_MODE=live`). Each key keeps its free GPU-minutes per day (10, or 20 per network): a job that fits the time left today is free, and a job that goes past it reserves and is charged only for the GPU seconds beyond the free time, at 0.1 JPY per GPU-second from prepaid credit (Stripe Checkout, from 500 JPY). A 402 `payment_required` says how much of the job the free time covers (`free_gpu_seconds_left_today`, `estimated_gpu_seconds`).

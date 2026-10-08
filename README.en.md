@@ -137,7 +137,7 @@ remote connector: paste it on the connect page.
 | `render_estimate(scene_id, frame_start, frame_end, width, height, samples)` | GPU seconds, queue wait, "about N minutes", fits today's free quota? No GPU time used |
 | `render_final(scene_id, frame_start, frame_end, width, height, samples, fps, output, environment?, blender?, engine?, transparent?, notify_url?)` | frames (png / exr) or video (mp4 / webm / prores / gif / webp); `transparent=True` keeps an alpha background (png / exr / webm / gif / webp); `notify_url` gets one JSON POST when the job finishes; returns job_id + estimate |
 | `render_status(job_id)` | progress and ETA (`eta.human`); `render_download(job_id, only="mp4" / "frames" / "all")` files or links; `render_cancel(job_id)` |
-| `billing()` | free-beta quota (used today, daily limit, reset time); later balance and top-up link |
+| `billing()` | today's free GPU time (used, daily amount, reset time), the credit and a top-up link |
 | `render_share(job_id, title?, note?, include_script?, listed?)` | a public page `/r/<id>` with the image or video, the conditions and (optionally) the script; survives the 24-hour expiry until `render_unshare`; with `listed=True` it appears in `/gallery` after a review |
 | `asset_search(query, kind)` | CC0 models / textures / HDRIs on Poly Haven by words; results carry `polyhaven:<id>` and the entry file |
 | `render_info()` | workers online or gated (GPU lent to another workload), queue, expected wait, supported inputs, environment presets, Blender versions |
@@ -249,7 +249,7 @@ and an expiry before any GPU time is used. Monthly plans are planned, not on sal
   Estimate and Final. A copy of the open file and the textures it references with relative paths are uploaded; results land
   next to the .blend. Install from the extension repository `https://render.janction.jp/extensions/index.json`
   (Preferences → Get Extensions → Repositories → + → Add Remote Repository), or install the zip from
-  `https://render.janction.jp/extensions/janction_render-0.1.0.zip` (`python scripts/build_blender_addon.py` builds it
+  `https://render.janction.jp/extensions/janction_render-0.1.1.zip` (`python scripts/build_blender_addon.py` builds it
   from this repository). Guide: https://render.janction.jp/blender-addon
 - **Maya, Houdini, Cinema 4D** (`integrations/`): export to USD / FBX / Alembic, upload with textures, render with Cycles,
   open the result; Preview, Final (MP4) and Turntable. Standard-library Python only; `jr_submit.py` is the shared client.

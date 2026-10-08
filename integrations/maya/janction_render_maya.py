@@ -310,8 +310,8 @@ def _start(mode):
                        "samples": samples, "fps": scene_fps(), "output": "mp4" if end > start else "png"})
         timeout_s = 3600
         if end - start + 1 > jr.FREE_MAX_FRAMES:
-            _set_status("The free beta renders at most %d frames per job." % jr.FREE_MAX_FRAMES)
-            _dialog("The free beta renders at most %d frames per job; narrow the frame range." % jr.FREE_MAX_FRAMES)
+            _set_status("A job renders at most %d frames." % jr.FREE_MAX_FRAMES)
+            _dialog("A job renders at most %d frames; narrow the frame range." % jr.FREE_MAX_FRAMES)
             return
     stamp = time.strftime("%Y%m%d-%H%M%S")
     out_dir = os.path.join(os.path.expanduser("~"), "janction_render", "maya", "%s_%s" % (stamp, mode))
@@ -341,7 +341,7 @@ def show():
     win = cmds.window(WINDOW, title=TITLE, widthHeight=(430, 360), sizeable=True)
     cmds.columnLayout(adjustableColumn=True, rowSpacing=6, columnOffset=("both", 10))
     cmds.separator(style="none", height=4)
-    cmds.text(label="Export the scene and render it with Cycles on JANCTION GPUs (free beta).", align="left")
+    cmds.text(label="Export the scene and render it with Cycles on JANCTION GPUs (10 free GPU-minutes a day).", align="left")
     _ui["format"] = cmds.optionMenuGrp(label="Export as", columnWidth=(1, 90), columnAlign=(1, "left"))
     formats = [FORMAT_USD, FORMAT_FBX] if usd_available() else [FORMAT_FBX]
     for name in formats:

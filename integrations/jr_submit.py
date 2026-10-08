@@ -9,7 +9,7 @@ that DCC applications bundle (3.7 and newer): no third-party packages, urllib on
     jr.open_path(result["files"][0])
 
 The API key lives in ~/.janction_render.json ({"server": ..., "api_key": ...}) and is
-created on first use (free beta, no sign-up). JANCTION_RENDER_SERVER and
+created on first use (no sign-up; 10 free GPU-minutes a day). JANCTION_RENDER_SERVER and
 JANCTION_RENDER_API_KEY override the file. Every function takes an optional
 Connection whose urlopen can be replaced for tests.
 """
@@ -236,7 +236,7 @@ def write_config(path: str, data: Dict[str, Any]) -> None:
 
 def create_key(server: str = DEFAULT_SERVER, label: str = "jr_submit",
                urlopen: Optional[Callable[..., Any]] = None, client: str = "jr_submit") -> str:
-    """POST /v1/keys: a free-beta key (10 GPU-minutes per day). No sign-up."""
+    """POST /v1/keys: a new API key (10 free GPU-minutes per day). No sign-up."""
     conn = Connection(server, "", urlopen, client)
     doc = _json(conn, "POST", "/v1/keys", {"label": label[:80]}, auth=False)
     key = doc.get("api_key")
@@ -327,7 +327,7 @@ def preview_frames(start: int, end: int, count: int = PREVIEW_MAX_FRAMES) -> Lis
 
 
 def fit_free_size(width: int, height: int, max_pixels: int = FREE_MAX_PIXELS) -> Tuple[int, int]:
-    """Scale a final resolution down to the free-beta cap (1080p worth of pixels), even numbers."""
+    """Scale a final resolution down to the per-job cap (1080p worth of pixels), even numbers."""
     width, height = max(16, int(width)), max(16, int(height))
     if width * height <= max_pixels:
         return width, height
