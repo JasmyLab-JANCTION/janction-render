@@ -29,7 +29,7 @@ except ImportError:  # mcp 1.x
     from mcp.server.fastmcp import FastMCP as MCPServer, Image  # type: ignore
 from mcp.types import ToolAnnotations
 
-from janction_render.brief import welcome_billing
+from janction_render.brief import plan_fields, welcome_billing
 from janction_render.brief import brief as _brief, estimate_brief, final_body_after_preview, followup_after_preview, \
     next_after_preview, trim
 from janction_render.client import Client, ClientError, parse_frames
@@ -707,7 +707,8 @@ def billing(topup_yen: Annotated[int, D("topup_yen", 0)] = 0) -> str:
     made and returns what this key can still render for free (a new key's welcome credit, or the free daily
     amount) and when it resets or expires, the balance (yen) and the price per GPU second; with topup_yen > 0
     (minimum 500) it returns a Stripe checkout URL to show to the user. Jobs the free time covers cost nothing;
-    beyond it only the extra GPU seconds are charged, and only for frames that actually rendered."""
+    beyond it only the extra GPU seconds are charged, and only for frames that actually rendered. Also shows auto
+    top-up and monthly plan status, with links the user can open to turn them on."""
     c = _client()
     try:
         if topup_yen > 0:
@@ -742,7 +743,7 @@ def billing(topup_yen: Annotated[int, D("topup_yen", 0)] = 0) -> str:
                        "min_topup_yen": me["billing"]["min_topup_yen"], "just_credited": synced.get("credited", []),
                        "pending_checkout_url": me["billing"]["pending_checkout_url"],
                        "topup_options": (me["billing"].get("topup_options") or {}).get("options"),
-                       "charged_yen_total": me["charged_yen_total"]})
+                       "charged_yen_total": me["charged_yen_total"], **plan_fields(me)})
         return _j({"balance_yen": me["balance_yen"], "free_previews_left": me["free_previews_left"],
                    "yen_per_gpu_second": me["billing"]["yen_per_gpu_second"],
                    "min_topup_yen": me["billing"]["min_topup_yen"], "billing_enabled": me["billing"]["enabled"],

@@ -185,6 +185,23 @@ def brief(j: dict[str, Any]) -> dict[str, Any]:
     out["artifacts"] = [a["name"] for a in j["artifacts"]][:50]
     return out
 
+def plan_fields(me: dict[str, Any]) -> dict[str, Any]:
+    """オートチャージと月額（docs/49）: 今の状態、月額の一覧、人が開くリンク。リンクを開くと確認の画面が出て、人がボタンを
+    押したときだけ Stripe に進む（エージェントが勝手に申し込んだり止めたりはできない）。受付が古くて項目が無ければ空。"""
+    b = me.get("billing") or {}
+    plans = b.get("plans") or []
+    links = b.get("links") or {}
+    if not plans and not links and b.get("autocharge") is None and b.get("subscription") is None:
+        return {}
+    out: dict[str, Any] = {"autocharge": b.get("autocharge"), "monthly_plan": b.get("subscription"),
+                           "monthly_plans": [{k: p.get(k) for k in ("id", "name", "price_yen", "credit_yen")} for p in plans]}
+    if links:
+        out["links"] = links
+        out["links_note"] = ("each link opens a confirmation page where the user decides on Stripe; share one only when the user "
+                             "asks about auto top-up, a monthly plan or the saved card")
+    return out
+
+
 def welcome_billing(w: dict[str, Any], me: dict[str, Any], synced: dict[str, Any] | None = None) -> dict[str, Any]:
     """billing() のようこそクレジットの形（stdio の mcp_server も同じ形を返す）。残りが 100 円を切ったときと、
     期限の 3 日前は、チャージの案内を next に入れる（docs/46 の見せ方）。"""
@@ -225,6 +242,7 @@ def welcome_billing(w: dict[str, Any], me: dict[str, Any], synced: dict[str, Any
         credit = int(first["credit_yen"]) if first else mt + min(round(mt * bonus), cap or round(mt * bonus))
         out["first_topup_bonus"] = (f"the first top-up during the welcome period counts {1 + bonus:g}x"
                                     + (f", bonus up to {cap:,} JPY" if cap else "") + f" ({mt} JPY adds {credit:,} JPY of credit)")
+    out.update(plan_fields(me))
     if w.get("in_window") and (int(w.get("yen_left") or 0) < 100 or int(w.get("days_left") or 0) <= 3):
         out["next"] = ("tell the user the welcome credit is running out (" + summary + ")"
                        + (" and that the first top-up now counts " + f"{1 + bonus:g}x" if bonus else "")

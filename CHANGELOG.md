@@ -2,6 +2,13 @@
 
 The live, per-version list is at https://render.janction.jp/changelog (Atom: https://render.janction.jp/changelog.xml). Versions are the PyPI releases of `janction-render`; the hosted service follows the same numbers.
 
+## 0.4.26 (2026-10-08)
+
+- Auto top-up: save a card once on the Stripe page, and when the balance drops below a threshold (default 200 JPY) the card adds a set amount (default 2,000 JPY, which gives 2,200 JPY of credit). A job that would run short is topped up on the spot instead of getting 402, so an agent's work does not stop. At most 10,000 JPY a month and 3 times a day by default; a card problem pauses it and says why; turn it off at any time. POST /v1/billing/autocharge, POST /v1/billing/autocharge/off, GET /v1/billing/autocharge.
+- Monthly plans as a monthly top-up: Starter 2,980 JPY a month adds 3,500 JPY of credit, Pro 9,800 JPY adds 12,000 JPY. Unused credit carries over and the price per GPU-second stays the same. Cancel at any time; the plan runs to the end of the paid month. POST /v1/billing/subscribe, POST /v1/billing/subscription/cancel, POST /v1/billing/portal (the Stripe billing page), GET /v1/billing/plans.
+- billing() (remote and stdio) shows the auto top-up and monthly plan status with links the user opens: a confirmation page first, then Stripe. Agents cannot subscribe, cancel or turn auto top-up on by themselves.
+- The terms and the legal notice cover automatic renewal and auto top-up; the pricing page, /v1/pricing, /facts and llms.txt list the plans and the auto top-up defaults.
+
 ## 0.4.25 (2026-10-08)
 
 - Welcome credit: each new key starts with 500 JPY of free GPU time (5,000 GPU-seconds) for 14 days, covering previews and finals; one full credit per network every 30 days, further keys from the same network get 100 JPY. Keys that already existed get the same 500 JPY for 14 days from the switch. After the welcome credit is used up or expires, previews stay free up to 2 GPU-minutes a day and finals cost 0.1 JPY per GPU-second from prepaid credit; the first top-up during the 14 days counts 1.5x (bonus up to 500 JPY). This replaces the 10 free GPU-minutes a day.
