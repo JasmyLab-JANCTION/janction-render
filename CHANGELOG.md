@@ -2,6 +2,16 @@
 
 The live, per-version list is at https://render.janction.jp/changelog (Atom: https://render.janction.jp/changelog.xml). Versions are the PyPI releases of `janction-render`; the hosted service follows the same numbers.
 
+## 0.4.27 (2026-10-09)
+
+- The package description, the plugins and the listings lead with what is free: up to 500 JPY of GPU time per new key (the welcome credit), then 0.1 JPY per GPU-second. The old "10 free GPU-minutes a day" wording is gone from the package files.
+- Payment pages open in English with a 日本語 switch at the top right. The Stripe payment page opens in the language of the page the button was pressed on, and you come back to a page in the same language.
+- A 500 JPY top-up first shows a page to pick 500, 2,000, 5,000 or 10,000 JPY, with the credit each one adds and its bonus, and the two monthly plans. Opening the page creates nothing; the one you press opens Stripe.
+- Final renders reuse frames that the same key has already rendered from the same scene with the same settings: those frames are copied without GPU time and only the rest is rendered. Rendering 1-96, 1-120 and 1-144 of one scene now costs about the same as rendering 1-144 once. Progress counts the copied frames.
+- A job counts as free only when 1.5 times its estimate fits in the free GPU time left, because a render can run past its estimate; otherwise credit is held for the part that may go past the free time and only time actually used past it is charged. Estimates and 402 payment_required say so.
+- Estimates for scenes known only from short previews are closer to the real time (finals estimated at less than two thirds of their actual GPU time dropped by more than half in a 14-day backtest).
+- Blender add-on 0.1.4 (/extensions/index.json): the 402 line and the Estimate tooltip speak of the free GPU time instead of today's. The track record on the home page and /status counts outside use only.
+
 ## 0.4.26 (2026-10-08)
 
 - Auto top-up: save a card once on the Stripe page, and when the balance drops below a threshold (default 200 JPY) the card adds a set amount (default 2,000 JPY, which gives 2,200 JPY of credit). A job that would run short is topped up on the spot instead of getting 402, so an agent's work does not stop. At most 10,000 JPY a month and 3 times a day by default; a card problem pauses it and says why; turn it off at any time. POST /v1/billing/autocharge, POST /v1/billing/autocharge/off, GET /v1/billing/autocharge.
