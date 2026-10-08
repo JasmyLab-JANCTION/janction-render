@@ -17,7 +17,7 @@ Blender's importers (USD Preview Surface, FBX Phong/PBR, OBJ/MTL); shader networ
 passes and renderer-specific nodes are not carried over. Lights rarely survive an export, so the
 tools light the scene with the `studio` HDRI preset by default.
 
-No sign-up: 10 free GPU-minutes per key per day, then 0.1 JPY per GPU-second from prepaid credit; final renders up to 240 frames and 1080p.
+No sign-up: each new key starts with a 500 JPY welcome credit (14 days); after that, previews are free up to 2 GPU-minutes a day and finals cost 0.1 JPY per GPU-second from prepaid credit. Final renders go up to 240 frames and 1080p.
 
 ## Files
 
@@ -110,7 +110,7 @@ The first run creates an API key (`POST /v1/keys`) and stores it in
 {"server": "https://render.janction.jp", "api_key": "jr_..."}
 ```
 
-Quota belongs to the key (10 GPU-minutes per day). `JANCTION_RENDER_API_KEY` pins a key without
+The free credit and the balance belong to the key. `JANCTION_RENDER_API_KEY` pins a key without
 writing it to disk; `JANCTION_RENDER_SERVER` points the tools at another server. If the stored
 key is no longer known to the service, the tools create a new one once and retry.
 
@@ -161,5 +161,5 @@ jr.open_path(result["files"][0])
 ```
 
 `render()` uploads (or reuses) the file, submits, waits and downloads; `BackgroundRender` does the
-same in a thread for UIs. Errors are `JRError(code, message, status)`; a 429 `quota_exceeded`
-carries `extra["resets_at_iso"]`.
+same in a thread for UIs. Errors are `JRError(code, message, status)`; a 402 `payment_required`
+carries `extra["checkout_url"]`, the top-up page to show the user.

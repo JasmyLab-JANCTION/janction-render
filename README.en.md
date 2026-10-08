@@ -135,10 +135,10 @@ remote connector: paste it on the connect page.
 |---|---|
 | `scene_info(scene_script | scene_url | scene_path | scene_id, assets?)` | cameras, frame range, fps, resolution, objects, lights, missing files. No render. |
 | `render_preview(..., frames="1-24", environment?, blender?)` | up to 4 frames (720p budget) tiled with frame labels; returns the image inline |
-| `render_estimate(scene_id, frame_start, frame_end, width, height, samples)` | GPU seconds, queue wait, "about N minutes", fits today's free quota? No GPU time used |
+| `render_estimate(scene_id, frame_start, frame_end, width, height, samples)` | GPU seconds, queue wait, "about N minutes", fits the free GPU time left? No GPU time used |
 | `render_final(scene_id, frame_start, frame_end, width, height, samples, fps, output, environment?, blender?, engine?, transparent?, notify_url?)` | frames (png / exr) or video (mp4 / webm / prores / gif / webp); `transparent=True` keeps an alpha background (png / exr / webm / gif / webp); `notify_url` gets one JSON POST when the job finishes; returns job_id + estimate |
 | `render_status(job_id)` | progress and ETA (`eta.human`); `render_download(job_id, only="mp4" / "frames" / "all")` files or links; `render_cancel(job_id)` |
-| `billing()` | today's free GPU time (used, daily amount, reset time), the credit and a top-up link |
+| `billing()` | the free GPU time left (the welcome credit, then the free preview minutes today), the credit, a top-up link, and the auto top-up and monthly plan status |
 | `render_share(job_id, title?, note?, include_script?, listed?)` | a public page `/r/<id>` with the image or video, the conditions and (optionally) the script; survives the 24-hour expiry until `render_unshare`; with `listed=True` it appears in `/gallery` after a review |
 | `asset_search(query, kind)` | CC0 models / textures / HDRIs on Poly Haven by words; results carry `polyhaven:<id>` and the entry file |
 | `render_info()` | workers online or gated (GPU lent to another workload), queue, expected wait, supported inputs, environment presets, Blender versions |
@@ -175,7 +175,7 @@ POST /v1/billing/checkout {amount_yen} -> {checkout_url}   POST /v1/billing/sync
 GET  /openapi.json  /llms.txt  /llms-full.txt  /ja/llms.txt  /facts.json  /version.json  /capabilities.json  /pricing.json  /status.json
 ```
 
-A job that goes past today's free GPU time without enough credit gets `402 payment_required` with `checkout_url` (show it to the
+A job that goes past the free GPU time without enough credit gets `402 payment_required` with `checkout_url` (show it to the
 user), `topup_yen` and how much of the job the free time covers; a `400 beta_limit` means the job is too big (split it). Every API
 error carries `retryable`, `possible_fix` and `docs_url`; a failed job carries `failure` with a code and the recommended action.
 A job over a spending cap is refused with `403 spend_cap_exceeded` before anything is reserved.

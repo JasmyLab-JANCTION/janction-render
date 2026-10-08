@@ -6,7 +6,7 @@ alwaysApply: false
 
 # JANCTION Render: cloud GPU rendering for Blender from Cursor
 
-JANCTION Render is a cloud GPU render farm for Blender that AI agents call as an MCP server. Send a .blend file, a bpy script or a 3D file, preview in seconds, and get frames or an MP4 back from NVIDIA GPUs. No local Blender or GPU is needed. 10 free GPU-minutes a day, then 0.1 JPY per GPU-second; operated by JasmyLab Inc.
+JANCTION Render is a cloud GPU render farm for Blender that AI agents call as an MCP server. Send a .blend file, a bpy script or a 3D file, preview in seconds, and get frames or an MP4 back from NVIDIA GPUs. No local Blender or GPU is needed. A 500 JPY welcome credit per new key, then 0.1 JPY per GPU-second (previews free up to 2 GPU-minutes a day); operated by JasmyLab Inc.
 
 ## Setup (once per project or user)
 
@@ -25,7 +25,7 @@ Add the remote server to `.cursor/mcp.json` (project) or `~/.cursor/mcp.json` (u
 1. `scene_info` first: it reads cameras, frame range and missing files without rendering.
 2. `render_preview`: 1 to 4 frames tiled in one image, a few GPU seconds. Look at it, fix the scene, repeat.
 3. Ask the user "is this OK?" before anything bigger.
-4. `render_estimate` when the job is longer than about 24 frames, above 720p, or the user asked how long it takes. Tell the user `estimate.human` and whether it fits today's free quota.
+4. `render_estimate` when the job is longer than about 24 frames, above 720p, or the user asked how long it takes. Tell the user `estimate.human` and whether it fits the free GPU time left.
 5. `render_final` for frames (png / exr) or a video (mp4 / webm / prores). Then `render_status` until done, then `render_download` (links valid about 24 hours).
 
 Rules: always preview before a final render. Poll `render_status`, not `render_download`. If `eta` says the GPU is lent out, stop polling and tell the user the estimated wait. Report `eta.human` when a render starts.
@@ -36,6 +36,6 @@ Scripts should set up the scene, camera and frame range only; the server sets th
 
 ## Limits and price
 
-10 free GPU-minutes per API key per day; beyond that 0.1 JPY per GPU-second from prepaid credit (https://render.janction.jp/pricing). Tell the user the price from render_estimate before going past the free time. Up to 240 frames at 1080p per job. Inputs and results are deleted 24 hours after last use and are never used for training.
+Each new API key starts with a 500 JPY welcome credit (14 days); after that, previews are free up to 2 GPU-minutes a day and finals cost 0.1 JPY per GPU-second from prepaid credit (https://render.janction.jp/pricing). Tell the user the price from render_estimate before going past the free time. Up to 240 frames at 1080p per job. Inputs and results are deleted 24 hours after last use and are never used for training.
 
 More: https://render.janction.jp/cursor-blender and https://render.janction.jp/llms.txt

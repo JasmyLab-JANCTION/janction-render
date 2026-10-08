@@ -2,14 +2,14 @@
 
 A Blender extension (Blender 4.2 or newer) that renders the open .blend file on
 JANCTION cloud GPUs from the Render properties. It needs no local GPU and no
-sign-up: a key is created with one click, with 10 free GPU-minutes a day.
+sign-up: a key is created with one click and starts with a 500 JPY welcome credit.
 
 What it does:
 
 - Preview: renders up to 4 frames of the scene frame range as one sheet (2x2,
   up to 1280x720, low samples) and shows it in an Image Editor.
 - Estimate: asks the server how long the final render would take and whether it
-  fits today's free quota.
+  fits the free GPU time left.
 - Final render: renders the scene frame range as an MP4 or as PNG frames and
   saves the result next to the .blend.
 
@@ -46,14 +46,16 @@ The panel is in Properties > Render > JANCTION Render.
 
 The service has no accounts. Press "Get a free key" in the panel or in the
 add-on preferences: the add-on calls `POST /v1/keys`, stores the key in the
-add-on preferences (shown as a password field) and shows today's remaining free
-GPU minutes. The key is saved with your Blender preferences, so it survives
-restarts. Anyone with the key can use its quota; treat it like a password. To
+add-on preferences (shown as a password field) and shows the free credit
+left. The key is saved with your Blender preferences, so it survives
+restarts. Anyone with the key can use its free credit and balance; treat it like a password. To
 start over, clear the field and press the button again.
 
-Each key gets 10 free GPU-minutes per day (20 per network); the counter resets
-at 00:00 UTC and the panel shows the minutes left. GPU time beyond that costs
-0.1 JPY per GPU-second from prepaid credit (https://render.janction.jp/pricing).
+Each new key starts with a 500 JPY welcome credit (14 days) for previews and
+finals; after that, previews are free up to 2 GPU-minutes a day (reset at 00:00
+UTC) and finals cost 0.1 JPY per GPU-second from prepaid credit
+(https://render.janction.jp/pricing). The panel shows the welcome credit left,
+then the free preview minutes left today.
 When a render goes past the free time without enough credit, the panel shows
 Open top-up page (Stripe Checkout in the browser); pay there and press the button again.
 
@@ -102,8 +104,9 @@ An unsaved file uses a temporary folder; the path is shown in the panel.
 - "No API key": open the preferences (or the panel) and press "Get a free key".
 - "cannot reach render.janction.jp": no internet, a proxy, or a firewall. The
   add-on uses Blender's bundled Python and plain HTTPS on port 443.
-- "Daily free quota used up; resets at ...": wait for the reset or use another
-  key on another network.
+- A top-up message with an "Open top-up page" button: the render needs more than
+  the free GPU time and the credit left. Pay on the Stripe page in the browser,
+  then press the same button again.
 - Textures are pink in the result: the image was not sent. Check the warnings
   in the Info editor (Scripting workspace); make paths relative (File >
   External Data > Make Paths Relative) or pack the images.
