@@ -14,7 +14,7 @@ The live, per-version list is at https://render.janction.jp/changelog (Atom: htt
 - Welcome credit: each new key starts with 500 JPY of free GPU time (5,000 GPU-seconds) for 14 days, covering previews and finals; one full credit per network every 30 days, further keys from the same network get 100 JPY. Keys that already existed get the same 500 JPY for 14 days from the switch. After the welcome credit is used up or expires, previews stay free up to 2 GPU-minutes a day and finals cost 0.1 JPY per GPU-second from prepaid credit; the first top-up during the 14 days counts 1.5x (bonus up to 500 JPY). This replaces the 10 free GPU-minutes a day.
 - Top-ups: from 500 JPY, with a bonus on larger amounts (2,000 JPY gives 2,200 JPY of credit, 5,000 gives 5,750, 10,000 gives 12,000); the first top-up in the welcome period counts 1.5x with the bonus capped at 500 JPY, and the larger of the two bonuses applies. The payment page says how much credit you get, `402 payment_required` lists the options (`topup_options`, `topup_credit_yen`) and `GET /v1/pricing` has them under `topup`. The planned monthly plans (Starter, Pro, Scale) are withdrawn.
 - `billing()` (remote and stdio) returns the welcome balance and expiry and says when it is running out; `402 payment_required` and estimates carry the welcome balance; the stdio package's instructions, the Blender add-on 0.1.3 and the Maya / Houdini / Cinema 4D tools describe the welcome credit.
-- Service: Cycles renders, scene reads and tasks also run inside gVisor (a second isolation layer); EEVEE renders not yet.
+- Service: a second isolation layer (gVisor) added to the render sandbox.
 - Service: when Blender 5.0's importer fails on an uploaded 3D file and the job did not ask for a Blender version, the same chunk is retried once with Blender 5.2 (`params.blender_auto` says so); if 5.2 fails too, the failure says to re-export the file. Importer crashes are reported as `IMPORTER_ERROR` instead of a script error.
 - Service: a refund made on Stripe (`charge.refunded`) takes the refunded amount back out of the key's credit once, matched to the payment by its PaymentIntent; credit already spent on renders cannot be taken back and is reported to the operator. `tools/stripe_check.py --sync-events` adds the refund event to an existing webhook.
 - Service: `billing()` on the remote MCP checks the key's open checkouts with Stripe and credits paid ones, so a payment counts even when the webhook is late; job results carry `cost.free_gpu_seconds` (the part covered by the free daily time); the payment page tells chat users (Claude, ChatGPT) to go back to their agent; the operator gets a Slack line per credited payment and a billing line in the daily report.
@@ -90,7 +90,7 @@ The live, per-version list is at https://render.janction.jp/changelog (Atom: htt
 - Several cameras in one job: `cameras=['Front','Top','Iso']` (up to 8) renders the same frame from each named camera. A preview tiles them in one labeled sheet; a final returns one PNG/EXR per camera and `camera_files` maps names to files. For product shots from fixed angles instead of one job per camera.
 - After every finished preview the tools return `final_estimate` (how long the same scene takes as a 1080p final) and `quota_left_today`; the `next` hint says whether it fits today's free quota.
 - Source of a key is recorded: add `?src=<listing>` to the MCP URL (`https://render.janction.jp/mcp?src=smithery`), pass `source` to `POST /v1/keys`, or let the OAuth `resource` carry it. It appears in `jobs.jsonl` and in the scorecard (`by_source`).
-- Consent page: optional email (quota notices and new features only). Operators can raise one key's daily free quota (`tools/keys_admin.py set-quota`).
+- Consent page: optional email (quota notices and new features only). Operators can raise one key's daily free quota.
 - stdio MCP: `scene_url` (an https link, e.g. the sample cube scene) like the remote tools; `POST /v1/files/url` for the HTTP API; the instructions suggest a first call with the sample scene and `environment='compare'`.
 - Tool definitions: every parameter has a description; the stdio tools carry annotations (read-only / destructive / idempotent) like the remote server.
 - Site: share pages show the MCP URL; the BlendSwap comparison states that both services offer a public MCP; the old repository path was removed from `facts.json`; operator probes and directory health checks are excluded from the scorecard.
@@ -114,7 +114,7 @@ The live, per-version list is at https://render.janction.jp/changelog (Atom: htt
 
 ## 0.4.15 (2026-10-02)
 
-- External security review closed: worker file-read bypass closed (read-only root filesystem, loader restrictions), `notify_url` validated at submission, dynamic client registration limited per origin, client names sanitised.
+- External security review closed: every finding fixed and re-tested.
 
 ## 0.4.10 - 0.4.14 (2026-10-02)
 
@@ -123,7 +123,7 @@ The live, per-version list is at https://render.janction.jp/changelog (Atom: htt
 
 ## 0.4.9 (2026-10-01)
 
-- HTTPS enforced (HSTS); key issuance limited per network (IPv6 /64); internal host names removed from health; package author JasmyLab Inc.
+- HTTPS enforced (HSTS); key issuance rate-limited; internal host names removed from health; package author JasmyLab Inc.
 
 ## 0.4.2 (2026-10-01)
 
