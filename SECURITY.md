@@ -15,7 +15,7 @@ Please test only against resources you control: your own API keys, your own uplo
 
 ## What we already do
 
-The current isolation model, rate limits, data retention and the summary of the external review (2026-10-01 and 10-02) are described at https://render.janction.jp/security . Known remaining item before paid keys: a second isolation layer (AppArmor or gVisor) for the render containers.
+The current isolation model, rate limits, data retention and the summary of the external review (2026-10-01 and 10-02) are described at https://render.janction.jp/security . Since 2026-10-08 Cycles renders also run inside gVisor (a second isolation layer); EEVEE renders do not run in gVisor yet.
 
 ## Supported versions
 
