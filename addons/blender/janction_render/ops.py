@@ -46,12 +46,12 @@ def preview_frames(start: int, end: int, current: int, count: int = 4) -> list[i
 
 
 def payment_text(extra: dict) -> str:
-    """The panel line for a 402: the render goes past today's free GPU time and needs prepaid credit."""
+    """The panel line for a 402: the render goes past the free GPU time and needs prepaid credit."""
     need = extra.get("needed_yen")
     topup = extra.get("topup_yen")
     if need:
-        return f"Past today's free GPU time: needs {need} JPY of credit (top up from {topup or need} JPY)"
-    return "Past today's free GPU time: top up credit to render this"
+        return f"Past the free GPU time: needs {need} JPY of credit (top up from {topup or need} JPY)"
+    return "Past the free GPU time: top up credit to render this"
 
 
 def fit_pixels(width: int, height: int, max_pixels: int = FREE_MAX_PIXELS) -> tuple[int, int]:
@@ -448,7 +448,7 @@ class JR_OT_final(bpy.types.Operator):
 
 
 class JR_OT_estimate(bpy.types.Operator):
-    """Ask the server how long the final render would take and whether it fits today's free quota"""
+    """Ask the server how long the final render would take and whether it fits the free GPU time left"""
     bl_idname = "jr.estimate"
     bl_label = "Estimate"
     bl_options = {'REGISTER'}

@@ -69,7 +69,7 @@ def fail(message: str, warnings: Optional[list[str]] = None) -> None:
 
 
 def need_payment(message: str, checkout_url: str) -> None:
-    """A 402: the job goes past today's free GPU time and the credit is short. The panel then offers the top-up page."""
+    """A 402: the job goes past the free GPU time and the credit is short. The panel then offers the top-up page."""
     with _LOCK:
         _STATE["phase"] = "failed"
         _STATE["message"] = message

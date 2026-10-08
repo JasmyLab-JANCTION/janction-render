@@ -1,7 +1,7 @@
 schema_version = "1.0.0"
 
 id = "janction_render"
-version = "0.1.3"
+version = "0.1.4"
 name = "JANCTION Render"
 tagline = "Render this file on JANCTION cloud GPUs (new keys start free)"
 maintainer = "JasmyLab"

@@ -5,7 +5,7 @@ so every import inside the package is relative. The manifest
 (blender_manifest.toml) carries the metadata; there is no bl_info.
 """
 
-__version__ = "0.1.3"
+__version__ = "0.1.4"
 
 if "bpy" in locals():  # reload (F3 > Reload Scripts) picks up edited modules
     import importlib

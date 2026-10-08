@@ -447,7 +447,7 @@ def health(conn: Optional[Connection] = None, server: Optional[str] = None) -> D
 
 
 def me(conn: Optional[Connection] = None) -> Dict[str, Any]:
-    """GET /v1/me: today's free quota for this key."""
+    """GET /v1/me: the free GPU time left and the credit for this key."""
     return _json(conn or connect(), "GET", "/v1/me")
 
 

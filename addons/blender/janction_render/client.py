@@ -15,7 +15,7 @@ import uuid
 from pathlib import Path
 from typing import Any, Callable, Iterable, Optional, Sequence
 
-VERSION = "0.1.3"
+VERSION = "0.1.4"
 USER_AGENT = f"janction-render-blender/{VERSION}"
 CLIENT_NAME = f"blender {VERSION}"
 DEFAULT_SERVER = "https://render.janction.jp"
@@ -267,7 +267,7 @@ class Client:
         return out
 
     def me(self) -> dict[str, Any]:
-        """GET /v1/me: usage and today's free quota for this key."""
+        """GET /v1/me: usage, the free GPU time left and the credit for this key."""
         return self._json("GET", "/v1/me", timeout=15)
 
     def health(self) -> dict[str, Any]:
