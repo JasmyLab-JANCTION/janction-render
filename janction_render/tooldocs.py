@@ -22,7 +22,7 @@ from typing import Any
 SAMPLE_URL = "https://render.janction.jp/samples/cube_scene.py"
 SITE = "https://render.janction.jp"
 
-TOOL_ORDER = ("render_preview", "render_final", "render_download", "render_status", "scene_info", "render_estimate",
+TOOL_ORDER = ("render_preview", "render_final", "render_review", "render_download", "render_status", "scene_info", "render_estimate",
               "render_info", "asset_search", "render_share", "render_unshare", "render_cancel", "billing")
 
 # 上限（billing の既定値と同じ。tests/test_tooldocs.py が突き合わせる。stdio は手元で動くので受付の設定を読めない）
@@ -191,7 +191,23 @@ def descriptions(flavor: str, wait_cap_s: int = 50) -> dict[str, str]:
         "it, jr_assets.world_hdri('<id>', strength=1.0) lights the world. 'polyhaven:<id>@2k' fetches 2k textures (1k by "
         "default).")
     return {"render_preview": preview, "render_final": final, "scene_info": scene_info, "render_estimate": estimate,
-            "render_status": status, "render_download": download, "asset_search": assets}
+            "render_status": status, "render_download": download, "asset_search": assets,
+            "render_review": review_description(flavor)}
+
+
+def review_description(flavor: str) -> str:
+    """render_review の説明（10/9）。リモートは審査中は出さない（JR_REVIEW_TOOL=1 のときだけ登録）ので、stdio と同じ新しい文面を使う。"""
+    given = ("scene_script, scene_url or scene_id" if flavor == "remote" else "scene_path, scene_script, scene_url or scene_id")
+    return (
+        "Check a 3D model or a generated Blender scene by looking at it from 4 sides: a turntable preview (0, 90, 180 and 270 "
+        "degrees) under neutral studio light on a cloud GPU, back with pass / warning / fail, a score, the checks it ran "
+        "(texture files found, objects visible and not hidden behind a floor or wall, camera not inside an object, framing, "
+        "exposure, light) with fix code for each problem, and the 4 views tiled in one image. Typical requests: 'check this "
+        "model', 'does the scene look right', 'QA this GLB', 'モデルを確認して', '見た目をチェックして'. Use it after writing a "
+        "bpy script, generating or converting a model (.glb/.gltf/.fbx/.usd/.obj/.stl/.ply/.abc) or changing materials, before "
+        "showing the result to the user or rendering a final; apply the fixes and call it again. The checks cannot judge "
+        "whether the shape matches the request: look at the views for that. It costs the same as one preview. To check a shot "
+        f"through the scene's own camera and lights, use render_preview (its critic runs the same checks). Give the scene as {given}.")
 
 
 # ------------------------------------------------------------------ 引数の説明
@@ -225,6 +241,7 @@ def param_docs(flavor: str, wait_cap_s: int = 50) -> dict[str, str]:
         "samples": "Cycles samples per pixel (preview: up to 32, default 16; final: default 128).",
         "out_dir": "Local folder to save the files in (default ~/janction-render/<job_id>).",
         "environment": "Lighting preset: '' (the scene's own world), 'studio', 'sunset', 'overcast' or 'night' (bundled HDRIs; a good first render for scenes without lighting work), or 'compare' (preview only: all four in one labeled 2x2 image, to pick one).",
+        "environment_review": "Light for the review: 'studio' (default; the same neutral light every time), 'sunset', 'overcast', 'night', or '' for the scene's own lights.",
         "environment_strength": "Multiplier for the HDRI preset's brightness (default 1.0).",
         "environment_visible": "False hides the HDRI from the camera (flat grey backdrop, HDRI lighting only).",
         "orbit": "True: turntable; an orbit camera circles the scene once (the scene's own camera is not used). Flat floors and walls are ignored when framing. A preview without frames shows 0/90/180/270 degrees; a final without frame_end renders the whole turn as an MP4. Best for imported models and product videos.",
@@ -256,7 +273,7 @@ def param_docs(flavor: str, wait_cap_s: int = 50) -> dict[str, str]:
 
 
 # 道具ごとに引数の名前と説明の鍵が違うもの
-PARAM_ALIAS = {("asset_search", "kind"): "kind_assets"}
+PARAM_ALIAS = {("asset_search", "kind"): "kind_assets", ("render_review", "environment"): "environment_review"}
 
 
 # ------------------------------------------------------------------ 当てはめ

@@ -29,7 +29,7 @@ except ImportError:  # mcp 1.x
     from mcp.server.fastmcp import FastMCP as MCPServer, Image  # type: ignore
 from mcp.types import ToolAnnotations
 
-from janction_render.brief import plan_fields, welcome_billing
+from janction_render.brief import plan_fields, review_reply, scene_next, welcome_billing
 from janction_render.brief import brief as _brief, estimate_brief, final_body_after_preview, followup_after_preview, \
     next_after_preview, trim
 from janction_render.client import Client, ClientError, parse_frames
@@ -138,6 +138,7 @@ P: dict[str, str] = {
     "samples": "Cycles samples per pixel (preview: up to 32, default 16; final: default 128).",
     "out_dir": "Local folder to save the files in (default ~/janction-render/<job_id>).",
     "environment": "Lighting preset: '' (scene's own world), 'studio', 'sunset', 'overcast', 'night', or 'compare' (preview only: all four in one 2x2 image).",
+    "environment_review": "Light for the review: 'studio' (default; the same neutral light every time), 'sunset', 'overcast', 'night', or '' for the scene's own lights.",
     "environment_strength": "Multiplier for the HDRI preset's brightness (default 1.0).",
     "environment_visible": "False hides the HDRI from the camera (flat grey backdrop, lighting only).",
     "orbit": "True: turntable; an orbit camera circles the scene once (the scene's own camera is not used).",
@@ -379,6 +380,7 @@ def scene_info(scene_path: Annotated[str, D("scene_path", "")] = "",
                         "pack them into the .blend (File > External Data > Pack) or fix the paths")
     if isinstance(info.get("object_names"), list):
         info["object_names"] = trim(info["object_names"], 30)
+    info.update(scene_next(info))          # 次の一手: シーンの縦横比に合わせた試し描き（10/9）
     return _j(_attach_upload_notes(info))
 
 
@@ -480,6 +482,52 @@ def render_preview(
                                        critic=j.get("critic"))
     _attach_upload_notes(brief)
     result: list[Any] = [_j(brief)]
+    if show is not None:
+        result.append(Image(data=show.read_bytes(), format="png"))
+    return result
+
+
+@mcp.tool(annotations=_ann(WRITE, "Review a 3D model or scene"), structured_output=False, meta=_ui_meta(),
+          description=tooldocs.review_description("stdio"))
+def render_review(
+    scene_path: Annotated[str, D("scene_path", "")] = "",
+    scene_id: Annotated[str, D("scene_id", "")] = "",
+    scene_script: Annotated[str, D("scene_script", "")] = "",
+    scene_url: Annotated[str, D("scene_url", "")] = "",
+    assets: Annotated[Optional[list[str]], D("assets", None)] = None,
+    environment: Annotated[str, D("environment_review", "studio")] = "studio",
+    orbit_elevation: Annotated[float, D("orbit_elevation", 18.0)] = 18.0,
+    orbit_target: Annotated[str, D("orbit_target", "")] = "",
+    orbit_distance: Annotated[float, D("orbit_distance", 1.0)] = 1.0,
+    blender: Annotated[str, D("blender", "")] = "",
+    out_dir: Annotated[str, D("out_dir", "")] = "",
+) -> list[Any]:
+    """Check a 3D model or a generated Blender scene from 4 sides: pass / warning / fail. (full description on the tool)."""
+    c = _client()
+    try:
+        sid = _resolve_scene(c, scene_path, scene_id, scene_script, assets, scene_url=scene_url)
+        j = c.submit(sid, kind="preview", review=True, orbit=True, orbit_elevation=orbit_elevation,
+                     orbit_target=orbit_target or None, orbit_distance=orbit_distance,
+                     environment=environment or "", blender=blender or None)
+        _log(f"review job {j['job_id']} submitted")
+        j = _wait_unless_gated(c, j, PREVIEW_WAIT_S)
+    except ClientError as exc:
+        block = _payment_block(exc) or _quota_block(exc)
+        return [_j(block if block else {"ok": False, "error": str(exc)})]
+    except (ValueError, FileNotFoundError) as exc:
+        return [_j({"ok": False, "error": str(exc)})]
+    if j["status"] != "done":
+        b = _brief(j)
+        b["hint"] = ((_gated_hint(j, "render_status(job_id)") or "still running: call render_status(job_id) and then render_download")
+                     if j["status"] in ("queued", "running") else "fix the scene and try again")
+        return [_j(b)]
+    out = Path(out_dir) if out_dir else _out_root() / j["job_id"]
+    paths = c.download(j["job_id"], out)
+    show = next((p for p in paths if p.name == "sheet.png"), None) or next((p for p in paths if p.suffix == ".png"), None)
+    reply = review_reply(j, _preview_followup(c, j))
+    reply["files"] = [str(p) for p in paths]
+    _attach_upload_notes(reply)
+    result: list[Any] = [_j(reply)]
     if show is not None:
         result.append(Image(data=show.read_bytes(), format="png"))
     return result

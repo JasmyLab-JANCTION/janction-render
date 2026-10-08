@@ -2,7 +2,7 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.JasmyLab-JANCTION/janction-render",
   "description": "Blender cloud GPU render farm for AI agents (MCP/API): .blend, bpy, glTF/FBX/USD in; frames/MP4 out",
-  "version": "0.4.27",
+  "version": "0.4.28",
   "websiteUrl": "https://render.janction.jp",
   "repository": {
     "url": "https://github.com/JasmyLab-JANCTION/janction-render",
@@ -12,7 +12,7 @@
     {
       "registryType": "pypi",
       "identifier": "janction-render",
-      "version": "0.4.27",
+      "version": "0.4.28",
       "runtimeHint": "uvx",
       "transport": {
         "type": "stdio"

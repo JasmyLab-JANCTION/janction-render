@@ -135,6 +135,7 @@ remote connector: paste it on the connect page.
 |---|---|
 | `scene_info(scene_script | scene_url | scene_path | scene_id, assets?)` | cameras, frame range, fps, resolution, objects, lights, missing files. No render. |
 | `render_preview(..., frames="1-24", environment?, blender?)` | up to 4 frames (720p budget) tiled with frame labels; returns the image inline |
+| `render_review(scene_path / scene_script / scene_url / scene_id, environment="studio")` | checks a 3D model or a generated scene from 4 sides (0/90/180/270 degrees) under studio light: pass / warning / fail, a score, the checks it ran (files, visibility, framing, exposure, lighting) with fix code, and the 4 views in one image. Stdio server; same GPU time as one preview |
 | `render_estimate(scene_id, frame_start, frame_end, width, height, samples)` | GPU seconds, queue wait, "about N minutes", fits the free GPU time left? No GPU time used |
 | `render_final(scene_id, frame_start, frame_end, width, height, samples, fps, output, environment?, blender?, engine?, transparent?, notify_url?)` | frames (png / exr) or video (mp4 / webm / prores / gif / webp); `transparent=True` keeps an alpha background (png / exr / webm / gif / webp); `notify_url` gets one JSON POST when the job finishes; returns job_id + estimate |
 | `render_status(job_id)` | progress and ETA (`eta.human`); `render_download(job_id, only="mp4" / "frames" / "all")` files or links; `render_cancel(job_id)` |

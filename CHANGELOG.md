@@ -2,6 +2,13 @@
 
 The live, per-version list is at https://render.janction.jp/changelog (Atom: https://render.janction.jp/changelog.xml). Versions are the PyPI releases of `janction-render`; the hosted service follows the same numbers.
 
+## 0.4.28 (2026-10-09)
+
+- render_review, a new tool in the stdio MCP server: it checks a 3D model or a generated scene from 4 sides (0, 90, 180 and 270 degrees) under studio light and returns pass / warning / fail, a score, the checks it ran with fix code, and the 4 views in one image. Over HTTP: POST /v1/jobs with kind=preview and review=true. The hosted MCP server (/mcp) gets it in a later update.
+- Previews catch two more problems: image files that cannot be found (they render black or pink) and objects hidden behind a floor, wall or backdrop. Both come back as fix in the critic with the code to fix them, and the suggested camera now also turns the camera toward the objects.
+- jr_assets.frame_camera() no longer moves a camera left at the origin under the objects to below the floor; it gets a 3/4 view from above.
+- scene_info returns next and preview_args: a render_preview call sized to the scene's shape (a vertical 1080x1920 scene gets a 404x720 preview instead of the default 1280x720), four frames for an animation, a studio light for a scene with no light.
+
 ## 0.4.27 (2026-10-09)
 
 - The package description, the plugins and the listings lead with what is free: up to 500 JPY of GPU time per new key (the welcome credit), then 0.1 JPY per GPU-second. The old "10 free GPU-minutes a day" wording is gone from the package files.

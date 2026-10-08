@@ -127,22 +127,105 @@ def critic_next(critic: dict[str, Any] | None) -> str:
     return f"{head}: {first.get('message')}. Fix: {first.get('fix')}. Apply it and preview again before any final render. "
 
 
+PREVIEW_MAX_W, PREVIEW_MAX_H = 1280, 720
+
+
+def scene_next(info: dict[str, Any]) -> dict[str, Any]:
+    """scene_info の次の一手（10/9）: 試し描きで絵を見る引数を、シーンに合わせて組んで渡す。
+    本番 10/8 18:45: Claude の利用者が scene_info を 5 回呼び、縦長（1080x1920）のシーンを育てたまま 1 枚も描かずに止まった。
+    返事に次の一手が無く、しかも試し描きは何も言わなければ横長 1280x720 になる。縦横比は試し描きの上限の中でシーンに合わせる。"""
+    sid = info.get("scene_id")
+    args: dict[str, Any] = {"scene_id": sid}
+    res = info.get("resolution") or []
+    shape = ""
+    try:
+        w, h = int(res[0]), int(res[1])
+    except (IndexError, TypeError, ValueError):
+        w = h = 0
+    if w > 0 and h > 0:
+        scale = min(PREVIEW_MAX_W / w, PREVIEW_MAX_H / h, 1.0)
+        pw, ph = max(16, int(w * scale) // 2 * 2), max(16, int(h * scale) // 2 * 2)
+        if (pw, ph) != (PREVIEW_MAX_W, PREVIEW_MAX_H):
+            args["width"], args["height"] = pw, ph
+            shape = f" (sized {pw}x{ph} to keep the scene's {w}x{h} shape; the default preview is 1280x720)"
+    cams = [c.get("name") for c in (info.get("cameras") or []) if isinstance(c, dict) and c.get("name")]
+    if not info.get("active_camera") and cams:
+        args["camera"] = cams[0]
+    fs, fe = info.get("frame_start"), info.get("frame_end")
+    if isinstance(fs, int) and isinstance(fe, int):
+        if info.get("has_animation") and fe > fs:
+            step = (fe - fs) / 3.0
+            args["frames"] = ",".join(str(n) for n in sorted({fs, round(fs + step), round(fs + 2 * step), fe}))
+        elif fs != 1:
+            args["frames"] = str(fs)
+    if not info.get("lights") and not info.get("world"):
+        args["environment"] = "studio"       # 光も world も無いシーンは真っ黒になる
+    call = "render_preview(" + ", ".join(f"{k}={v!r}" for k, v in args.items()) + ")"
+    if info.get("missing_files"):
+        text = (f"fix the missing files first (see note), then {call} to see it")
+    else:
+        text = (f"see it before anything else: {call} returns the image in a few seconds with a critic verdict and fix code"
+                + shape)
+    if not cams:
+        text += "; the scene has no camera, so the preview uses an automatic one (add a camera or call jr_assets.frame_camera() to choose the view)"
+    return {"next": text, "preview_args": args}
+
+
 def next_after_preview(fu: dict[str, Any] | None, edit_hint: str, final_hint: str, critic: dict[str, Any] | None = None) -> str:
     """試し描きの next 文（10/7）。見積もりがあれば、仕上げの所要時間と枠の残りを 1 文足す。批評に直すものがあれば頭に置く（10/8）。"""
     text = critic_next(critic) + f"look at the image; if the scene needs changes, {edit_hint}; if it looks right, {final_hint}"
+    return text + final_estimate_text(fu)
+
+
+def final_estimate_text(fu: dict[str, Any] | None) -> str:
+    """「仕上げなら約 N 秒、今日の無料枠はあと M 秒」の 1 文（見積もりが無ければ空）。"""
     fe = (fu or {}).get("final_estimate") or {}
-    if fe.get("human") or fe.get("gpu_seconds") is not None:
-        text += (f". A final render of {fe.get('what')} at {fe.get('size')}/{fe.get('samples')} spp would take "
-                 f"{fe.get('human') or 'about ' + str(fe.get('gpu_seconds')) + ' s'} ({fe.get('gpu_seconds')} GPU s)")
-        left = fe.get("gpu_seconds_left_today")
-        if left is not None:
-            text += f"; {left} GPU s of today's free quota remain"
-            if fe.get("fits_today") is False:
-                text += " (it does not fit today: propose fewer frames, a smaller size, or waiting for the reset)"
-            else:
-                text += " (it fits)"
-        text += ". Tell the user this before asking"
-    return text
+    if not (fe.get("human") or fe.get("gpu_seconds") is not None):
+        return ""
+    text = (f". A final render of {fe.get('what')} at {fe.get('size')}/{fe.get('samples')} spp would take "
+            f"{fe.get('human') or 'about ' + str(fe.get('gpu_seconds')) + ' s'} ({fe.get('gpu_seconds')} GPU s)")
+    left = fe.get("gpu_seconds_left_today")
+    if left is not None:
+        text += f"; {left} GPU s of today's free quota remain"
+        if fe.get("fits_today") is False:
+            text += " (it does not fit today: propose fewer frames, a smaller size, or waiting for the reset)"
+        else:
+            text += " (it fits)"
+    return text + ". Tell the user this before asking"
+
+
+def review_reply(j: dict[str, Any], fu: dict[str, Any] | None = None) -> dict[str, Any]:
+    """render_review の返事（10/9）: 検査の結果を先頭に、仕事の要点、次の一手。stdio とリモートで同じ形。"""
+    r = dict(j.get("review") or {})
+    p = j.get("params") or {}
+    if r:
+        r["views"] = ("4 views around the objects: 0, 90, 180 and 270 degrees" if p.get("orbit")
+                      else "through the scene camera" if not p.get("cameras") else f"{len(p['cameras'])} scene cameras")
+        r["light"] = (f"{p['environment']} preset" if p.get("environment") and p.get("environment") != "compare"
+                      else "the scene's own lights")
+    out: dict[str, Any] = {"review": r or None}
+    out.update({k: v for k, v in brief(j).items() if k != "critic"})
+    if fu:
+        out.update(fu)
+    out["next"] = review_next(r, fu)
+    return out
+
+
+def review_next(r: dict[str, Any] | None, fu: dict[str, Any] | None = None) -> str:
+    if not r:
+        return "the review is missing (the preview finished without one); look at the image, or call render_review again"
+    issues = r.get("issues") or []
+    fixes = [i for i in issues if i.get("severity") == "fix"]
+    checks = [i for i in issues if i.get("severity") == "check"]
+    if r.get("result") == "fail" and fixes:
+        return (f"Failed: {fixes[0].get('message')}. Fix: {fixes[0].get('fix')}. Apply the fixes and call render_review again "
+                "before showing the user or rendering a final")
+    if r.get("result") == "warning" and checks:
+        return (f"Check: {checks[0].get('message')}. If it is not intended: {checks[0].get('fix')}, then call render_review again; "
+                "if it is intended, go on")
+    return ("Passed. Now look at the views yourself for what the checks cannot see (shape, proportions, colours and materials "
+            "against the request), then show the user; for a still or a video, render_final with the same scene_id"
+            + final_estimate_text(fu))
 
 
 def brief(j: dict[str, Any]) -> dict[str, Any]:
