@@ -1,6 +1,6 @@
 # Installing JANCTION Render (for AI agents and installers such as Cline)
 
-JANCTION Render is a cloud GPU render farm for Blender that AI agents call as an MCP server or HTTP API. No local Blender or GPU is needed. Each new key starts with a 500 JPY welcome credit (14 days); after that, previews stay free up to 2 GPU-minutes a day and finals cost 0.1 JPY per GPU-second from prepaid credit (optional auto top-up and monthly plans). A final render is up to 240 frames at 1080p.
+JANCTION Render is a cloud GPU render farm for Blender that AI agents call as an MCP server or HTTP API. No local Blender or GPU is needed. Each new key gets 500 JPY of GPU time free (welcome credit, 14 days); after that, previews stay free up to 2 GPU-minutes a day and finals cost 0.1 JPY per GPU-second from prepaid credit (optional auto top-up and monthly plans). A final render is up to 240 frames at 1080p.
 
 ## Option A: remote MCP (nothing to install)
 

@@ -30,7 +30,7 @@ Claude Desktop, Cursor and other clients (`mcpServers` in their JSON settings):
 ```
 
 The `[blend]` extra adds blender-asset-tracer, so a .blend is sent together with the textures it points to.
-JANCTION Render needs no sign-up: the first call creates a key. Each new key starts with a 500 JPY welcome credit (14 days);
+JANCTION Render needs no sign-up: the first call creates a key. Each new key gets 500 JPY of GPU time free (welcome credit, 14 days);
 after that, previews are free up to 2 GPU-minutes a day and finals cost 0.1 JPY per GPU-second from prepaid credit. A 720p preview usually takes 2 to 10 GPU-seconds.
 
 ## Two hand-offs

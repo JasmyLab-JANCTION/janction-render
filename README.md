@@ -8,7 +8,7 @@ JANCTION Render is a cloud GPU render farm for Blender that AI agents call as an
 file, a bpy script or a 3D file (glTF / FBX / USD), preview in seconds, and get frames or an MP4 back from JANCTION's
 NVIDIA GPUs. Every preview also returns a verdict on what is wrong, such as too dark, blown out, no light or an object
 out of frame, and the bpy code to fix it, so the agent can correct the scene before the final render. No local Blender
-or GPU is needed. A 500 JPY welcome credit per new key, then 0.1 JPY per GPU-second (previews free up to 2 GPU-minutes a day);
+or GPU is needed. Free up to 500 JPY of GPU time per new key, then 0.1 JPY per GPU-second (previews free up to 2 GPU-minutes a day);
 operated by JasmyLab Inc.
 
 AI agents can render Blender projects on JANCTION GPUs without running Blender locally. Works from **Claude, ChatGPT,
@@ -44,7 +44,7 @@ Official site: https://render.janction.jp · MCP endpoint: `https://render.janct
   errors with the fix, spending caps per key, safe retries with `Idempotency-Key`.
 - **3D files and turntables.** glTF / GLB, FBX, USD, OBJ, STL, PLY, Alembic are imported into an empty scene with a camera and
   HDRI lighting; `orbit=True` makes a turntable. Fixed-price outcomes: `POST /v1/outcomes/turntable` and `/product-shot`.
-- **Honest limits.** a 500 JPY welcome credit per new key (14 days), then 0.1 JPY per GPU-second (previews free up to 2 GPU-minutes a day), finals up to 240 frames at 1080p, one GPU shared with another
+- **Honest limits.** free up to 500 JPY of GPU time per new key (14 days), then 0.1 JPY per GPU-second (previews free up to 2 GPU-minutes a day), finals up to 240 frames at 1080p, one GPU shared with another
   workload (jobs can wait; the ETA says so). Inputs and results are deleted 24 hours after last use and never used for training.
 - **Not Render.com.** Same word, different product.
 

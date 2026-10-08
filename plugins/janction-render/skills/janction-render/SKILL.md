@@ -6,7 +6,7 @@ description: Render Blender scenes on JANCTION GPUs (a cloud render farm) when t
 # JANCTION Render
 
 The `janction-render` MCP server (remote, `https://render.janction.jp/mcp`) renders Blender scenes on JANCTION GPUs.
-Each new key starts with a 500 JPY welcome credit (14 days); after that, previews are free up to 2 GPU-minutes a day and finals cost 0.1 JPY per GPU-second from prepaid credit. Final renders go up to 240 frames at 1080p.
+Each new key gets 500 JPY of GPU time free (welcome credit, 14 days); after that, previews are free up to 2 GPU-minutes a day and finals cost 0.1 JPY per GPU-second from prepaid credit. Final renders go up to 240 frames at 1080p.
 Blender 5.0, Cycles on GPU.
 Inputs and results are deleted 24 hours after last use.
 

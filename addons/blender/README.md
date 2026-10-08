@@ -2,7 +2,7 @@
 
 A Blender extension (Blender 4.2 or newer) that renders the open .blend file on
 JANCTION cloud GPUs from the Render properties. It needs no local GPU and no
-sign-up: a key is created with one click and starts with a 500 JPY welcome credit.
+sign-up: a key is created with one click and comes with 500 JPY of GPU time free (welcome credit).
 
 What it does:
 
@@ -51,8 +51,8 @@ left. The key is saved with your Blender preferences, so it survives
 restarts. Anyone with the key can use its free credit and balance; treat it like a password. To
 start over, clear the field and press the button again.
 
-Each new key starts with a 500 JPY welcome credit (14 days) for previews and
-finals; after that, previews are free up to 2 GPU-minutes a day (reset at 00:00
+Each new key gets 500 JPY of GPU time free (welcome credit, 14 days) for
+previews and finals; after that, previews are free up to 2 GPU-minutes a day (reset at 00:00
 UTC) and finals cost 0.1 JPY per GPU-second from prepaid credit
 (https://render.janction.jp/pricing). The panel shows the welcome credit left,
 then the free preview minutes left today.

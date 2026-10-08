@@ -17,7 +17,7 @@ Blender's importers (USD Preview Surface, FBX Phong/PBR, OBJ/MTL); shader networ
 passes and renderer-specific nodes are not carried over. Lights rarely survive an export, so the
 tools light the scene with the `studio` HDRI preset by default.
 
-No sign-up: each new key starts with a 500 JPY welcome credit (14 days); after that, previews are free up to 2 GPU-minutes a day and finals cost 0.1 JPY per GPU-second from prepaid credit. Final renders go up to 240 frames and 1080p.
+No sign-up: each new key gets 500 JPY of GPU time free (welcome credit, 14 days); after that, previews are free up to 2 GPU-minutes a day and finals cost 0.1 JPY per GPU-second from prepaid credit. Final renders go up to 240 frames and 1080p.
 
 ## Files
 

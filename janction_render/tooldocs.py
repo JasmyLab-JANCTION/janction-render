@@ -69,9 +69,9 @@ _FIRST = f"FIRST CALL: render_preview(scene_url='{SAMPLE_URL}', environment='com
 def _free_offer(short: bool = False) -> str:
     """無料の形の 1 句（道具の説明で使う。short=True は指示文の LIMITS 用で、指示文を 1800 字に収める）。"""
     if free_model() == "welcome" and short:
-        return f"{WELCOME_YEN} JPY welcome credit per new key ({WELCOME_DAYS} days), then {YEN_PER_GPU_SECOND} JPY per GPU-second"
+        return f"free up to {WELCOME_YEN} JPY per new key ({WELCOME_DAYS} days), then {YEN_PER_GPU_SECOND} JPY per GPU-second"
     if free_model() == "welcome":
-        return (f"each new key starts with a {WELCOME_YEN} JPY welcome credit ({WELCOME_DAYS} days); after that, previews are "
+        return (f"each new key gets {WELCOME_YEN} JPY of GPU time free (welcome credit, {WELCOME_DAYS} days); after that, previews are "
                 f"free up to {FREE_PREVIEW_MINUTES_PER_DAY} GPU-minutes a day and finals cost {YEN_PER_GPU_SECOND} JPY per "
                 "GPU-second (prepaid)")
     return (f"{FREE_GPU_MINUTES_PER_KEY_PER_DAY} free GPU-minutes per key per day, then {YEN_PER_GPU_SECOND} JPY per "
