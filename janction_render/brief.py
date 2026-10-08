@@ -109,6 +109,8 @@ def followup_after_preview(est: dict[str, Any] | None, body: dict[str, Any] | No
     cost = est.get("cost") or {}
     if cost.get("list_price_yen") is not None:
         out["final_estimate"]["list_price_yen"] = cost["list_price_yen"]
+    if cost.get("estimated_yen") is not None:      # 有料モード: 無料枠を超えた分の見込み額（収まれば 0）
+        out["final_estimate"]["charge_yen"] = cost["estimated_yen"]
     return out
 
 

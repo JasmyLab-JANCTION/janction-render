@@ -8,16 +8,16 @@ JANCTION Render is a cloud GPU render farm for Blender that AI agents call as an
 file, a bpy script or a 3D file (glTF / FBX / USD), preview in seconds, and get frames or an MP4 back from JANCTION's
 NVIDIA GPUs. Every preview also returns a verdict on what is wrong, such as too dark, blown out, no light or an object
 out of frame, and the bpy code to fix it, so the agent can correct the scene before the final render. No local Blender
-or GPU is needed. Free beta, operated by JasmyLab Inc.
+or GPU is needed. 10 free GPU-minutes a day, then 0.1 JPY per GPU-second; operated by JasmyLab Inc.
 
 AI agents can render Blender projects on JANCTION GPUs without running Blender locally. Works from **Claude, ChatGPT,
 Claude Code, Codex, Cursor or any MCP client**: an MCP server (remote and stdio), an HTTP API and a CLI.
 
 JANCTION Render is a separate product from SmartRender (JasmyLab's distributed rendering for people at a desktop) and is
-not affiliated with Render.com or the Render Network. The numbers, as of 2026-10-07 (the primary source is
-https://render.janction.jp/facts.json): free beta, 10 GPU-minutes (600 GPU-seconds) per key per day, jobs up to 240 frames
-at 1080p, inputs and results deleted 24 hours after last use. The planned metered price is 0.1 JPY per GPU-second; it is not
-in force and will be announced on the changelog before it starts.
+not affiliated with Render.com or the Render Network. The numbers, as of 2026-10-08 (the primary source is
+https://render.janction.jp/facts.json): 10 free GPU-minutes (600 GPU-seconds) per key per day, then 0.1 JPY per
+GPU-second from prepaid credit (paid use started on 2026-10-08); jobs up to 240 frames at 1080p; inputs and results deleted
+24 hours after last use.
 
 Official site: https://render.janction.jp · MCP endpoint: `https://render.janction.jp/mcp` · Fact sheet: https://render.janction.jp/facts
 
@@ -43,7 +43,7 @@ Official site: https://render.janction.jp · MCP endpoint: `https://render.janct
   errors with the fix, spending caps per key, safe retries with `Idempotency-Key`.
 - **3D files and turntables.** glTF / GLB, FBX, USD, OBJ, STL, PLY, Alembic are imported into an empty scene with a camera and
   HDRI lighting; `orbit=True` makes a turntable. Fixed-price outcomes: `POST /v1/outcomes/turntable` and `/product-shot`.
-- **Honest limits.** Free beta: 10 GPU-minutes per key per day, finals up to 240 frames at 1080p, one GPU shared with another
+- **Honest limits.** 10 free GPU-minutes per key per day (then 0.1 JPY per GPU-second), finals up to 240 frames at 1080p, one GPU shared with another
   workload (jobs can wait; the ETA says so). Inputs and results are deleted 24 hours after last use and never used for training.
 - **Not Render.com.** Same word, different product.
 
@@ -174,10 +174,10 @@ POST /v1/billing/checkout {amount_yen} -> {checkout_url}   POST /v1/billing/sync
 GET  /openapi.json  /llms.txt  /llms-full.txt  /ja/llms.txt  /facts.json  /version.json  /capabilities.json  /pricing.json  /status.json
 ```
 
-During the free beta a `429 quota_exceeded` response carries `resets_at` and `Retry-After`; a `400 beta_limit` means the job is too big
-(split it). Every API error carries `retryable`, `possible_fix` and `docs_url`; a failed job carries `failure` with a code and the
-recommended action. Once paid plans start, a `402 payment_required` response carries `checkout_url`, and a job over a spending cap
-is refused with `403 spend_cap_exceeded` before anything is reserved.
+A job that goes past today's free GPU time without enough credit gets `402 payment_required` with `checkout_url` (show it to the
+user), `topup_yen` and how much of the job the free time covers; a `400 beta_limit` means the job is too big (split it). Every API
+error carries `retryable`, `possible_fix` and `docs_url`; a failed job carries `failure` with a code and the recommended action.
+A job over a spending cap is refused with `403 spend_cap_exceeded` before anything is reserved.
 
 ## Example
 
@@ -203,9 +203,10 @@ container with no network. More: `samples/cube_scene.py`, `samples/polyhaven_roo
 
 ## Pricing
 
-Free beta today: nothing is charged; 10 GPU-minutes per key per day, finals up to 240 frames at 1080p. The planned metered price is
-0.1 JPY per GPU-second (prepaid credit), with planned monthly plans; both are announced on https://render.janction.jp/pricing before
-they start. `POST /v1/estimate` quotes the amount, currency and an expiry before any GPU time is used.
+Every key gets 10 free GPU-minutes a day (20 per network); a job that fits them costs nothing. GPU time beyond that is 0.1 JPY per
+GPU-second from prepaid credit, bought by card at a Stripe Checkout page (from 500 JPY); only the part past the free time is
+charged. Finals go up to 240 frames at 1080p. `POST /v1/estimate` quotes what will be charged (`cost.estimated_yen`), the currency
+and an expiry before any GPU time is used. Monthly plans are planned, not on sale yet: https://render.janction.jp/pricing
 
 ## Docs
 

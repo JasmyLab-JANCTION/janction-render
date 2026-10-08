@@ -30,6 +30,7 @@ FREE_GPU_MINUTES_PER_KEY_PER_DAY = 10
 FREE_MAX_FRAMES = 240
 FREE_MAX_SIZE = "1920x1080"
 RETENTION_HOURS = 24
+YEN_PER_GPU_SECOND = 0.1      # 無料枠を超えた分の単価（10/8 から有料。billing.yen_per_gpu_second の既定値）
 
 
 def enabled(flavor: str) -> bool:
@@ -54,8 +55,9 @@ _WHEN = ("WHEN TO USE: the user asks to render, preview, animate or turntable a 
 _DONT = ("DO NOT USE: to edit a scene open in the user's Blender (a local Blender MCP does that); for one still image on a "
          "machine with its own NVIDIA GPU (rendering locally is faster); for non-Blender video or general GPU compute.")
 _FIRST = f"FIRST CALL: render_preview(scene_url='{SAMPLE_URL}', environment='compare') checks the connection in a few seconds."
-_LIMITS = (f"LIMITS (free beta): {FREE_GPU_MINUTES_PER_KEY_PER_DAY} GPU-minutes per key per day; up to {FREE_MAX_FRAMES} "
-           f"frames and {FREE_MAX_SIZE} per job; files are deleted {RETENTION_HOURS} hours after last use.")
+_LIMITS = (f"LIMITS: {FREE_GPU_MINUTES_PER_KEY_PER_DAY} free GPU-minutes per key per day, then {YEN_PER_GPU_SECOND} JPY per "
+           f"GPU-second (prepaid); up to {FREE_MAX_FRAMES} frames and {FREE_MAX_SIZE} per job; files are deleted "
+           f"{RETENTION_HOURS} hours after last use.")
 _SCRIPTS = ("SCRIPTS: Blender 5.0 API; build the scene, camera and frame range only (the service sets resolution, samples "
             "and the GPU). `import jr_assets; jr_assets.frame_camera()` fits every object in the frame.")
 _MORE = f"Examples with their bpy scripts: {SITE}/examples (pass any as scene_url). More: {SITE}/llms.txt"
@@ -70,7 +72,7 @@ def instructions(flavor: str) -> str:
                 "GPU is lent out, tell the user the wait instead of polling.")
         return " ".join([head, _WHEN, _DONT, _FIRST, flow, _LIMITS, _SCRIPTS, _MORE])
     head = ("JANCTION Render: Blender rendering on cloud GPUs for AI agents, from the terminal (no local GPU or Blender "
-            "needed; a free key is created on first use).")
+            "needed; a key is created on first use).")
     local = "LOCAL FILES: pass scene_path (a .blend, a .py or a 3D file); results are saved under ~/janction-render/<job_id>."
     flow = ("FLOW: render_preview (the image is saved and shown, plus a critic verdict with fix code; apply the fixes and "
             "preview again) -> ask the user -> render_estimate when the job is long or the quota is uncertain -> render_final "
@@ -113,8 +115,9 @@ def descriptions(flavor: str, wait_cap_s: int = 50) -> dict[str, str]:
            "Returns job_id and estimate.human at once; then render_status until done, and render_download(job_id, only='mp4') "
            "for the video. ")
         + _NOT_HERE + " Use the same environment and blender as the approved preview. "
-        f"Limits (free beta): up to {FREE_MAX_FRAMES} frames and {FREE_MAX_SIZE} per job, {FREE_GPU_MINUTES_PER_KEY_PER_DAY} "
-        f"GPU-minutes per key per day; files are deleted {RETENTION_HOURS} hours after last use. Options are explained on "
+        f"Limits: up to {FREE_MAX_FRAMES} frames and {FREE_MAX_SIZE} per job; {FREE_GPU_MINUTES_PER_KEY_PER_DAY} free GPU-minutes "
+        f"per key per day, beyond that {YEN_PER_GPU_SECOND} JPY per GPU-second from credit (ask the user first); files are "
+        f"deleted {RETENTION_HOURS} hours after last use. Options are explained on "
         "each parameter: output (png, exr, mp4, webm, prores, gif, webp), orbit=True for a turntable MP4, cameras for one "
         f"image per named camera, transparent, engine='eevee', notify_url for one POST when the job finishes, {a} with "
         "'polyhaven:<id>'. "
@@ -186,8 +189,8 @@ def param_docs(flavor: str, wait_cap_s: int = 50) -> dict[str, str]:
         "frames": "Preview frames: '' = frame 1; '12' = one frame; '1,8,16,24' or '1-24' = up to 4 frames tiled in one labeled image (to judge camera motion and animation; same GPU time as one 720p frame).",
         "camera": "Name of the camera object to render from (default: the scene's active camera, or an automatic camera if there is none). Ignored with orbit=True; not combinable with cameras.",
         "cameras": "Several camera object names (up to 8) rendered from the same frame in one job: the preview tiles them in one labeled sheet, the final returns one PNG/EXR per camera (camera_files maps names to files). For product shots from fixed angles. Not combinable with orbit, environment='compare' or camera.",
-        "width": "Output width in pixels (previews are capped at 1280x720 keeping the aspect ratio; during the free beta a final frame can have at most 1920x1080 pixels).",
-        "height": "Output height in pixels (previews are capped at 1280x720 keeping the aspect ratio; during the free beta a final frame can have at most 1920x1080 pixels).",
+        "width": "Output width in pixels (previews are capped at 1280x720 keeping the aspect ratio; a final frame can have at most 1920x1080 pixels).",
+        "height": "Output height in pixels (previews are capped at 1280x720 keeping the aspect ratio; a final frame can have at most 1920x1080 pixels).",
         "samples": "Cycles samples per pixel (preview: up to 32, default 16; final: default 128).",
         "out_dir": "Local folder to save the files in (default ~/janction-render/<job_id>).",
         "environment": "Lighting preset: '' (the scene's own world), 'studio', 'sunset', 'overcast' or 'night' (bundled HDRIs; a good first render for scenes without lighting work), or 'compare' (preview only: all four in one labeled 2x2 image, to pick one).",

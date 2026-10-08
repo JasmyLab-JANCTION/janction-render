@@ -6,7 +6,8 @@ description: Render Blender scenes on JANCTION GPUs (a cloud render farm) when t
 # JANCTION Render
 
 The `janction-render` MCP server (remote, `https://render.janction.jp/mcp`) renders Blender scenes on JANCTION GPUs.
-Free beta: 10 GPU-minutes per key per day, final renders up to 240 frames at 1080p. Blender 5.0, Cycles on GPU.
+10 free GPU-minutes per key per day, then 0.1 JPY per GPU-second from prepaid credit; final renders up to 240 frames at 1080p.
+Blender 5.0, Cycles on GPU.
 Inputs and results are deleted 24 hours after last use.
 
 If the tools are missing, the connector is not authenticated yet: run `/mcp` and choose janction-render, then press
@@ -32,7 +33,8 @@ Connect in the browser page (it creates a free key).
    tool argument). When the verdict is `fix`, apply the fixes and preview again before any final render.
 4. Ask the user "is this OK?" and confirm frames, resolution and samples.
 5. `render_estimate(scene_id, frame_start, frame_end, width, height, samples)` - tell the user the time ("about 3
-   minutes") and whether it fits today's free quota. Propose fewer frames / lower samples if it does not.
+   minutes") and whether it fits today's free GPU time; if not, say what it would cost (`cost.estimated_yen`) and propose
+   fewer frames / lower samples as the free alternative.
 6. `render_final(...)` - returns `job_id` and the estimate. Tell the user how long it will take.
 7. `render_status(job_id)` until `status` is `done`; report `eta.human` while waiting. Then `render_download(job_id)`
    (default: the MP4 or sheet plus the first frames; `only="frames"` lists every PNG): the links need no key and work for
@@ -65,8 +67,9 @@ scene.collection.objects.link(sun)
 
 ## When things go wrong
 
-- `quota_exceeded` (429): today's free GPU time is used up; say when it resets (`resets_at`) or make the job smaller.
-- `beta_limit` (400): too many frames or too large a resolution for the free beta; split the job.
+- `payment_required` (402): the job goes past today's free GPU time and the credit is short; tell the user the price, show
+  `checkout_url`, or make the job smaller so it fits the free time.
+- `beta_limit` (400): too many frames or too large a resolution for one job; split the job.
 - `workers_gated` in `render_info` / the estimate, or a `hint` saying the GPU is lent out: jobs queue and start when the
   GPU returns. `eta.human` (and `eta.gate`: closed_for_seconds, typical_seconds, long_seconds, expected_remaining_seconds)
   says how long it has been out, how long it usually stays out and how much longer to expect. Tell the user that estimate

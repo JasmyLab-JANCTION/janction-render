@@ -2,7 +2,17 @@
 
 The live, per-version list is at https://render.janction.jp/changelog (Atom: https://render.janction.jp/changelog.xml). Versions are the PyPI releases of `janction-render`; the hosted service follows the same numbers.
 
-## Unreleased
+## 0.4.23 (2026-10-08)
+
+- Paid use started on 2026-10-08 (`JR_BILLING_MODE=live`). Each key keeps its free GPU-minutes per day (10, or 20 per network): a job that fits the time left today is free, and a job that goes past it reserves and is charged only for the GPU seconds beyond the free time, at 0.1 JPY per GPU-second from prepaid credit (Stripe Checkout, from 500 JPY). A 402 `payment_required` says how much of the job the free time covers (`free_gpu_seconds_left_today`, `estimated_gpu_seconds`).
+- `POST /v1/estimate` and `render_estimate` count today's free time in paid mode: `cost.free`, `cost.estimated_yen` (what will be charged), `cost.billable_gpu_seconds`, `cost.free_gpu_seconds_left_today`, `cost.list_price_yen` (the whole job without the free time) and `quota` with `fits_today`. Before, a job that fit the free time was quoted at its full price with `enough_balance: false`.
+- `billing()` (remote and stdio MCP) returns `mode: free_allowance` with today's free GPU time and the credit; before, paid mode still answered `free_beta` with "no charges". `render_estimate` and the 402 reply tell the agent to state the price and show `checkout_url` before going past the free time.
+- Paid jobs keep the per-job limits (240 frames, 1920x1080 pixels, `400 beta_limit`); before, they applied only in the free beta.
+- MCP instructions and `render_final`: the limits name the free daily time and the price per GPU-second (the instructions stay under 1,800 characters).
+- Site: `/pricing` and `GET /v1/pricing` (`status: paid`, `price`), products, facts, llms.txt, auth.md, the legal notice (the free daily time in the price row; the phone line reads "disclosed without delay on request"), the terms' last-updated date and every guide describe the free daily time and the price. The definition sentence ends with "10 free GPU-minutes a day, then 0.1 JPY per GPU-second; operated by JasmyLab Inc." The monthly plans are not on sale yet.
+- `tests/test_live_wording.py` renders every page in paid mode and fails on free-beta wording.
+- `/benchmarks` adds two of Blender's own demo files rendered at fixed settings (frames 1-3, 1920x1080, 128 samples, denoising on, Blender 5.2): Classroom (CC0) at 8.93 GPU seconds per frame and Barcelona Pavillion (CC-BY) at 10.55, that is 0.89 and 1.05 JPY per frame at 0.1 JPY per GPU-second. The zip URLs, their sha256 and `scripts/bench_same_scene.py` let anyone render the same files with the same settings on another GPU or service and compare; the numbers are also in `/benchmarks.json` (`same_scene`).
+- `examples/blender-mcp/`: build in Blender with a Blender MCP server (ahujasid's mcp-for-blender or Blender's Lab MCP server) and render with JANCTION Render, handing over a saved .blend (your camera and lights) or a GLB (product shot or turntable). `verify_handoff.py` checks both hand-offs without opening Blender's window.
 
 ## 0.4.22 (2026-10-08)
 

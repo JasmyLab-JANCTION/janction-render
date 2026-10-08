@@ -211,7 +211,7 @@ def _j(obj: Any) -> str:
 
 
 def _quota_block(exc: ClientError) -> Optional[dict[str, Any]]:
-    """無料ベータの 1 日の上限に当たった（429 quota_exceeded）ときの返事。"""
+    """1 日の無料枠の上限に当たった（429 quota_exceeded、無料ベータのモード）ときの返事。"""
     if exc.status != 429 or exc.error != "quota_exceeded":
         return None
     x = exc.extra
@@ -233,8 +233,9 @@ def _payment_block(exc: ClientError) -> Optional[dict[str, Any]]:
     p = exc.payment()
     if p is None:
         return None
-    p["next"] = ("show checkout_url to the user and ask them to pay in a browser (Stripe; the rest stays as credit); "
-                 "after they paid, call billing() to confirm the balance, then submit the same job again")
+    p["next"] = ("tell the user the job goes past today's free GPU time and what the top-up costs; show checkout_url "
+                 "and ask them to pay in a browser (Stripe; the rest stays as credit); after they paid, call billing() to "
+                 "confirm the balance, then submit the same job again (or render a smaller job that fits the free time)")
     return p
 
 
@@ -516,11 +517,17 @@ def render_estimate(scene_id: Annotated[str, D("scene_id", "")] = "",
     out = estimate_brief(est) or {}
     out["kind"] = kind
     q = est.get("quota") or {}
-    if q and not q.get("fits_today", True):
+    cost = est.get("cost") or {}
+    if q and q.get("fits_size") is False:
+        out["next"] = f"too big for one job (max {q.get('max_frames_per_job')} frames and 1920x1080 per job); split it"
+    elif q and not q.get("fits_today", True) and q.get("mode") == "free_allowance":
+        # 有料モード（10/8〜）: 無料枠を超えた分は残高から。額と残高を言ってから
+        out["next"] = (f"this goes past today's free GPU time: about {cost.get('estimated_yen')} JPY would be charged from "
+                       f"credit (balance {cost.get('balance_yen')} JPY). Tell the user the time and the price and ask before "
+                       "render_final; a smaller job (fewer frames, lower resolution or samples) may stay free")
+    elif q and not q.get("fits_today", True):
         out["next"] = ("this does not fit today's remaining free GPU time; propose fewer frames, lower resolution or "
                        "samples, or wait until resets_at")
-    elif q and q.get("fits_size") is False:
-        out["next"] = f"too big for the free beta (max {q.get('max_frames_per_job')} frames and 1920x1080 per job); split it"
     else:
         out["next"] = "tell the user the estimate and ask before calling render_final"
     return _j(out)
@@ -695,11 +702,11 @@ def render_unshare(job_id: Annotated[str, Field(description=P["job_id"])]) -> st
 
 @mcp.tool(annotations=_ann(READ, "Quota and billing"))
 def billing(topup_yen: Annotated[int, D("topup_yen", 0)] = 0) -> str:
-    """Check the account's quota or credit. During the free beta it returns today's GPU-time usage,
-    the daily quota and when it resets (no charges). Once paid plans start: with topup_yen = 0 it
-    confirms any payment the user just made and returns the balance (yen), the price per GPU second
-    and free previews left; with topup_yen > 0 (minimum 500) it returns a Stripe checkout URL to show
-    to the user. Renders are charged by GPU seconds and only for frames that actually rendered."""
+    """Check today's free GPU time and the credit. With topup_yen = 0 it confirms any payment the user just
+    made and returns GPU seconds used today, the free daily amount, what is left and when it resets, the
+    balance (yen) and the price per GPU second; with topup_yen > 0 (minimum 500) it returns a Stripe
+    checkout URL to show to the user. Jobs that fit the free daily time cost nothing; beyond it only the
+    extra GPU seconds are charged, and only for frames that actually rendered."""
     c = _client()
     try:
         if topup_yen > 0:
@@ -711,13 +718,26 @@ def billing(topup_yen: Annotated[int, D("topup_yen", 0)] = 0) -> str:
         if me["billing"]["enabled"]:
             synced = c.billing_sync()
             me = c.me()
-        if me.get("quota"):
-            q = me["quota"]
+        q = me.get("quota") or {}
+        if q and q.get("mode", "free_beta") == "free_beta":
             return _j({"mode": "free_beta", "note": "no charges during the free beta; daily GPU-time quota per key",
                        "gpu_seconds_used_today": q["gpu_seconds_used_today"], "gpu_seconds_per_day": q["gpu_seconds_per_day"],
                        "gpu_seconds_left_today": max(0, q["gpu_seconds_per_day"] - q["gpu_seconds_used_today"]),
                        "resets_at": q["resets_at"], "max_frames_per_job": q["max_frames_per_job"],
                        "max_pixels": q["max_pixels"]})
+        if q:
+            # 有料（10/8〜）: 毎日の無料枠と、超えた分を払う残高の両方
+            yen = me["billing"]["yen_per_gpu_second"]
+            return _j({"mode": "free_allowance",
+                       "note": (f"the first {q['gpu_seconds_per_day'] // 60} GPU-minutes of each day are free; beyond that "
+                                f"{yen} JPY per GPU-second from prepaid credit (only the part over the free time is charged)"),
+                       "gpu_seconds_used_today": q["gpu_seconds_used_today"], "gpu_seconds_per_day": q["gpu_seconds_per_day"],
+                       "gpu_seconds_left_today": max(0, q["gpu_seconds_per_day"] - q["gpu_seconds_used_today"]),
+                       "resets_at": q["resets_at"], "max_frames_per_job": q["max_frames_per_job"],
+                       "max_pixels": q["max_pixels"], "balance_yen": me["balance_yen"], "yen_per_gpu_second": yen,
+                       "min_topup_yen": me["billing"]["min_topup_yen"], "just_credited": synced.get("credited", []),
+                       "pending_checkout_url": me["billing"]["pending_checkout_url"],
+                       "charged_yen_total": me["charged_yen_total"]})
         return _j({"balance_yen": me["balance_yen"], "free_previews_left": me["free_previews_left"],
                    "yen_per_gpu_second": me["billing"]["yen_per_gpu_second"],
                    "min_topup_yen": me["billing"]["min_topup_yen"], "billing_enabled": me["billing"]["enabled"],

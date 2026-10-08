@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "janction-render"
-version = "0.4.22"
-description = "Cloud GPU render farm for Blender, built for AI agents: MCP server (remote + stdio), HTTP API and CLI. Send a .blend, a bpy script or a 3D file (glTF/FBX/USD) and get frames or an MP4 back; no local Blender or GPU. Free beta."
+version = "0.4.23"
+description = "Cloud GPU render farm for Blender, built for AI agents: MCP server (remote + stdio), HTTP API and CLI. Send a .blend, a bpy script or a 3D file (glTF/FBX/USD) and get frames or an MP4 back; no local Blender or GPU. 10 free GPU-minutes a day."
 readme = "README.md"
 keywords = ["blender", "rendering", "render-farm", "cloud-rendering", "gpu", "mcp", "mcp-server", "model-context-protocol", "ai-agent", "claude", "codex", "cursor", "gltf", "bpy"]
 requires-python = ">=3.11"
