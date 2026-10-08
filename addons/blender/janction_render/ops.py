@@ -45,6 +45,15 @@ def preview_frames(start: int, end: int, current: int, count: int = 4) -> list[i
     return out
 
 
+def payment_text(extra: dict) -> str:
+    """The panel line for a 402: the render goes past today's free GPU time and needs prepaid credit."""
+    need = extra.get("needed_yen")
+    topup = extra.get("topup_yen")
+    if need:
+        return f"Past today's free GPU time: needs {need} JPY of credit (top up from {topup or need} JPY)"
+    return "Past today's free GPU time: top up credit to render this"
+
+
 def fit_pixels(width: int, height: int, max_pixels: int = FREE_MAX_PIXELS) -> tuple[int, int]:
     """Shrink (keeping the aspect) until width*height fits the per-job pixel cap (1080p)."""
     if width * height <= max_pixels:
@@ -204,7 +213,10 @@ class Runner(threading.Thread):
             text = f"{exc}"
             if exc.code == "quota_exceeded" and exc.resets_at_iso:
                 text = f"Daily free quota used up; resets at {exc.resets_at_iso.replace('T', ' ').rstrip('Z')} UTC"
-            state.fail(text)
+            if exc.code == "payment_required":
+                state.need_payment(payment_text(exc.extra), str(exc.extra.get("checkout_url") or ""))
+            else:
+                state.fail(text)
         except Exception as exc:  # noqa: BLE001 - never let a thread die silently
             state.fail(f"{type(exc).__name__}: {exc}")
         finally:

@@ -249,7 +249,7 @@ and an expiry before any GPU time is used. Monthly plans are planned, not on sal
   Estimate and Final. A copy of the open file and the textures it references with relative paths are uploaded; results land
   next to the .blend. Install from the extension repository `https://render.janction.jp/extensions/index.json`
   (Preferences → Get Extensions → Repositories → + → Add Remote Repository), or install the zip from
-  `https://render.janction.jp/extensions/janction_render-0.1.1.zip` (`python scripts/build_blender_addon.py` builds it
+  `https://render.janction.jp/extensions/janction_render-0.1.2.zip` (`python scripts/build_blender_addon.py` builds it
   from this repository). Guide: https://render.janction.jp/blender-addon
 - **Maya, Houdini, Cinema 4D** (`integrations/`): export to USD / FBX / Alembic, upload with textures, render with Cycles,
   open the result; Preview, Final (MP4) and Turntable. Standard-library Python only; `jr_submit.py` is the shared client.

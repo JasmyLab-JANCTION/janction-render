@@ -28,7 +28,7 @@ From the extension repository (installs and updates without a zip):
 
 From a zip:
 
-1. Download `https://render.janction.jp/extensions/janction_render-0.1.1.zip` (the GitHub release
+1. Download `https://render.janction.jp/extensions/janction_render-0.1.2.zip` (the GitHub release
    `blender-addon-0.1.0` holds the first version), or build it
    (`python scripts/build_blender_addon.py` in this repository writes it to `dist/`;
    `blender --command extension build --source-dir addons/blender/janction_render --output-dir dist`
@@ -53,8 +53,9 @@ start over, clear the field and press the button again.
 
 Each key gets 10 free GPU-minutes per day (20 per network); the counter resets
 at 00:00 UTC and the panel shows the minutes left. GPU time beyond that costs
-0.1 JPY per GPU-second from prepaid credit (https://render.janction.jp/pricing);
-without credit the job stops with a payment_required message.
+0.1 JPY per GPU-second from prepaid credit (https://render.janction.jp/pricing).
+When a render goes past the free time without enough credit, the panel shows
+Open top-up page (Stripe Checkout in the browser); pay there and press the button again.
 
 ## What gets uploaded
 

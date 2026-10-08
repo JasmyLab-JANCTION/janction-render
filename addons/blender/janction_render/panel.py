@@ -73,6 +73,9 @@ class RENDER_PT_janction_render(bpy.types.Panel):
 
         if snap["message"]:
             layout.label(text=snap["message"], icon=_ICONS.get(snap["phase"], 'TIME'))
+        if snap.get("checkout_url") and snap["phase"] == "failed":
+            # 402: pay on the Stripe Checkout page in the browser, then press the same button again
+            layout.operator("wm.url_open", text="Open top-up page", icon='URL').url = snap["checkout_url"]
         for w in snap["warnings"][:3]:
             layout.label(text=w, icon='ERROR')
         if snap["result"]:

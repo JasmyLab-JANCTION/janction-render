@@ -21,6 +21,7 @@ _STATE: dict[str, Any] = {
     "pending_image": "",    # a preview sheet the timer should load into Blender (main thread only)
     "pending_open": "",     # a path the timer should open with the OS
     "quota_requested": False,
+    "checkout_url": "",     # the top-up page (Stripe Checkout) after a 402 payment_required; cleared by the next job
 }
 
 
@@ -56,7 +57,7 @@ def busy() -> bool:
 
 def start_job(kind: str, warnings: Optional[list[str]] = None) -> None:
     update(phase="uploading", kind=kind, job_id="", message="Saving a copy...", result="",
-           warnings=list(warnings or []), pending_image="", pending_open="")
+           warnings=list(warnings or []), pending_image="", pending_open="", checkout_url="")
 
 
 def fail(message: str, warnings: Optional[list[str]] = None) -> None:
@@ -65,6 +66,14 @@ def fail(message: str, warnings: Optional[list[str]] = None) -> None:
         _STATE["message"] = message
         if warnings:
             _STATE["warnings"] = list(warnings)
+
+
+def need_payment(message: str, checkout_url: str) -> None:
+    """A 402: the job goes past today's free GPU time and the credit is short. The panel then offers the top-up page."""
+    with _LOCK:
+        _STATE["phase"] = "failed"
+        _STATE["message"] = message
+        _STATE["checkout_url"] = checkout_url
 
 
 def set_quota(me: dict[str, Any]) -> None:
