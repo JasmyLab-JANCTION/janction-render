@@ -215,11 +215,17 @@ def _quota_block(exc: ClientError) -> Optional[dict[str, Any]]:
     if exc.status != 429 or exc.error != "quota_exceeded":
         return None
     x = exc.extra
+    sug = x.get("suggested")
     return {"quota_exceeded": True, "detail": exc.detail, "scope": x.get("scope"),
             "gpu_seconds_used_today": x.get("gpu_seconds_used_today"), "gpu_seconds_per_day": x.get("gpu_seconds_per_day"),
             "resets_at": x.get("resets_at_iso") or x.get("resets_at"),
-            "next": "tell the user today's free GPU time is used up and when it resets; a smaller job (fewer frames, "
-                    "lower resolution or samples) may still fit"}
+            # 残りに何コマ入るか（受付 10/8 から。古い受付なら無い）
+            **{k: x[k] for k in ("gpu_seconds_left_today", "seconds_per_frame_estimate", "fits_frames", "suggested") if k in x},
+            "next": ((f"tell the user today's free GPU time is used up and when it resets; frames {sug['frame_start']}-"
+                      f"{sug['frame_end']} still fit today with the same settings (render those now and the rest after the reset)")
+                     if isinstance(sug, dict) else
+                     "tell the user today's free GPU time is used up and when it resets; a smaller job (fewer frames, "
+                     "lower resolution or samples) may still fit")}
 
 
 def _payment_block(exc: ClientError) -> Optional[dict[str, Any]]:

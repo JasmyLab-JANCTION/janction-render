@@ -21,6 +21,21 @@ in force and will be announced on the changelog before it starts.
 
 Official site: https://render.janction.jp · MCP endpoint: `https://render.janction.jp/mcp` · Fact sheet: https://render.janction.jp/facts
 
+## Guides on the official site
+
+- [How to render Blender without a GPU](https://render.janction.jp/render-blender-without-gpu)
+- From an agent: [Claude Code + Blender](https://render.janction.jp/claude-code-blender) ·
+  [Codex + Blender](https://render.janction.jp/codex-blender) · [Cursor + Blender](https://render.janction.jp/cursor-blender) ·
+  [ChatGPT + Blender](https://render.janction.jp/chatgpt-blender) · [Blender MCP server for rendering](https://render.janction.jp/blender-mcp)
+- [Best render farms for AI agents (2026)](https://render.janction.jp/best-render-farms-for-ai-agents): JANCTION, BlendSwap,
+  Sceneplane, your own worker on Modal or RunPod and a local Blender MCP side by side
+- [Headless Blender as an API](https://render.janction.jp/blender-headless-api) ·
+  [glTF, GLB or FBX to MP4](https://render.janction.jp/gltf-to-mp4) ·
+  [360-degree product video](https://render.janction.jp/product-turntable) ·
+  [What a Blender render costs](https://render.janction.jp/blender-render-cost)
+- [Examples with their bpy scripts](https://render.janction.jp/examples) · [Compare](https://render.janction.jp/compare) ·
+  [日本語のご案内](https://render.janction.jp/ja/)
+
 ## Why use it?
 
 - **No GPU, no Blender install.** The scene can be a bpy script the agent writes, a `.blend`, or a 3D file; Blender runs on our GPUs.
@@ -254,7 +269,7 @@ mcp-name: io.github.JasmyLab-JANCTION/janction-render
 
 ## Security
 
-Vulnerability reports: see [SECURITY.md](SECURITY.md). Retention, isolation and the external tests are summarised at https://render.janction.jp/security.
+Vulnerability reports: see [SECURITY.md](SECURITY.md). Retention, isolation and the external tests are summarised on the [security page](https://render.janction.jp/security).
 
 ## License
 
