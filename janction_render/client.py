@@ -235,6 +235,9 @@ class ClientError(RuntimeError):
         out = {"payment_required": True, "detail": self.detail,
                **{k: self.extra.get(k) for k in ("needed_yen", "balance_yen", "topup_yen", "checkout_url",
                                                  "session_id", "yen_per_gpu_second", "how")}}
+        for k in ("welcome", "first_topup_bonus"):      # ようこそクレジット（docs/46）の受付なら付いてくる
+            if self.extra.get(k):
+                out[k] = self.extra[k]
         if self.extra.get("accepts"):
             # x402（USDC）でも払える受付。対応しているエージェントは accepts から X-PAYMENT を組む
             out["x402"] = {"x402Version": self.extra.get("x402Version"), "accepts": self.extra["accepts"],

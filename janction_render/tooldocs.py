@@ -31,6 +31,17 @@ FREE_MAX_FRAMES = 240
 FREE_MAX_SIZE = "1920x1080"
 RETENTION_HOURS = 24
 YEN_PER_GPU_SECOND = 0.1      # 無料枠を超えた分の単価（10/8 から有料。billing.yen_per_gpu_second の既定値）
+# ようこそクレジット（docs/46、JR_FREE_MODEL=welcome）。billing の既定値と同じ（tests/test_tooldocs.py が突き合わせる）
+WELCOME_YEN = 500
+WELCOME_DAYS = 14
+FREE_PREVIEW_MINUTES_PER_DAY = 2
+
+
+def free_model() -> str:
+    """無料の形。受付は JR_FREE_MODEL（billing.free_model と同じ。受付は必ず設定する）、stdio は手元で動くので受付の設定を
+    読めず、既定を使う。10/8 夜に受付をようこそクレジットへ切り替えたので、0.4.25 から既定は welcome。"""
+    m = (os.environ.get("JR_FREE_MODEL") or "welcome").strip().lower()
+    return m if m in ("daily", "welcome") else "welcome"
 
 
 def enabled(flavor: str) -> bool:
@@ -55,9 +66,29 @@ _WHEN = ("WHEN TO USE: the user asks to render, preview, animate or turntable a 
 _DONT = ("DO NOT USE: to edit a scene open in the user's Blender (a local Blender MCP does that); for one still image on a "
          "machine with its own NVIDIA GPU (rendering locally is faster); for non-Blender video or general GPU compute.")
 _FIRST = f"FIRST CALL: render_preview(scene_url='{SAMPLE_URL}', environment='compare') checks the connection in a few seconds."
-_LIMITS = (f"LIMITS: {FREE_GPU_MINUTES_PER_KEY_PER_DAY} free GPU-minutes per key per day, then {YEN_PER_GPU_SECOND} JPY per "
-           f"GPU-second (prepaid); up to {FREE_MAX_FRAMES} frames and {FREE_MAX_SIZE} per job; files are deleted "
-           f"{RETENTION_HOURS} hours after last use.")
+def _free_offer(short: bool = False) -> str:
+    """無料の形の 1 句（道具の説明で使う。short=True は指示文の LIMITS 用で、指示文を 1800 字に収める）。"""
+    if free_model() == "welcome" and short:
+        return f"{WELCOME_YEN} JPY welcome credit per new key ({WELCOME_DAYS} days), then {YEN_PER_GPU_SECOND} JPY per GPU-second"
+    if free_model() == "welcome":
+        return (f"each new key starts with a {WELCOME_YEN} JPY welcome credit ({WELCOME_DAYS} days); after that, previews are "
+                f"free up to {FREE_PREVIEW_MINUTES_PER_DAY} GPU-minutes a day and finals cost {YEN_PER_GPU_SECOND} JPY per "
+                "GPU-second (prepaid)")
+    return (f"{FREE_GPU_MINUTES_PER_KEY_PER_DAY} free GPU-minutes per key per day, then {YEN_PER_GPU_SECOND} JPY per "
+            "GPU-second (prepaid)")
+
+
+def _limits() -> str:
+    return (f"LIMITS: {_free_offer(short=True)}; up to {FREE_MAX_FRAMES} frames and {FREE_MAX_SIZE} per job; files are deleted "
+            f"{RETENTION_HOURS} hours after last use.")
+
+
+def _free_left() -> str:
+    """見積もり・仕上げの説明で「無料の残り」を指す言い方。"""
+    if free_model() == "welcome":
+        return (f"the free GPU time left (the welcome credit, or {FREE_PREVIEW_MINUTES_PER_DAY} preview GPU-minutes a day "
+                "after it)")
+    return "today's free quota"
 _SCRIPTS = ("SCRIPTS: Blender 5.0 API; build the scene, camera and frame range only (the service sets resolution, samples "
             "and the GPU). `import jr_assets; jr_assets.frame_camera()` fits every object in the frame.")
 _MORE = f"Examples with their bpy scripts: {SITE}/examples (pass any as scene_url). More: {SITE}/llms.txt"
@@ -70,7 +101,7 @@ def instructions(flavor: str) -> str:
                 "again) -> ask the user -> render_estimate when the job is long or the quota is uncertain -> render_final -> "
                 "render_download(job_id, wait_seconds=45) until the links come back. Tell the user eta.human; if it says the "
                 "GPU is lent out, tell the user the wait instead of polling.")
-        return " ".join([head, _WHEN, _DONT, _FIRST, flow, _LIMITS, _SCRIPTS, _MORE])
+        return " ".join([head, _WHEN, _DONT, _FIRST, flow, _limits(), _SCRIPTS, _MORE])
     head = ("JANCTION Render: Blender rendering on cloud GPUs for AI agents, from the terminal (no local GPU or Blender "
             "needed; a key is created on first use).")
     local = "LOCAL FILES: pass scene_path (a .blend, a .py or a 3D file); results are saved under ~/janction-render/<job_id>."
@@ -78,7 +109,7 @@ def instructions(flavor: str) -> str:
             "preview again) -> ask the user -> render_estimate when the job is long or the quota is uncertain -> render_final "
             "-> render_status (tell the user eta.human) -> render_download(job_id, only='mp4') when done. If eta says the GPU "
             "is lent out, tell the user the wait instead of polling.")
-    return " ".join([head, _WHEN, _DONT, _FIRST, local, flow, _LIMITS, _SCRIPTS, _MORE])
+    return " ".join([head, _WHEN, _DONT, _FIRST, local, flow, _limits(), _SCRIPTS, _MORE])
 
 
 # ------------------------------------------------------------------ 道具の説明
@@ -108,15 +139,15 @@ def descriptions(flavor: str, wait_cap_s: int = 50) -> dict[str, str]:
     final = (
         "Render the final frames or video of a Blender scene on cloud GPUs, after the user approved a preview: 'render the "
         "final', 'make the video', 'export the turntable MP4', 'product shots from these cameras'. Call render_estimate first "
-        "when the time or today's free quota is uncertain, the job is longer than about 24 frames or above 720p, or the user "
+        f"when the time or {_free_left()} is uncertain, the job is longer than about 24 frames or above 720p, or the user "
         "asks how long it takes, and tell the user. Long jobs are rendered in chunks and joined into one video. "
         + ("Returns job_id and estimate.human at once (short jobs return the links directly); then call "
            "render_download(job_id, wait_seconds=45). " if remote else
            "Returns job_id and estimate.human at once; then render_status until done, and render_download(job_id, only='mp4') "
            "for the video. ")
         + _NOT_HERE + " Use the same environment and blender as the approved preview. "
-        f"Limits: up to {FREE_MAX_FRAMES} frames and {FREE_MAX_SIZE} per job; {FREE_GPU_MINUTES_PER_KEY_PER_DAY} free GPU-minutes "
-        f"per key per day, beyond that {YEN_PER_GPU_SECOND} JPY per GPU-second from credit (ask the user first); files are "
+        f"Limits: up to {FREE_MAX_FRAMES} frames and {FREE_MAX_SIZE} per job; {_free_offer()}; ask the user before a render "
+        "that the free time does not cover; files are "
         f"deleted {RETENTION_HOURS} hours after last use. Options are explained on "
         "each parameter: output (png, exr, mp4, webm, prores, gif, webp), orbit=True for a turntable MP4, cameras for one "
         f"image per named camera, transparent, engine='eevee', notify_url for one POST when the job finishes, {a} with "
@@ -130,7 +161,7 @@ def descriptions(flavor: str, wait_cap_s: int = 50) -> dict[str, str]:
         "render_preview and render_final instead of sending the scene again.")
     estimate = (
         "Estimate a render before starting it (no GPU time): GPU seconds, queue wait, the wall-clock time as text "
-        "(estimate.human, e.g. 'about 3 minutes') and whether it fits today's free quota and the size limits. Call it before "
+        f"(estimate.human, e.g. 'about 3 minutes') and whether it fits {_free_left()} and the size limits. Call it before "
         "render_final when the time or quota is uncertain, the job is longer than about 24 frames or above 720p, or the user "
         "asks how long it takes; tell the user the result. With scene_id the estimate uses this scene's measured render times; "
         "it also says when to split a job.")

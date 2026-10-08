@@ -232,7 +232,7 @@ class RenderDialog(gui.GeDialog if gui is not None else object):
         self.SetTitle(TITLE)
         self.GroupBegin(2000, c4d.BFH_SCALEFIT, cols=1, rows=0)
         self.GroupBorderSpace(10, 10, 10, 10)
-        self._label("Export the document and render it with Cycles on JANCTION GPUs (10 free GPU-minutes a day).", c4d.BFH_SCALEFIT)
+        self._label("Export the document and render it with Cycles on JANCTION GPUs (new keys start free).", c4d.BFH_SCALEFIT)
         self.GroupBegin(2002, c4d.BFH_SCALEFIT, cols=2, rows=0)
         self._label("Export as")
         self.AddComboBox(ID_FORMAT, c4d.BFH_SCALEFIT)

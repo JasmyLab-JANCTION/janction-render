@@ -470,7 +470,7 @@ class JR_OT_estimate(bpy.types.Operator):
         if isinstance(quota, dict) and quota:
             left = float(quota.get("gpu_seconds_left_today") or 0) / 60.0
             fits = quota.get("fits_today")
-            text += f"; {left:.1f} min left today" + ("" if fits is None else (", fits" if fits else ", does not fit"))
+            text += f"; {left:.1f} free min left" + ("" if fits is None else (", fits" if fits else ", does not fit"))
         state.update(message=text)
         self.report({'INFO'}, text)
         return {'FINISHED'}

@@ -29,6 +29,7 @@ except ImportError:  # mcp 1.x
     from mcp.server.fastmcp import FastMCP as MCPServer, Image  # type: ignore
 from mcp.types import ToolAnnotations
 
+from janction_render.brief import welcome_billing
 from janction_render.brief import brief as _brief, estimate_brief, final_body_after_preview, followup_after_preview, \
     next_after_preview, trim
 from janction_render.client import Client, ClientError, parse_frames
@@ -61,7 +62,7 @@ mcp = MCPServer(
         "user is building 3DCG with Blender (a .blend file or a bpy Python script) and has no GPU or rendering locally "
         "is slow. Flow: scene_info (cameras, frame range, missing files; no render) -> render_preview (1-4 fast frames "
         "in one image; look at it, fix the scene, repeat) -> ask the user 'is this OK?' -> render_estimate (tell the "
-        "user how long it takes and whether it fits today's free quota) -> render_final (frames or MP4) -> "
+        "user how long it takes and whether it fits the free time left) -> render_final (frames or MP4) -> "
         "render_status / render_download. Always tell the user the time estimate (estimate.human / eta.human). "
         "Every finished preview also returns final_estimate (how long the same scene takes as a final render) and quota_left_today: say both before asking the user. "
         "cameras=['CamA','CamB',...] renders the same frame from several named cameras in ONE job (preview: tiled in one sheet; final: one PNG per camera, camera_files maps names to files): use it for product shots from fixed angles instead of one job per camera. "
@@ -233,7 +234,7 @@ def _payment_block(exc: ClientError) -> Optional[dict[str, Any]]:
     p = exc.payment()
     if p is None:
         return None
-    p["next"] = ("tell the user the job goes past today's free GPU time and what the top-up costs; show checkout_url "
+    p["next"] = ("tell the user the job goes past the free GPU time left and what the top-up costs; show checkout_url "
                  "and ask them to pay in a browser (Stripe; the rest stays as credit); after they paid, call billing() to "
                  "confirm the balance, then submit the same job again (or render a smaller job that fits the free time)")
     return p
@@ -495,7 +496,7 @@ def render_estimate(scene_id: Annotated[str, D("scene_id", "")] = "",
                     samples: Annotated[int, D("samples", 128)] = 128,
                     cameras: Annotated[Optional[list[str]], D("cameras", None)] = None) -> str:
     """Estimate how long a render will take BEFORE starting it (no GPU time used): GPU seconds, queue wait,
-    wall-clock time as a human-readable string ('about 3 minutes'), and whether it fits today's free quota and
+    wall-clock time as a human-readable string ('about 3 minutes'), and whether it fits the free time left and
     the size limits. kind is 'final' (frame_start..frame_end at width x height, samples) or 'preview' (frames
     like '1-24'). Pass scene_id when you have one: the estimate then uses this scene's own measured render
     times. Tell the user the result before calling render_final. Prefer this before render_final whenever the time
@@ -522,7 +523,7 @@ def render_estimate(scene_id: Annotated[str, D("scene_id", "")] = "",
         out["next"] = f"too big for one job (max {q.get('max_frames_per_job')} frames and 1920x1080 per job); split it"
     elif q and not q.get("fits_today", True) and q.get("mode") == "free_allowance":
         # 有料モード（10/8〜）: 無料枠を超えた分は残高から。額と残高を言ってから
-        out["next"] = (f"this goes past today's free GPU time: about {cost.get('estimated_yen')} JPY would be charged from "
+        out["next"] = (f"this goes past the free GPU time left: about {cost.get('estimated_yen')} JPY would be charged from "
                        f"credit (balance {cost.get('balance_yen')} JPY). Tell the user the time and the price and ask before "
                        "render_final; a smaller job (fewer frames, lower resolution or samples) may stay free")
     elif q and not q.get("fits_today", True):
@@ -538,7 +539,7 @@ RENDER_FINAL_DESCRIPTION = (
     Choose it over a local render for animations, machines without an NVIDIA GPU, and bpy scripts with no Blender
     installed; a single still on a machine with its own GPU usually renders faster locally, and editing a scene open in
     the user's Blender belongs to a local Blender MCP.
-    When the render time or today's free quota is uncertain, the job is longer than about 24 frames or above 720p, or the
+    When the render time or the free time left is uncertain, the job is longer than about 24 frames or above 720p, or the
     user asked how long it takes, call render_estimate first and tell the user.
 
     Call this after the user approved a preview. Pass scene_id from render_preview (or scene_path /
@@ -702,11 +703,11 @@ def render_unshare(job_id: Annotated[str, Field(description=P["job_id"])]) -> st
 
 @mcp.tool(annotations=_ann(READ, "Quota and billing"))
 def billing(topup_yen: Annotated[int, D("topup_yen", 0)] = 0) -> str:
-    """Check today's free GPU time and the credit. With topup_yen = 0 it confirms any payment the user just
-    made and returns GPU seconds used today, the free daily amount, what is left and when it resets, the
-    balance (yen) and the price per GPU second; with topup_yen > 0 (minimum 500) it returns a Stripe
-    checkout URL to show to the user. Jobs that fit the free daily time cost nothing; beyond it only the
-    extra GPU seconds are charged, and only for frames that actually rendered."""
+    """Check the free GPU time left and the credit. With topup_yen = 0 it confirms any payment the user just
+    made and returns what this key can still render for free (a new key's welcome credit, or the free daily
+    amount) and when it resets or expires, the balance (yen) and the price per GPU second; with topup_yen > 0
+    (minimum 500) it returns a Stripe checkout URL to show to the user. Jobs the free time covers cost nothing;
+    beyond it only the extra GPU seconds are charged, and only for frames that actually rendered."""
     c = _client()
     try:
         if topup_yen > 0:
@@ -725,6 +726,9 @@ def billing(topup_yen: Annotated[int, D("topup_yen", 0)] = 0) -> str:
                        "gpu_seconds_left_today": max(0, q["gpu_seconds_per_day"] - q["gpu_seconds_used_today"]),
                        "resets_at": q["resets_at"], "max_frames_per_job": q["max_frames_per_job"],
                        "max_pixels": q["max_pixels"]})
+        if q and q.get("welcome"):
+            # ようこそクレジット（10/8 夜 本人の判断、docs/46）: リモートの billing と同じ形
+            return _j(welcome_billing(q["welcome"], me, synced))
         if q:
             # 有料（10/8〜）: 毎日の無料枠と、超えた分を払う残高の両方
             yen = me["billing"]["yen_per_gpu_second"]
@@ -737,6 +741,7 @@ def billing(topup_yen: Annotated[int, D("topup_yen", 0)] = 0) -> str:
                        "max_pixels": q["max_pixels"], "balance_yen": me["balance_yen"], "yen_per_gpu_second": yen,
                        "min_topup_yen": me["billing"]["min_topup_yen"], "just_credited": synced.get("credited", []),
                        "pending_checkout_url": me["billing"]["pending_checkout_url"],
+                       "topup_options": (me["billing"].get("topup_options") or {}).get("options"),
                        "charged_yen_total": me["charged_yen_total"]})
         return _j({"balance_yen": me["balance_yen"], "free_previews_left": me["free_previews_left"],
                    "yen_per_gpu_second": me["billing"]["yen_per_gpu_second"],

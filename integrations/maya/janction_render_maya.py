@@ -341,7 +341,7 @@ def show():
     win = cmds.window(WINDOW, title=TITLE, widthHeight=(430, 360), sizeable=True)
     cmds.columnLayout(adjustableColumn=True, rowSpacing=6, columnOffset=("both", 10))
     cmds.separator(style="none", height=4)
-    cmds.text(label="Export the scene and render it with Cycles on JANCTION GPUs (10 free GPU-minutes a day).", align="left")
+    cmds.text(label="Export the scene and render it with Cycles on JANCTION GPUs (new keys start free).", align="left")
     _ui["format"] = cmds.optionMenuGrp(label="Export as", columnWidth=(1, 90), columnAlign=(1, "left"))
     formats = [FORMAT_USD, FORMAT_FBX] if usd_available() else [FORMAT_FBX]
     for name in formats:

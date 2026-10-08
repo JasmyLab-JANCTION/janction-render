@@ -184,3 +184,49 @@ def brief(j: dict[str, Any]) -> dict[str, Any]:
                        (f"{c['charged_yen']} yen charged" if c["settled"] else f"up to {c['reserved_yen']} yen reserved"))
     out["artifacts"] = [a["name"] for a in j["artifacts"]][:50]
     return out
+
+def welcome_billing(w: dict[str, Any], me: dict[str, Any], synced: dict[str, Any] | None = None) -> dict[str, Any]:
+    """billing() のようこそクレジットの形（stdio の mcp_server も同じ形を返す）。残りが 100 円を切ったときと、
+    期限の 3 日前は、チャージの案内を next に入れる（docs/46 の見せ方）。"""
+    b = me.get("billing") or {}
+    yen = b.get("yen_per_gpu_second")
+    if w.get("in_welcome"):
+        summary = f"welcome credit: {w['yen_left']} JPY left, {w['days_left']} days"
+    elif w.get("in_window"):
+        summary = "the welcome credit is used up"
+    else:
+        summary = "the welcome period has ended"
+    pv = round(float(w.get("preview_free_seconds_per_day") or 0) / 60)
+    out: dict[str, Any] = {
+        "mode": "welcome_credit",
+        "summary": f"{summary}; balance {me.get('balance_yen')} JPY",
+        "note": (f"a new key's welcome credit covers previews and finals until it runs out or expires ({w.get('expires_at_iso')}); "
+                 f"after that, previews are free up to {pv} GPU-minutes a day and finals cost {yen} JPY per GPU-second from "
+                 "prepaid credit"),
+        "welcome": w,
+        "balance_yen": me.get("balance_yen"), "yen_per_gpu_second": yen, "min_topup_yen": b.get("min_topup_yen"),
+        "pending_checkout_url": b.get("pending_checkout_url"), "charged_yen_total": me.get("charged_yen_total"),
+        "just_credited": (synced or {}).get("credited", []), "key_prefix": me.get("prefix"),
+    }
+    bonus = float(w.get("first_topup_bonus") or 0)
+    topup = b.get("topup_options") or {}
+    opts = topup.get("options") or []
+    if opts:
+        # チャージの選択肢（docs/47）: 額・入る額・上乗せ。おすすめは受付が決める（まだ払っていない鍵は最低額、払ったことがあれば 2,000 円）
+        out["topup_options"] = [{k: o.get(k) for k in ("amount_yen", "credit_yen", "bonus_yen", "bonus_reason", "recommended")} for o in opts]
+        rec = next((o for o in opts if o.get("recommended")), None)
+        if rec:
+            out["recommended_topup"] = (f"{rec['amount_yen']:,} JPY gives {rec['credit_yen']:,} JPY of credit"
+                                        + (f" (a {rec['bonus_yen']:,} JPY bonus)" if rec.get("bonus_yen") else ""))
+    if bonus:
+        cap = int(w.get("first_topup_bonus_cap_yen") or topup.get("first_topup_bonus_cap_yen") or 0)
+        mt = int(b.get("min_topup_yen") or 500)
+        first = next((o for o in opts if o.get("amount_yen") == mt), None)
+        credit = int(first["credit_yen"]) if first else mt + min(round(mt * bonus), cap or round(mt * bonus))
+        out["first_topup_bonus"] = (f"the first top-up during the welcome period counts {1 + bonus:g}x"
+                                    + (f", bonus up to {cap:,} JPY" if cap else "") + f" ({mt} JPY adds {credit:,} JPY of credit)")
+    if w.get("in_window") and (int(w.get("yen_left") or 0) < 100 or int(w.get("days_left") or 0) <= 3):
+        out["next"] = ("tell the user the welcome credit is running out (" + summary + ")"
+                       + (" and that the first top-up now counts " + f"{1 + bonus:g}x" if bonus else "")
+                       + "; a top-up link comes with the next job that needs credit (402 checkout_url)")
+    return out

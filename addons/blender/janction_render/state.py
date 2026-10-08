@@ -86,15 +86,22 @@ def set_quota(me: dict[str, Any]) -> None:
                 "used": float(q.get("gpu_seconds_used_today") or 0.0),
                 "limit": float(q.get("gpu_seconds_per_day") or 0.0),
                 "resets_at_iso": str(q.get("resets_at_iso") or ""),
+                # ようこそクレジット（受付が JR_FREE_MODEL=welcome のとき、docs/46）
+                "welcome": q.get("welcome") if isinstance(q.get("welcome"), dict) else None,
             }
         else:
             _STATE["quota"] = None
 
 
 def quota_text() -> str:
-    """'7.5 min left today' or '' when nothing is known."""
+    """'7.5 min left today', 'welcome credit: 320 JPY left (11 days)' or '' when nothing is known."""
     with _LOCK:
         q = _STATE["quota"]
+    w = (q or {}).get("welcome")
+    if w:
+        if w.get("in_welcome"):
+            return f"welcome credit: {int(w.get('yen_left') or 0)} JPY left ({int(w.get('days_left') or 0)} days)"
+        return f"{float(w.get('preview_free_seconds_left_today') or 0.0) / 60.0:.1f} free preview min left today"
     if not q or not q.get("limit"):
         return ""
     left = max(0.0, q["limit"] - q["used"]) / 60.0
