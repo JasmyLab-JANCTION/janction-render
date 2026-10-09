@@ -99,24 +99,34 @@ Instead of polling, pass `notify_url` (https) to `POST /v1/jobs` and get one JSO
 OpenAI Agents SDK (keep the longer timeout: `render_preview` waits for the image, longer than the 5-second default):
 
 ```python
+import asyncio
 from agents import Agent, Runner
 from agents.mcp import MCPServerStreamableHttp
 
-async with MCPServerStreamableHttp(name="janction-render", client_session_timeout_seconds=120,
-                                   params={"url": "https://render.janction.jp/mcp",
-                                           "headers": {"Authorization": "Bearer jr_..."}}) as render:
-    agent = Agent(name="3D artist", instructions="Render Blender scenes with janction-render.", mcp_servers=[render])
-    result = await Runner.run(agent, "Render a preview of https://render.janction.jp/samples/cube_scene.py")
+async def main():
+    async with MCPServerStreamableHttp(name="janction-render", client_session_timeout_seconds=120,
+                                       params={"url": "https://render.janction.jp/mcp",
+                                               "headers": {"Authorization": "Bearer jr_..."}}) as render:
+        agent = Agent(name="3D artist", instructions="Render Blender scenes with janction-render.", mcp_servers=[render])
+        result = await Runner.run(agent, "Render a preview of https://render.janction.jp/samples/cube_scene.py")
+        print(result.final_output)
+
+asyncio.run(main())
 ```
 
 LangChain (`pip install langchain-mcp-adapters`):
 
 ```python
+import asyncio
 from langchain_mcp_adapters.client import MultiServerMCPClient
 
-client = MultiServerMCPClient({"janction-render": {"url": "https://render.janction.jp/mcp", "transport": "streamable_http",
-                                                   "headers": {"Authorization": "Bearer jr_..."}}})
-tools = await client.get_tools()               # render_preview, render_final, render_status, render_download, ...
+async def main():
+    client = MultiServerMCPClient({"janction-render": {"url": "https://render.janction.jp/mcp", "transport": "streamable_http",
+                                                       "headers": {"Authorization": "Bearer jr_..."}}})
+    tools = await client.get_tools()           # render_preview, render_final, render_status, render_download, ...
+    print([t.name for t in tools])
+
+asyncio.run(main())
 ```
 
 ## MCP
