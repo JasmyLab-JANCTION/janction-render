@@ -205,6 +205,22 @@ def agents_section(server: Optional[str] = None) -> str:
         f"- Facts for agents: {b}/llms.txt\n")
 
 
+def claude_skill(server: Optional[str] = None) -> str:
+    """Claude Code のプロジェクト用スキル（.claude/skills/janction-render/SKILL.md）。描く場面で Claude が自分から読む。"""
+    return ("---\nname: janction-render\ndescription: Render Blender or 3D scenes (a .blend, a bpy script, or a GLB, FBX, OBJ "
+            "or USD model) on cloud GPUs with JANCTION Render when this machine has no NVIDIA GPU or local rendering would "
+            "be slow. Preview first, ask the user before a final render.\n---\n\n" + agents_section(server))
+
+
+def _write_text(path: Path, text: str, dry_run: bool) -> str:
+    old = path.read_text(encoding="utf-8") if path.exists() else None
+    action = "unchanged" if old == text else ("updated" if old is not None else "added")
+    if action != "unchanged" and not dry_run:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding="utf-8")
+    return action
+
+
 def cursor_rule(server: Optional[str] = None) -> str:
     return ("---\ndescription: Render Blender or 3D scenes on cloud GPUs with JANCTION Render (preview first, ask before a "
             "final render)\nalwaysApply: false\n---\n\n" + agents_section(server))
@@ -222,18 +238,15 @@ def init(directory: Path, server: Optional[str] = None, cursor: Optional[bool] =
     done.append((d / ".mcp.json", merge_json(d / ".mcp.json", "mcpServers", {"type": "http", "url": url}, dry_run)))
     if claude or (claude is None and (d / "CLAUDE.md").exists()):
         done.append((d / "CLAUDE.md", upsert_section(d / "CLAUDE.md", section, dry_run)))
+    if claude or (claude is None and (d / ".claude").is_dir()):
+        skill = d / ".claude" / "skills" / "janction-render" / "SKILL.md"
+        done.append((skill, _write_text(skill, claude_skill(server), dry_run)))
     if (d / "GEMINI.md").exists():
         done.append((d / "GEMINI.md", upsert_section(d / "GEMINI.md", section, dry_run)))
     if cursor or (cursor is None and (d / ".cursor").is_dir()):
         done.append((d / ".cursor" / "mcp.json", merge_json(d / ".cursor" / "mcp.json", "mcpServers", {"url": url}, dry_run)))
         rule = d / ".cursor" / "rules" / "janction-render.mdc"
-        text = cursor_rule(server)
-        old = rule.read_text(encoding="utf-8") if rule.exists() else None
-        action = "unchanged" if old == text else ("updated" if old is not None else "added")
-        if action != "unchanged" and not dry_run:
-            rule.parent.mkdir(parents=True, exist_ok=True)
-            rule.write_text(text, encoding="utf-8")
-        done.append((rule, action))
+        done.append((rule, _write_text(rule, cursor_rule(server), dry_run)))
     if vscode or (vscode is None and (d / ".vscode").is_dir()):
         done.append((d / ".vscode" / "mcp.json",
                      merge_json(d / ".vscode" / "mcp.json", "servers", {"type": "http", "url": url}, dry_run)))

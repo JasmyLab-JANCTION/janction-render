@@ -28,6 +28,15 @@ Try it from a terminal in a few seconds, free and with nothing to sign up for (n
 uvx janction-render try                      # renders a sample scene and shows the free GPU time of your new key
 uvx janction-render preview scene.blend      # your .blend, bpy script or 3D file
 uvx janction-render render scene.blend --frames 1-48 --output mp4 --wait
+uvx janction-render turntable model.glb      # a 360-degree turntable MP4 in one command (a path or an https link)
+uvx janction-render shots model.glb --transparent   # four product shots (PNG)
+```
+
+Keep 3D files in a repository? Add a button that lets anyone render them from their own AI or terminal
+(links to file pages on GitHub and Hugging Face work as they are; make one at https://render.janction.jp/go):
+
+```markdown
+[![Render on JANCTION](https://render.janction.jp/badge.svg)](https://render.janction.jp/go?scene=https://github.com/you/repo/blob/main/model.glb)
 ```
 
 ## Guides on the official site

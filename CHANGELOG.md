@@ -2,6 +2,12 @@
 
 The live, per-version list is at https://render.janction.jp/changelog (Atom: https://render.janction.jp/changelog.xml). Versions are the PyPI releases of `janction-render`; the hosted service follows the same numbers.
 
+## 0.4.37 (2026-10-10)
+
+- A Render on JANCTION button for READMEs: https://render.janction.jp/badge.svg linking to /go?scene=<link to a 3D file>, a page that shows how to render that file from your own AI (the request already written), a terminal, MCP or the HTTP API. The page never fetches the file and is not indexed.
+- The CLI takes an https link as the scene, and turns file-page links on GitHub and Hugging Face into raw links. New one-command outcomes: janction-render turntable <model> (a 360-degree MP4) and janction-render shots <model> (four PNGs, optionally transparent), with the price ceiling shown first.
+- janction-render init also writes a Claude Code project skill (.claude/skills/janction-render/SKILL.md) when the project has a .claude folder; llms.txt routes models from AI 3D generators and links to models on GitHub or Hugging Face.
+
 ## 0.4.36 (2026-10-10)
 
 - The local MCP server (pip install janction-render) has seven prompts that show up as slash commands: try it, render my scene, turntable video, product shots, scene from a description, .blend to MP4, and render within the free GPU time. It also reports its version in the handshake.

@@ -18,7 +18,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from . import hookup
+from . import hookup, links
 from .brief import welcome_billing
 from .client import Client, ClientError, parse_frames
 
@@ -27,8 +27,10 @@ QUICKSTART = """JANCTION Render: render Blender scenes on cloud GPUs from the te
 No local GPU or Blender needed; a free key with free GPU time is created on first use (no sign-up, no card).
 
   janction-render try                                    render a sample scene in seconds (free)
-  janction-render preview scene.blend                    a fast preview of a .blend, a bpy script or a 3D file
+  janction-render preview scene.blend                    a fast preview of a .blend, a bpy script or a 3D file (a path or an https link)
   janction-render render scene.blend --frames 1-48 --output mp4 --wait
+  janction-render turntable model.glb                    a 360-degree turntable MP4 in one command
+  janction-render shots model.glb --transparent          four product shots (PNG) in one command
   janction-render balance                                free GPU time and credit left on this key
   janction-render connect                                let Claude Code, Codex, Cursor ... call it over MCP
   janction-render init                                   tell the coding agents of this project how to render
@@ -67,10 +69,18 @@ def _progress(j: dict[str, Any]) -> None:
 
 
 def _scene(c: Client, args: argparse.Namespace) -> str:
-    if args.scene_id:
+    if getattr(args, "scene_id", None):
         return args.scene_id
     if not args.scene:
         raise SystemExit("give a scene file (.blend or .py) or --scene-id")
+    if links.is_link(args.scene):
+        # https のリンク（GitHub・Hugging Face のファイルのページのリンクは生のファイルに直す。10/10）。受付が取りに行く
+        url = links.scene_link(args.scene)
+        if not url:
+            raise SystemExit("the link must be https and end in " + " / ".join(links.SCENE_EXTS))
+        up = c.upload_url(url)
+        print(f"fetched {url} -> scene_id {up['scene_id']}", file=sys.stderr)
+        return up["scene_id"]
     up = c.upload(args.scene)
     print(f"uploaded {up['name']} -> scene_id {up['scene_id']}", file=sys.stderr)
     return up["scene_id"]
@@ -252,6 +262,33 @@ def cmd_init(c: Client, args: argparse.Namespace) -> int:
     return 0
 
 
+def _outcome(c: Client, args: argparse.Namespace, name: str, options: dict[str, Any], only: str) -> int:
+    """定額の成果（turntable / product-shot）を 1 コマンドで: 値段の天井を先に出し、描いて、取ってくる（10/10）。"""
+    sid = _scene(c, args)
+    j = c.outcome(name, sid, **options)
+    price = (j.get("outcome") or {}).get("price_yen")
+    print(f"job {j['job_id']}: {name}" + (f", up to {price} JPY (0 while your free GPU time covers it)" if price is not None else ""),
+          file=sys.stderr)
+    j = c.wait(j["job_id"], timeout=args.timeout, on_progress=_progress)
+    if j["status"] != "done":
+        print(_j({k: j.get(k) for k in ("job_id", "status", "error", "log_tail")}))
+        return 1
+    out = Path(args.out) if args.out else Path("render_out") / j["job_id"]
+    paths = c.download(j["job_id"], out, only=only)
+    print(_j({"job_id": j["job_id"], "scene_id": sid, "files": [str(p) for p in paths], "gpu_seconds": j["gpu_seconds"],
+              "expires_at": j["expires_at"]}))
+    return 0
+
+
+def cmd_turntable(c: Client, args: argparse.Namespace) -> int:
+    return _outcome(c, args, "turntable", {"size": args.size, "frames": args.frames, "environment": args.environment}, "mp4")
+
+
+def cmd_shots(c: Client, args: argparse.Namespace) -> int:
+    return _outcome(c, args, "product-shot", {"size": args.size, "environment": args.environment,
+                                              "transparent": True if args.transparent else None}, "frames")
+
+
 def cmd_try(c: Client, args: argparse.Namespace) -> int:
     """見本のシーンを 1 枚描き、この鍵の無料分と次の一手を出す（10/10。ターミナルから初めて試す人向け、数秒・ほぼ無料）。"""
     print("rendering a sample scene on a cloud GPU (four lighting presets in one image)...", file=sys.stderr)
@@ -386,6 +423,24 @@ def build_parser() -> argparse.ArgumentParser:
 
     s = sub.add_parser("outcomes", help="list the fixed-price outcomes (turntable, product-shot) and their prices")
     s.set_defaults(fn=cmd_outcomes)
+
+    s = sub.add_parser("turntable", help="a 360-degree turntable MP4 of a model or scene in one command (fixed price ceiling)")
+    s.add_argument("scene", help="a 3D file (.glb .fbx .obj .usd ...), a .blend or a bpy script: a path or an https link")
+    s.add_argument("--size", choices=["720p", "1080p"], default="720p")
+    s.add_argument("--frames", type=int, choices=[24, 48, 96], default=48, help="frames for one turn at 24 fps (default 48 = 2 s)")
+    s.add_argument("--environment", default="studio", help="studio, sunset, overcast or night")
+    s.add_argument("--out", default=None, help="folder for the MP4 (default: render_out/<job_id>)")
+    s.add_argument("--timeout", type=float, default=1800)
+    s.set_defaults(fn=cmd_turntable, scene_id=None)
+
+    s = sub.add_parser("shots", help="four product shots (0/90/180/270 degrees, PNG) of a model in one command (fixed price ceiling)")
+    s.add_argument("scene", help="a 3D file (.glb .fbx .obj .usd ...), a .blend or a bpy script: a path or an https link")
+    s.add_argument("--size", choices=["1080p", "square"], default="1080p")
+    s.add_argument("--transparent", action="store_true", help="transparent background (PNG with alpha)")
+    s.add_argument("--environment", default="studio", help="studio, sunset, overcast or night")
+    s.add_argument("--out", default=None, help="folder for the PNGs (default: render_out/<job_id>)")
+    s.add_argument("--timeout", type=float, default=1800)
+    s.set_defaults(fn=cmd_shots, scene_id=None)
 
     s = sub.add_parser("connect", help="connect your AI apps (Claude Code, Codex, Gemini CLI, Cursor, Windsurf, VS Code) to JANCTION Render")
     s.add_argument("client", nargs="?", default="", help="claude-code, codex, gemini, cursor, windsurf, vscode or all (empty: list only)")
