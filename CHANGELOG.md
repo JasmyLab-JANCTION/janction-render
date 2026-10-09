@@ -2,6 +2,10 @@
 
 The live, per-version list is at https://render.janction.jp/changelog (Atom: https://render.janction.jp/changelog.xml). Versions are the PyPI releases of `janction-render`; the hosted service follows the same numbers.
 
+## 0.4.33 (2026-10-10)
+
+- Welcome credit: keys made later on the same network can use what is left of that network's 500 JPY credit (the larger of that and their own 100 JPY), so reconnecting an app no longer strands the credit on the old key. A network still gets 500 JPY in total.
+
 ## 0.4.32 (2026-10-09)
 
 - GET /v1/jobs/{id}/archive returns every file of a job in one zip (stored, not compressed; only=png,exr keeps those extensions), so a frame sequence is one request instead of hundreds that run into the rate limit (429). The Python client's download() uses it when there are 8 or more files and falls back to one file at a time on an older server.
