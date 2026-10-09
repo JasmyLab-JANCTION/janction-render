@@ -2,6 +2,14 @@
 
 The live, per-version list is at https://render.janction.jp/changelog (Atom: https://render.janction.jp/changelog.xml). Versions are the PyPI releases of `janction-render`; the hosted service follows the same numbers.
 
+## 0.4.30 (2026-10-09)
+
+- README and llms.txt show how to call the service from your own agent or app: the Python client end to end (upload, render, wait, download), a webhook instead of polling, the OpenAI Agents SDK with a 120-second MCP timeout (the 5-second default cuts off render_preview) and LangChain.
+- Credit holds follow real render times: a new scene's final is estimated from your recent finals, and the hold is lowered while it renders. /v1/me, billing() and a 402 show held_yen, the credit held by jobs that are still rendering.
+- Scenes and results of keys that have topped up stay 7 days after last use (24 hours for other keys).
+- Free renders keep at least one GPU slot while paid renders are queued.
+- /mcp answers directory and uptime checkers' list calls without a key; unknown /v1 paths return JSON that points to the API's main calls, /openapi.json, /llms.txt and /mcp (405 with Allow when only the method is wrong).
+
 ## 0.4.29 (2026-10-09)
 
 - The PyPI page lists classifiers (3D Rendering, Artificial Intelligence, Python 3.11 to 3.13), the MIT license and links to the fact sheet, llms.txt, pricing and the changelog; the README links are absolute, so they also work on PyPI.

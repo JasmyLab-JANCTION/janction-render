@@ -297,14 +297,18 @@ def welcome_billing(w: dict[str, Any], me: dict[str, Any], synced: dict[str, Any
     else:
         summary = "the welcome period has ended"
     pv = round(float(w.get("preview_free_seconds_per_day") or 0) / 60)
+    # 並んでいる・描いている仕事のために止めている額（10/9）。残高はこれを引いた後。使わなかった分は戻る
+    held = int(me.get("held_yen") or 0)
+    held_txt = (f" (+{held:,} JPY held for {me.get('held_jobs')} job(s) still queued or rendering; what they do not use comes back)"
+                if held else "")
     out: dict[str, Any] = {
         "mode": "welcome_credit",
-        "summary": f"{summary}; balance {me.get('balance_yen')} JPY",
+        "summary": f"{summary}; balance {me.get('balance_yen')} JPY{held_txt}",
         "note": (f"a new key's welcome credit covers previews and finals until it runs out or expires ({w.get('expires_at_iso')}); "
                  f"after that, previews are free up to {pv} GPU-minutes a day and finals cost {yen} JPY per GPU-second from "
                  "prepaid credit"),
         "welcome": w,
-        "balance_yen": me.get("balance_yen"), "yen_per_gpu_second": yen, "min_topup_yen": b.get("min_topup_yen"),
+        "balance_yen": me.get("balance_yen"), "held_yen": held, "yen_per_gpu_second": yen, "min_topup_yen": b.get("min_topup_yen"),
         "pending_checkout_url": b.get("pending_checkout_url"), "charged_yen_total": me.get("charged_yen_total"),
         "just_credited": (synced or {}).get("credited", []), "key_prefix": me.get("prefix"),
     }
