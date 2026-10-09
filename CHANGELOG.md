@@ -2,6 +2,10 @@
 
 The live, per-version list is at https://render.janction.jp/changelog (Atom: https://render.janction.jp/changelog.xml). Versions are the PyPI releases of `janction-render`; the hosted service follows the same numbers.
 
+## 0.4.32 (2026-10-09)
+
+- GET /v1/jobs/{id}/archive returns every file of a job in one zip (stored, not compressed; only=png,exr keeps those extensions), so a frame sequence is one request instead of hundreds that run into the rate limit (429). The Python client's download() uses it when there are 8 or more files and falls back to one file at a time on an older server.
+
 ## 0.4.31 (2026-10-09)
 
 - render_review and review=true previews check all four sides: an object hidden behind a backdrop when the orbit camera comes round to the back, or cut or out of the shot at 90, 180 or 270 degrees, is reported with the angle and the fix (hide the backdrop from the camera with visible_camera = False; it still lights the scene).

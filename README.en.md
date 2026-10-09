@@ -217,6 +217,7 @@ POST /v1/jobs   {scene_id, kind: info|preview|final, frames|frame_start/frame_en
                  environment, environment_strength, environment_visible, blender, orbit, orbit_frames, orbit_elevation}   header Idempotency-Key makes retries safe
 GET  /v1/jobs/{id}      status, progress, eta, artifacts[], cost, warnings, info, failure (code + fix)    DELETE /v1/jobs/{id}  cancel
 GET  /v1/jobs/{id}/artifacts/{name}             PNG / MP4
+GET  /v1/jobs/{id}/archive?only=png             every file of the job in one zip (frame sequences: one request instead of hundreds)
 GET  /v1/outcomes       fixed-price outcomes;  POST /v1/outcomes/turntable {scene_id, size, frames}   POST /v1/outcomes/product-shot {scene_id, size, transparent?}
 POST /v1/try    JSON {scene_script | scene_url, frames?, width?, height?, environment?} (no key) -> first 720p preview + an API key to continue, in one response (1 per network per 24h)
 POST /v1/drops  multipart "file" (no key)       -> a 12-hour https link to pass as scene_url (the /upload page uses this)

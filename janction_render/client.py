@@ -22,6 +22,7 @@ CACHE = Path.home() / ".janction-render.json"
 # 送れるシーン: .blend、bpy スクリプト、こちらの Blender が読み込める 3D ファイル
 SCENE_SUFFIXES = (".blend", ".py", ".fbx", ".glb", ".gltf", ".obj", ".stl", ".ply", ".usd", ".usda", ".usdc", ".usdz", ".abc")
 ONLY_CHOICES = ("all", "mp4", "frames", "sheet", "output", "video")
+ARCHIVE_MIN_FILES = 8   # これ以上の数のファイルは zip で 1 回で取る（1 枚ずつだと入口の回数制限 429 に当たる、10/9）
 
 
 def select_artifacts(artifacts: list[dict[str, Any]], only: Optional[str] = None) -> list[dict[str, Any]]:
@@ -606,6 +607,10 @@ class Client:
 
         wanted = select_artifacts(j["artifacts"], only) if isinstance(only, str) or only is None else \
             [a for a in j["artifacts"] if a["name"] in only]
+        if len(wanted) >= ARCHIVE_MIN_FILES:
+            got = self._download_archive(job_id, out, wanted)
+            if got is not None:
+                return got
         for a in wanted:
             # 受付が返す URL は公開 URL の土台で組まれている。自分がつないだ先（SSH トンネルなど）でも
             # 落とせるように、パスだけを取り出して自分の server に付け直す
@@ -620,3 +625,41 @@ class Client:
                         fh.write(chunk)
             paths.append(dest)
         return paths
+
+    def _download_archive(self, job_id: str, out: Path, wanted: list[dict[str, Any]]) -> Optional[list[Path]]:
+        """まとめて zip（GET /v1/jobs/{id}/archive）で取り、欲しい名前だけを out に出す。受付が古くて口が無い・途中で切れた・
+        中身が足りないときは None（呼び手が 1 枚ずつに戻る）。"""
+        import shutil
+        import tempfile
+        import zipfile
+
+        names = {a["name"] for a in wanted}
+        exts = sorted({Path(n).suffix.lstrip(".").lower() for n in names if Path(n).suffix})
+        url = f"{self.server}/v1/jobs/{job_id}/archive" + (f"?only={','.join(exts)}" if exts else "")
+        tmp: Optional[str] = None
+        try:
+            with self.s.get(url, headers=self._headers(), stream=True, timeout=1800) as r:
+                if r.status_code != 200:
+                    return None
+                fd, tmp = tempfile.mkstemp(suffix=".zip", dir=out)
+                with os.fdopen(fd, "wb") as fh:
+                    for chunk in r.iter_content(1024 * 1024):
+                        fh.write(chunk)
+            paths: list[Path] = []
+            with zipfile.ZipFile(tmp) as zf:
+                if not names <= set(zf.namelist()):
+                    return None
+                for a in wanted:
+                    dest = out / a["name"]
+                    with zf.open(a["name"]) as src, dest.open("wb") as dst:
+                        shutil.copyfileobj(src, dst, 1024 * 1024)
+                    paths.append(dest)
+            return paths
+        except (requests.RequestException, zipfile.BadZipFile, OSError):
+            return None
+        finally:
+            if tmp:
+                try:
+                    os.unlink(tmp)
+                except OSError:
+                    pass
