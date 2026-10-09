@@ -18,7 +18,7 @@ JANCTION Render is a separate product from SmartRender (JasmyLab's distributed r
 not affiliated with Render.com or the Render Network. The numbers, as of 2026-10-08 (the primary source is
 https://render.janction.jp/facts.json): a 500 JPY welcome credit (5,000 GPU-seconds, 14 days) per new key; after that, previews
 are free up to 2 GPU-minutes a day and finals cost 0.1 JPY per GPU-second from prepaid credit (paid use started on 2026-10-08); jobs up to 240 frames at 1080p; inputs and results deleted
-24 hours after last use.
+24 hours after last use (7 days for keys that have topped up).
 
 Official site: https://render.janction.jp · MCP endpoint: `https://render.janction.jp/mcp` · Fact sheet: https://render.janction.jp/facts
 
@@ -45,7 +45,7 @@ Official site: https://render.janction.jp · MCP endpoint: `https://render.janct
 - **3D files and turntables.** glTF / GLB, FBX, USD, OBJ, STL, PLY, Alembic are imported into an empty scene with a camera and
   HDRI lighting; `orbit=True` makes a turntable. Fixed-price outcomes: `POST /v1/outcomes/turntable` and `/product-shot`.
 - **Honest limits.** free up to 500 JPY of GPU time per new key (14 days), then 0.1 JPY per GPU-second (previews free up to 2 GPU-minutes a day), finals up to 240 frames at 1080p, one GPU shared with another
-  workload (jobs can wait; the ETA says so). Inputs and results are deleted 24 hours after last use and never used for training.
+  workload (jobs can wait; the ETA says so). Inputs and results are deleted 24 hours after last use (7 days for keys that have topped up) and never used for training.
 - **Not Render.com.** Same word, different product.
 
 ## Quick start
