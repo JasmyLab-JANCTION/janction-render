@@ -2,6 +2,11 @@
 
 The live, per-version list is at https://render.janction.jp/changelog (Atom: https://render.janction.jp/changelog.xml). Versions are the PyPI releases of `janction-render`; the hosted service follows the same numbers.
 
+## 0.4.38 (2026-10-10)
+
+- GET /mcp asking for an event stream now gets 405 with Allow whether or not it carries a key (this stateless server has no standalone stream). A client that opened the stream without its token read the old 401 as 'sign in again', looped through the OAuth metadata and was rate-limited at the edge, which also blocked its real tool calls.
+- The OAuth consent page states the current pricing (the welcome credit, then per GPU-second) in the same words as the site; it still described a daily free allowance.
+
 ## 0.4.37 (2026-10-10)
 
 - A Render on JANCTION button for READMEs: https://render.janction.jp/badge.svg linking to /go?scene=<link to a 3D file>, a page that shows how to render that file from your own AI (the request already written), a terminal, MCP or the HTTP API. The page never fetches the file and is not indexed.
