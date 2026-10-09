@@ -22,6 +22,14 @@ are free up to 2 GPU-minutes a day and finals cost 0.1 JPY per GPU-second from p
 
 Official site: https://render.janction.jp · MCP endpoint: `https://render.janction.jp/mcp` · Fact sheet: https://render.janction.jp/facts
 
+Try it from a terminal in a few seconds, free and with nothing to sign up for (needs [uv](https://docs.astral.sh/uv/); or `pip install janction-render` and drop the `uvx`):
+
+```shell
+uvx janction-render try                      # renders a sample scene and shows the free GPU time of your new key
+uvx janction-render preview scene.blend      # your .blend, bpy script or 3D file
+uvx janction-render render scene.blend --frames 1-48 --output mp4 --wait
+```
+
 ## Guides on the official site
 
 - [How to render Blender without a GPU](https://render.janction.jp/render-blender-without-gpu)
@@ -128,6 +136,85 @@ async def main():
 
 asyncio.run(main())
 ```
+
+OpenAI Responses API (remote MCP; `render_final` keeps asking for approval because it spends credit):
+
+```python
+from openai import OpenAI
+
+client = OpenAI()
+resp = client.responses.create(
+    model="gpt-5",
+    tools=[{"type": "mcp", "server_label": "janction_render", "server_url": "https://render.janction.jp/mcp",
+            "authorization": "jr_...",
+            "require_approval": {"never": {"tool_names": ["scene_info", "render_preview", "render_estimate",
+                                                         "render_status", "render_download"]}}}],
+    input="Render a preview of https://render.janction.jp/samples/cube_scene.py and give me the image link.",
+)
+print(resp.output_text)
+```
+
+Anthropic Messages API (MCP connector; `fallbacks="default"` reruns a declined request on a fallback model):
+
+```python
+import anthropic
+
+client = anthropic.Anthropic()
+response = client.beta.messages.create(
+    model="claude-opus-5-5",
+    max_tokens=16000,
+    betas=["mcp-client-2025-11-20", "server-side-fallback-2026-07-01"],
+    fallbacks="default",
+    mcp_servers=[{"type": "url", "url": "https://render.janction.jp/mcp", "name": "janction-render",
+                  "authorization_token": "jr_..."}],
+    tools=[{"type": "mcp_toolset", "mcp_server_name": "janction-render"}],
+    messages=[{"role": "user", "content": "Render a preview of https://render.janction.jp/samples/cube_scene.py"}],
+)
+for block in response.content:
+    if block.type == "text":
+        print(block.text)
+```
+
+Google ADK:
+
+```python
+import os
+from google.adk.agents import Agent
+from google.adk.tools.mcp_tool import MCPToolset, StreamableHTTPConnectionParams
+
+agent = Agent(
+    name="renderer",
+    model="gemini-2.5-flash",
+    instruction="Render Blender scenes with JANCTION Render: preview first, ask before a final render.",
+    tools=[MCPToolset(connection_params=StreamableHTTPConnectionParams(
+        url="https://render.janction.jp/mcp",
+        headers={"Authorization": "Bearer " + os.environ["JANCTION_RENDER_API_KEY"]}))],
+)
+```
+
+Pydantic AI:
+
+```python
+from pydantic_ai import Agent
+from pydantic_ai.mcp import MCPToolset
+
+render = MCPToolset("https://render.janction.jp/mcp", headers={"Authorization": "Bearer jr_..."})
+agent = Agent("anthropic:claude-opus-5-5", toolsets=[render])
+```
+
+**Connect the AI apps on this computer** in one command, and **tell every coding agent in a project** when and how to render:
+
+```shell
+uvx janction-render connect             # lists Claude Code, Codex, Gemini CLI, Cursor, Windsurf, VS Code and the step for each
+uvx janction-render connect claude-code # applies one (or: connect all --yes)
+uvx janction-render init                # writes a short section to AGENTS.md and adds the server to .mcp.json
+```
+
+`init` touches CLAUDE.md, GEMINI.md, `.cursor/` and `.vscode/` only when they already exist (or with `--claude`, `--cursor`,
+`--vscode`); it keeps everything else in those files and backs up JSON it changes.
+
+The local MCP server (stdio) also offers prompts that show up as slash commands, for example `/mcp__janction-render__turntable_video`
+in Claude Code: try_janction_render, render_my_scene, turntable_video, product_shots, scene_from_description, blend_to_mp4.
 
 ## MCP
 

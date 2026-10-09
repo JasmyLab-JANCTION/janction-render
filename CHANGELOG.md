@@ -2,6 +2,14 @@
 
 The live, per-version list is at https://render.janction.jp/changelog (Atom: https://render.janction.jp/changelog.xml). Versions are the PyPI releases of `janction-render`; the hosted service follows the same numbers.
 
+## 0.4.36 (2026-10-10)
+
+- The local MCP server (pip install janction-render) has seven prompts that show up as slash commands: try it, render my scene, turntable video, product shots, scene from a description, .blend to MP4, and render within the free GPU time. It also reports its version in the handshake.
+- janction-render connect lists the AI clients on this computer and adds JANCTION Render to one or all of them (it only adds its own entry and keeps a .bak); janction-render init writes agent instructions and the MCP setting into the current project.
+- janction-render with no arguments shows how to start instead of an error, and janction-render try renders a sample scene in seconds and shows the free GPU time of the new key (uvx janction-render try needs no install). llms.txt now also routes users who want to render for free or from a terminal, CI or a headless server.
+- Share, example and upload pages have links that open ChatGPT, Claude, Grok or Perplexity with the request already written; video share pages carry og:video; llms.txt shows calls from the OpenAI Responses API, the Anthropic MCP connector, Google ADK and Pydantic AI.
+- The public numbers (/status and /v1/stats) split what used to be one 'other' bucket into direct API use (your own agents and apps), other MCP apps and the try page.
+
 ## 0.4.35 (2026-10-10)
 
 - POST /v1/batches/{batch_id}/retry submits only the failed items of a batch again; items that rendered or are rendering are left alone, so nothing is drawn or charged twice. By default only failures that can succeed with the same input; failures caused by the script or file come back with the fix unless include_non_retryable is set. Up to 3 retries per item.

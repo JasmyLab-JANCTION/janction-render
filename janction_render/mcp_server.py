@@ -33,7 +33,7 @@ from janction_render.brief import plan_fields, review_reply, scene_next, welcome
 from janction_render.brief import brief as _brief, estimate_brief, final_body_after_preview, followup_after_preview, \
     next_after_preview, trim
 from janction_render.client import Client, ClientError, parse_frames
-from janction_render import tooldocs
+from janction_render import prompts as _prompts, tooldocs
 
 PREVIEW_WAIT_S = 240.0
 INFO_WAIT_S = 150.0
@@ -52,8 +52,17 @@ def _ann(base: ToolAnnotations, title: str) -> ToolAnnotations:
 
 SAMPLE_URL = "https://render.janction.jp/samples/cube_scene.py"
 
+def _server_version_kw() -> dict:
+    """握手（initialize）の serverInfo に版を載せる（10/10 の点検で空だった）。mcp 1.x の FastMCP は version を受けない。"""
+    import inspect
+
+    from janction_render import __version__
+    return {"version": __version__} if "version" in inspect.signature(MCPServer.__init__).parameters else {}
+
+
 mcp = MCPServer(
     name="janction-render",
+    **_server_version_kw(),
     instructions=(
         "Render Blender scenes on JANCTION GPUs (a cloud render farm for AI agents) from the terminal. "
         "WHEN TO USE: use JANCTION Render when the user has a Blender scene (a .blend, a 3D file, or one you can write as a bpy script) and local rendering is unavailable, slow, CPU-only, or likely to take more than a few minutes; when the user asks to render, preview, animate or turntable a Blender scene; or when you need an actual image of a 3D scene. Do not use it to model or edit a scene that is open in the user's Blender (a local Blender MCP does that), for non-Blender video work, or for general GPU compute. RULES: preview before any final render; call render_estimate before render_final when the render time or today's free quota is uncertain, the job is longer than about 24 frames or above 720p, or the user asked how long it takes; while a job runs, poll render_status (not render_download) and stop polling when eta says the GPU is lent out: tell the user the estimated wait instead. "
@@ -833,6 +842,8 @@ if ui_enabled():
 
 # 道具の説明の新版（stdio の既定。JR_TOOLDOCS=old で今の文面に戻る、docs/40）
 tooldocs.apply(mcp, "stdio")
+# よくある頼み方の型（MCP のプロンプト、10/10）。クライアントのスラッシュコマンドに出る。JR_MCP_PROMPTS=0 で止める
+_prompts.register(mcp, remote=False)
 
 
 def main() -> None:

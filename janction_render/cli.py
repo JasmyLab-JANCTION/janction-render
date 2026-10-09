@@ -7,6 +7,8 @@
     janction-render cancel JOB
     janction-render jobs
     janction-render info
+    janction-render connect [claude-code|codex|gemini|cursor|windsurf|vscode|all]   # ほかの AI につなぐ
+    janction-render init                                  # このプロジェクトのエージェントに使い方を書く
 """
 from __future__ import annotations
 
@@ -16,7 +18,24 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from . import hookup
+from .brief import welcome_billing
 from .client import Client, ClientError, parse_frames
+
+
+QUICKSTART = """JANCTION Render: render Blender scenes on cloud GPUs from the terminal.
+No local GPU or Blender needed; a free key with free GPU time is created on first use (no sign-up, no card).
+
+  janction-render try                                    render a sample scene in seconds (free)
+  janction-render preview scene.blend                    a fast preview of a .blend, a bpy script or a 3D file
+  janction-render render scene.blend --frames 1-48 --output mp4 --wait
+  janction-render balance                                free GPU time and credit left on this key
+  janction-render connect                                let Claude Code, Codex, Cursor ... call it over MCP
+  janction-render init                                   tell the coding agents of this project how to render
+
+Without installing: uvx janction-render try    All commands: janction-render --help
+Docs for agents: https://render.janction.jp/llms.txt
+"""
 
 
 def _j(obj: Any) -> str:
@@ -208,12 +227,72 @@ def cmd_outcomes(c: Client, args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_connect(c: Client, args: argparse.Namespace) -> int:
+    """ほかの AI クライアントにつなぐ（10/10）。名前なしは一覧と方法を出すだけ。"""
+    return hookup.connect(args.client or "", yes=args.yes, server=args.server)
+
+
+def cmd_init(c: Client, args: argparse.Namespace) -> int:
+    """このプロジェクトのエージェント（AGENTS.md・CLAUDE.md・.mcp.json ほか）に JANCTION Render の使い方を書く（10/10）。"""
+    flag = lambda on, off: True if on else (False if off else None)  # noqa: E731
+    try:
+        done = hookup.init(Path(args.dir), server=args.server, cursor=flag(args.cursor, args.no_cursor),
+                           vscode=flag(args.vscode, args.no_vscode), claude=flag(args.claude, args.no_claude),
+                           dry_run=args.dry_run)
+    except ValueError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+    for path, action in done:
+        print(f"  {action:9} {path}")
+    if args.dry_run:
+        print("(dry run: nothing was written)")
+    else:
+        print("Coding agents in this project (Claude Code, Codex, Cursor, Copilot, Gemini CLI ...) now know when and how to "
+              "render with JANCTION Render. Claude Code asks once to trust the server in .mcp.json.")
+    return 0
+
+
+def cmd_try(c: Client, args: argparse.Namespace) -> int:
+    """見本のシーンを 1 枚描き、この鍵の無料分と次の一手を出す（10/10。ターミナルから初めて試す人向け、数秒・ほぼ無料）。"""
+    print("rendering a sample scene on a cloud GPU (four lighting presets in one image)...", file=sys.stderr)
+    up = c.upload_url(f"{c.server}/samples/cube_scene.py")
+    j = c.submit(up["scene_id"], kind="preview", frames=[1], environment="compare")
+    j = c.wait(j["job_id"], timeout=args.timeout, on_progress=_progress)
+    if j["status"] != "done":
+        print(_j({k: j.get(k) for k in ("job_id", "status", "error", "log_tail")}))
+        return 1
+    out = Path(args.out) if args.out else Path("render_out") / j["job_id"]
+    paths = c.download(j["job_id"], out)
+    print(f"done: {j['gpu_seconds']} GPU seconds on {j.get('device') or 'GPU'} -> " + ", ".join(str(p) for p in paths))
+    try:
+        me = c.me()
+        q = me.get("quota") or {}
+        if q.get("welcome"):
+            print("this key: " + welcome_billing(q["welcome"], me)["summary"])
+        elif q.get("gpu_seconds_per_day"):
+            left = max(0, int(q["gpu_seconds_per_day"] - q.get("gpu_seconds_used_today", 0)))
+            print(f"this key: {left} free GPU seconds left today")
+    except ClientError:
+        pass
+    print("next:\n"
+          "  janction-render preview my_scene.blend                 (a .blend, a bpy script, or a .glb / .fbx / .usd / .obj file)\n"
+          "  janction-render render my_scene.blend --frames 1-48 --output mp4 --wait\n"
+          "  janction-render connect                                (let Claude Code, Codex, Cursor ... render for you)")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(prog="janction-render",
-                                description="Render Blender scenes on JANCTION GPUs from the terminal.")
+    p = argparse.ArgumentParser(prog="janction-render", formatter_class=argparse.RawDescriptionHelpFormatter,
+                                description="Render Blender scenes on JANCTION GPUs from the terminal (free GPU time for new keys).",
+                                epilog=QUICKSTART)
     p.add_argument("--server", default=None, help="server URL (default: JANCTION_RENDER_SERVER or https://render.janction.jp; a local server is http://127.0.0.1:8340)")
     p.add_argument("--key", default=None, help="API key (default: JANCTION_RENDER_API_KEY or an auto-issued temporary key)")
-    sub = p.add_subparsers(dest="cmd", required=True)
+    sub = p.add_subparsers(dest="cmd")   # 名前なしは始め方を出す（10/10。エラーで終わらせない）
+
+    s = sub.add_parser("try", help="render a sample scene in seconds to see it work (free)")
+    s.add_argument("--out", default=None, help="folder for the image (default: render_out/<job_id>)")
+    s.add_argument("--timeout", type=float, default=180)
+    s.set_defaults(fn=cmd_try)
 
     s = sub.add_parser("inspect", help="read the scene without rendering (cameras, frame range, missing files)")
     s.add_argument("scene", nargs="?", help=".blend file or bpy Python script")
@@ -307,11 +386,27 @@ def build_parser() -> argparse.ArgumentParser:
 
     s = sub.add_parser("outcomes", help="list the fixed-price outcomes (turntable, product-shot) and their prices")
     s.set_defaults(fn=cmd_outcomes)
+
+    s = sub.add_parser("connect", help="connect your AI apps (Claude Code, Codex, Gemini CLI, Cursor, Windsurf, VS Code) to JANCTION Render")
+    s.add_argument("client", nargs="?", default="", help="claude-code, codex, gemini, cursor, windsurf, vscode or all (empty: list only)")
+    s.add_argument("--yes", action="store_true", help="needed with 'all'")
+    s.set_defaults(fn=cmd_connect)
+
+    s = sub.add_parser("init", help="tell the coding agents of this project when and how to render (AGENTS.md, .mcp.json, ...)")
+    s.add_argument("--dir", default=".", help="project folder (default: here)")
+    for name, what in (("cursor", ".cursor/mcp.json and a Cursor rule"), ("vscode", ".vscode/mcp.json"), ("claude", "CLAUDE.md")):
+        s.add_argument(f"--{name}", action="store_true", help=f"also write {what} (default: only when it already exists)")
+        s.add_argument(f"--no-{name}", action="store_true", help=f"never write {what}")
+    s.add_argument("--dry-run", action="store_true", help="show what would change without writing")
+    s.set_defaults(fn=cmd_init)
     return p
 
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
+    if not getattr(args, "cmd", None):
+        print(QUICKSTART)
+        return 0
     c = Client(server=args.server, api_key=args.key, client="cli")
     try:
         return int(args.fn(c, args))

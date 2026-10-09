@@ -4,12 +4,12 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "janction-render"
-version = "0.4.35"
+version = "0.4.36"
 description = "Cloud GPU render farm for Blender, built for AI agents: MCP server (remote + stdio), HTTP API and CLI. Send a .blend, a bpy script or a 3D file (glTF/FBX/USD) and get frames or an MP4 back; no local Blender or GPU. Free up to 500 JPY of GPU time per new key, then 0.1 JPY per GPU-second."
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]
-keywords = ["blender", "rendering", "render-farm", "cloud-rendering", "gpu", "mcp", "mcp-server", "model-context-protocol", "ai-agent", "claude", "codex", "cursor", "gltf", "bpy", "chatgpt", "claude-code", "blender-mcp", "3d-rendering", "cycles"]
+keywords = ["blender", "rendering", "render-farm", "cloud-rendering", "gpu", "mcp", "mcp-server", "model-context-protocol", "ai-agent", "claude", "codex", "cursor", "gltf", "bpy", "chatgpt", "claude-code", "blender-mcp", "3d-rendering", "cycles", "cli", "command-line", "terminal", "headless", "free"]
 classifiers = [
     "Intended Audience :: Developers",
     "Intended Audience :: End Users/Desktop",
