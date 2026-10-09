@@ -2,6 +2,10 @@
 
 The live, per-version list is at https://render.janction.jp/changelog (Atom: https://render.janction.jp/changelog.xml). Versions are the PyPI releases of `janction-render`; the hosted service follows the same numbers.
 
+## 0.4.35 (2026-10-10)
+
+- POST /v1/batches/{batch_id}/retry submits only the failed items of a batch again; items that rendered or are rendering are left alone, so nothing is drawn or charged twice. By default only failures that can succeed with the same input; failures caused by the script or file come back with the fix unless include_non_retryable is set. Up to 3 retries per item.
+
 ## 0.4.34 (2026-10-10)
 
 - An asset sent again under the same name with different content (for example the same script with a new model.glb) is now rendered with the new content: the client compares assets by content as well as name, and the service no longer reuses frames or scene readings made before an asset changed. Scene views list each asset's sha256.
