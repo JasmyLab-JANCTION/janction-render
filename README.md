@@ -75,6 +75,50 @@ curl -s -X POST https://render.janction.jp/v1/jobs -H "X-API-Key: $KEY" -H "Cont
   -d '{"scene_id":"f_...","kind":"preview","frames":[1]}'                             # -> job_id; then GET /v1/jobs/{job_id}
 ```
 
+## From your own agent or app
+
+**Python** (`pip install janction-render`; the first call creates a free key and keeps it in `~/.janction-render.json`):
+
+```python
+from janction_render.client import Client
+
+c = Client()                                   # or Client(api_key="jr_...")
+scene = c.upload("scene.py")                   # a bpy script, a .blend, or a .glb / .fbx / .usd / .obj file
+job = c.submit(scene["scene_id"], kind="final", frame_start=1, frame_end=48, output="mp4")
+job = c.wait(job["job_id"], timeout=1800)
+print(job["status"], c.download(job["job_id"], "out", only="mp4"))
+```
+
+Pay per use with prepaid credit; no subscription is needed (prices: https://render.janction.jp/pricing).
+Instead of polling, pass `notify_url` (https) to `POST /v1/jobs` and get one JSON POST when the job finishes (`job.done` /
+`job.failed`, with download links); an `Idempotency-Key` header makes retries safe. OpenAPI: https://render.janction.jp/openapi.json
+
+**Agent frameworks** connect to the remote MCP server at `https://render.janction.jp/mcp` with the key as a bearer token
+(`curl -s -X POST https://render.janction.jp/v1/keys` gives one, no sign-up).
+
+OpenAI Agents SDK (keep the longer timeout: `render_preview` waits for the image, longer than the 5-second default):
+
+```python
+from agents import Agent, Runner
+from agents.mcp import MCPServerStreamableHttp
+
+async with MCPServerStreamableHttp(name="janction-render", client_session_timeout_seconds=120,
+                                   params={"url": "https://render.janction.jp/mcp",
+                                           "headers": {"Authorization": "Bearer jr_..."}}) as render:
+    agent = Agent(name="3D artist", instructions="Render Blender scenes with janction-render.", mcp_servers=[render])
+    result = await Runner.run(agent, "Render a preview of https://render.janction.jp/samples/cube_scene.py")
+```
+
+LangChain (`pip install langchain-mcp-adapters`):
+
+```python
+from langchain_mcp_adapters.client import MultiServerMCPClient
+
+client = MultiServerMCPClient({"janction-render": {"url": "https://render.janction.jp/mcp", "transport": "streamable_http",
+                                                   "headers": {"Authorization": "Bearer jr_..."}}})
+tools = await client.get_tools()               # render_preview, render_final, render_status, render_download, ...
+```
+
 ## MCP
 
 ### Remote (Streamable HTTP, OAuth 2.1 with dynamic client registration; a raw key also works as `Authorization: Bearer jr_...`)
