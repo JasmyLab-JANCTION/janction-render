@@ -438,8 +438,19 @@ class Client:
             except ValueError:
                 name = ap.name
             items.append((name, ap))
-        already = {a["name"] for a in out.get("assets") or []}
-        todo = [(n, ap) for n, ap in items if n not in already]
+        # 素材は名前と中身で照らす（10/10: 同じ台本＋同じ名前の別の model.glb が、前の素材のまま描かれた）。
+        # 受付が sha256 を返さない古い版なら大きさで比べ、違えば送り直す（受付は同じ名前を置き換える）
+        already = {a["name"]: a for a in out.get("assets") or []}
+
+        def _same(name: str, ap: Path) -> bool:
+            a = already.get(name)
+            if a is None:
+                return False
+            if a.get("sha256"):
+                return a["sha256"] == sha256_of(ap)
+            return int(a.get("size") or -1) == ap.stat().st_size
+
+        todo = [(n, ap) for n, ap in items if not _same(n, ap)]
         if todo:
             out = self.upload_assets(out["scene_id"], todo)
         out["missing_assets"] = missing

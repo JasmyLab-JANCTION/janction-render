@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "janction-render",
-  "version": "0.4.33",
+  "version": "0.4.34",
   "description": "Cloud GPU render farm for Blender for AI agents: the remote MCP connector plus a workflow skill. .blend, bpy or glTF/FBX/USD in; frames or MP4 out.",
   "author": {
     "name": "JasmyLab Inc.",

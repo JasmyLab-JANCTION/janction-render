@@ -2,6 +2,10 @@
 
 The live, per-version list is at https://render.janction.jp/changelog (Atom: https://render.janction.jp/changelog.xml). Versions are the PyPI releases of `janction-render`; the hosted service follows the same numbers.
 
+## 0.4.34 (2026-10-10)
+
+- An asset sent again under the same name with different content (for example the same script with a new model.glb) is now rendered with the new content: the client compares assets by content as well as name, and the service no longer reuses frames or scene readings made before an asset changed. Scene views list each asset's sha256.
+
 ## 0.4.33 (2026-10-10)
 
 - Welcome credit: keys made later on the same network can use what is left of that network's 500 JPY credit (the larger of that and their own 100 JPY), so reconnecting an app no longer strands the credit on the old key. A network still gets 500 JPY in total.
