@@ -13,4 +13,4 @@ body:
     id: client
     attributes:
       label: Client (if relevant)
-      options: [Claude.ai, Claude Code, ChatGPT, Codex, Cursor, VS Code, Windsurf, Gemini CLI / Antigravity, Grok, Perplexity, Le Chat, Cline, Goose, CLI, HTTP API, Blender add-on, Other]
+      options: [Claude.ai, Claude Code, ChatGPT, Codex, Cursor, VS Code, Windsurf, Gemini CLI / Antigravity, Grok, Perplexity, Le Chat, Notion, Cline, Goose, CLI, HTTP API, Blender add-on, Other]

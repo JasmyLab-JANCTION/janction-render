@@ -14,7 +14,7 @@ body:
     id: client
     attributes:
       label: Where did you call it from?
-      options: [Claude.ai, Claude Code, ChatGPT, Codex, Cursor, VS Code, Windsurf, Gemini CLI / Antigravity, Grok, Perplexity, Le Chat, Cline, Goose, CLI, HTTP API, Blender add-on, Maya / Houdini / Cinema 4D, Other]
+      options: [Claude.ai, Claude Code, ChatGPT, Codex, Cursor, VS Code, Windsurf, Gemini CLI / Antigravity, Grok, Perplexity, Le Chat, Notion, Cline, Goose, CLI, HTTP API, Blender add-on, Maya / Houdini / Cinema 4D, Other]
     validations:
       required: true
   - type: textarea
