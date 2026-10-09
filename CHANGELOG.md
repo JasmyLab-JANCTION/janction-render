@@ -5,6 +5,7 @@ The live, per-version list is at https://render.janction.jp/changelog (Atom: htt
 ## 0.4.34 (2026-10-10)
 
 - An asset sent again under the same name with different content (for example the same script with a new model.glb) is now rendered with the new content: the client compares assets by content as well as name, and the service no longer reuses frames or scene readings made before an asset changed. Scene views list each asset's sha256.
+- An Idempotency-Key sent again with a different request (another scene or other settings) now gets 409 idempotency_key_reused, naming the job the key belongs to, instead of that job; the same request still returns the first job.
 
 ## 0.4.33 (2026-10-10)
 
