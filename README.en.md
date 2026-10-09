@@ -262,7 +262,8 @@ container with no network. More: `samples/cube_scene.py`, `samples/polyhaven_roo
 ## Pricing
 
 Each new key starts with a 500 JPY welcome credit (5,000 GPU-seconds, 14 days) that covers previews and finals; one full credit
-per network every 30 days. After it is used up or expires, previews are free up to 2 GPU-minutes a day and finals cost 0.1 JPY per
+per network every 30 days (later keys on the same network share what is left of it). After it is used up or expires, previews are
+free up to 2 GPU-minutes a day and finals cost 0.1 JPY per
 GPU-second from prepaid credit, bought by card at a Stripe Checkout page (from 500 JPY; 2,000 JPY gives 2,200 JPY of credit,
 5,000 gives 5,750, 10,000 gives 12,000; the first top-up in the welcome period counts 1.5x, bonus up to 500 JPY). Only the part
 the free time does not cover is charged. Finals go up to 240 frames at 1080p. `POST /v1/estimate` quotes what will be charged
