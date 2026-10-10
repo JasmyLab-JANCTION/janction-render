@@ -236,6 +236,9 @@ class ClientError(RuntimeError):
         out = {"payment_required": True, "detail": self.detail,
                **{k: self.extra.get(k) for k in ("needed_yen", "balance_yen", "topup_yen", "checkout_url",
                                                  "session_id", "yen_per_gpu_second", "how")}}
+        for k in ("tell_user", "this_job_yen", "renders_per_topup"):   # 人間に伝える 1 文と、成果物の単位の値段（0.4.39）
+            if self.extra.get(k) is not None:
+                out[k] = self.extra[k]
         for k in ("welcome", "first_topup_bonus"):      # ようこそクレジット（docs/46）の受付なら付いてくる
             if self.extra.get(k):
                 out[k] = self.extra[k]

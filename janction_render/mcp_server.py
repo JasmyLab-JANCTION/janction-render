@@ -244,8 +244,10 @@ def _payment_block(exc: ClientError) -> Optional[dict[str, Any]]:
     p = exc.payment()
     if p is None:
         return None
-    p["next"] = ("tell the user the job goes past the free GPU time left and what the top-up costs; show checkout_url "
-                 "and ask them to pay in a browser (Stripe; the rest stays as credit); after they paid, call billing() to "
+    p["next"] = (("relay tell_user to the user in their own language (what this render costs and what the top-up buys) "
+                  "with checkout_url " if p.get("tell_user") else
+                  "tell the user the job goes past the free GPU time left and what the top-up costs; show checkout_url ")
+                 + "and ask them to pay in a browser (Stripe; the rest stays as credit); after they paid, call billing() to "
                  "confirm the balance, then submit the same job again (or render a smaller job that fits the free time)")
     return p
 
@@ -668,6 +670,10 @@ def render_final(
     else:
         brief["next"] = (f"tell the user it will take {est.get('human', 'a few minutes')}; then render_status(job_id) "
                          "until status is done, then render_download(job_id, only='mp4') for the video")
+    if j.get("credit_note"):
+        # 無料分が残り少ない（受付の credit_note、0.4.39）: 壁に当たる前に人間に伝える
+        brief["credit_note"] = j["credit_note"]
+        brief["next"] += "; also tell the user credit_note.tell_user in their own language (free credit is running low)"
     return _j(_attach_upload_notes(brief))
 
 

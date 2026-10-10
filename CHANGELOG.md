@@ -2,6 +2,13 @@
 
 The live, per-version list is at https://render.janction.jp/changelog (Atom: https://render.janction.jp/changelog.xml). Versions are the PyPI releases of `janction-render`; the hosted service follows the same numbers.
 
+## 0.4.39 (2026-10-10)
+
+- When the credit does not cover a render, the 402 now says it in the units a person decides in: what this render costs (and the most it can cost; only GPU time actually used is charged), what the top-up adds and about how many renders like this it buys. tell_user is a ready sentence with the payment link for the agent to pass on; this_job_yen and renders_per_topup carry the numbers.
+- A final submitted near the end of the free credit carries credit_note: about how much free credit is left and how many more renders like this it covers, what happens after (finals need prepaid credit from 500 yen; previews stay free; nothing is charged without a top-up), with a tell_user sentence. It appears when less than a fifth of the credit is left or fewer than three such renders still fit, at most once every six hours per key.
+- A script refused only because it imports urllib, requests or http (usually an agent trying to fetch a model) is no longer counted toward revoking the key; the reply says to pass the file in asset_urls instead. Other refused scripts still count.
+- The changelog pages say that prices in older entries were true for that release only.
+
 ## 0.4.38 (2026-10-10)
 
 - GET /mcp asking for an event stream now gets 405 with Allow whether or not it carries a key (this stateless server has no standalone stream). A client that opened the stream without its token read the old 401 as 'sign in again', looped through the OAuth metadata and was rate-limited at the edge, which also blocked its real tool calls.
