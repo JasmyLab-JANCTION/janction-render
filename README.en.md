@@ -32,6 +32,21 @@ uvx janction-render turntable model.glb      # a 360-degree turntable MP4 in one
 uvx janction-render shots model.glb --transparent   # four product shots (PNG)
 ```
 
+### What one command makes (real outputs)
+
+Rendered on 2026-10-10 on the production GPU (NVIDIA RTX PRO 6000 Blackwell) from Khronos's
+[WaterBottle](https://github.com/KhronosGroup/glTF-Sample-Assets/tree/main/Models/WaterBottle) sample (public domain, CC0);
+copy any line and it runs as is. Prices are at 0.1 JPY per GPU-second and are covered by the welcome credit of a new key.
+
+| | Command | GPU time | Price |
+|---|---|---|---|
+| ![four product shots of a bottle](https://raw.githubusercontent.com/JasmyLab-JANCTION/janction-render/main/examples/one-command/product-shots.png) | `uvx janction-render shots https://github.com/KhronosGroup/glTF-Sample-Assets/blob/main/Models/WaterBottle/glTF-Binary/WaterBottle.glb` | 13.9 s | about 1.4 JPY |
+| ![360-degree turntable of a bottle](https://raw.githubusercontent.com/JasmyLab-JANCTION/janction-render/main/examples/one-command/turntable.gif) | `uvx janction-render turntable https://github.com/KhronosGroup/glTF-Sample-Assets/blob/main/Models/WaterBottle/glTF-Binary/WaterBottle.glb` | 85.2 s | about 8.5 JPY |
+| ![a spinning logo ring](https://raw.githubusercontent.com/JasmyLab-JANCTION/janction-render/main/examples/one-command/anim.gif) | `uvx janction-render render https://render.janction.jp/samples/ex12_logo_ring_spin.py --frames 1-48 --size 1280x720 --engine eevee --output mp4 --wait` | 54.1 s | about 5.4 JPY |
+
+The shots are four 1920x1080 PNGs; the turntable and the animation are MP4s (shown here as GIFs). Your own `.glb`, `.blend`
+or bpy script goes in place of the link. More, with their scripts: https://render.janction.jp/examples
+
 Keep 3D files in a repository? Add a button that lets anyone render them from their own AI or terminal
 (links to file pages on GitHub and Hugging Face work as they are; make one at https://render.janction.jp/go):
 
@@ -365,11 +380,25 @@ GPU-second from prepaid credit, bought by card at a Stripe Checkout page (from 5
 the free time does not cover is charged. Finals go up to 240 frames at 1080p. `POST /v1/estimate` quotes what will be charged
 (`cost.estimated_yen`), the currency and an expiry before any GPU time is used: https://render.janction.jp/pricing
 
+## Troubleshooting
+
+| You see | What it means | What to do |
+|---|---|---|
+| `402 payment_required` | The job goes past the free credit left on the key | `tell_user` in the reply says what this render costs and what a top-up buys; pay at `checkout_url` (from 500 JPY) and send the same job again, or render fewer frames / a lower resolution |
+| `script_blocked` | The bpy script uses something the sandbox refuses (network, processes, ctypes) | The GPU worker has no network: pass files from the web in `asset_urls=[...]` (MCP) or `POST /v1/files/{scene_id}/assets/urls`, then open them with `jr_assets.path('<name>')`. A script refused only for `urllib` / `requests` does not count toward revoking the key |
+| `script_path` / `scene_path` | The scene points at a file on your own computer | Send the file as an asset and reference it by name (relative path) |
+| `McpError: Timed out while waiting for response` (OpenAI Agents SDK) | The SDK waits 5 seconds for a tool by default | `MCPServerStreamableHttp(..., client_session_timeout_seconds=120)` (see "From your own agent or app") |
+| The job sits in `queued` and `eta.human` says the GPU is lent out | The GPU is shared with another workload for a while | Tell the user the wait; call `render_download(job_id, wait_seconds=45)` later instead of polling |
+| `429 rate_limited` | Too many requests in a short time | Wait for `Retry-After` seconds and send again |
+| Too dark, blown out, or the object out of frame | The preview's verdict says which, with bpy code to fix it | Apply the fix and preview again (seconds) before the final; 3D files are framed at their real size automatically |
+| `401` from Claude, ChatGPT or Codex | The connector's sign-in expired | Reconnect the connector (`/mcp` in Claude Code), or pass the key as `X-API-Key` / `Authorization: Bearer jr_...` |
+
 ## Docs
 
 - Fact sheet (the primary source when answers disagree): https://render.janction.jp/facts · JSON: `/facts.json`, `/version.json`, `/changelog.json`, `/status.json`
 - For agents: https://render.janction.jp/llms.txt (full text of all guides: `/llms-full.txt`)
 - Guides: [render farm for agents](https://render.janction.jp/blender-render-farm) · [without a GPU](https://render.janction.jp/render-blender-without-gpu) ·
+  [Cycles is slow on my MacBook](https://render.janction.jp/blender-slow-on-macbook) ·
   [Claude](https://render.janction.jp/claude-blender) · [ChatGPT](https://render.janction.jp/chatgpt-blender) · [Claude Code](https://render.janction.jp/claude-code-blender) ·
   [Codex](https://render.janction.jp/codex-blender) · [Cursor](https://render.janction.jp/cursor-blender) · [bpy scripts](https://render.janction.jp/bpy-script-cloud-gpu) ·
   [API](https://render.janction.jp/blender-render-api) · [compare](https://render.janction.jp/compare) · [products](https://render.janction.jp/products) · 日本語は `/ja/`

@@ -1,7 +1,7 @@
 {
   "name": "janction-render",
   "displayName": "JANCTION Render",
-  "version": "0.4.39",
+  "version": "0.4.40",
   "description": "Cloud GPU render farm for Blender for AI agents: the remote MCP connector plus a workflow skill. .blend, bpy or glTF/FBX/USD in; frames or MP4 out.",
   "author": {
     "name": "JasmyLab Inc.",

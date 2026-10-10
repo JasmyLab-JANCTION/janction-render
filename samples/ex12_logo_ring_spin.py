@@ -118,6 +118,7 @@ letters = text("JR", "Letters", metal, (0, 0.05, 1.3), size=1.5, extrude=0.12, r
 pivot = bpy.data.objects.new("Pivot", None)
 scene.collection.objects.link(pivot)
 pivot.location = (0, 0, 1.9)
+bpy.context.view_layer.update()   # 10/10: これが無いと pivot.matrix_world がまだ原点で、輪と文字が 1.9 m 余分に上がっていた
 for ob in (ring, letters):
     ob.parent = pivot
     ob.matrix_parent_inverse = pivot.matrix_world.inverted()
@@ -129,4 +130,5 @@ pivot.keyframe_insert("rotation_euler", frame=49)
 light("Key", "AREA", (4.0, -4.0, 5.0), 900, target=(0, 0, 1.9), size=3.0)
 light("Rim", "AREA", (-4.0, 4.0, 4.0), 500, target=(0, 0, 1.9), size=2.0, color=(0.7, 0.8, 1.0))
 light("Fill", "AREA", (0.0, -6.0, 1.0), 150, target=(0, 0, 1.9), size=4.0)
-camera((0.0, -7.5, 2.2), (0.0, 0.0, 1.8), lens=60)
+# 10/10: 60 mm・7.5 m では縦に 2.5 m しか入らず、高さ 3.7 m の輪の上が切れていた。引いて広げ、輪の中心に向ける
+camera((0.0, -9.5, 2.1), (0.0, 0.0, 1.95), lens=40)

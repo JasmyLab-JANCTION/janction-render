@@ -2,6 +2,14 @@
 
 The live, per-version list is at https://render.janction.jp/changelog (Atom: https://render.janction.jp/changelog.xml). Versions are the PyPI releases of `janction-render`; the hosted service follows the same numbers.
 
+## 0.4.40 (2026-10-10)
+
+- Product shots and turntables frame the object at its real size. Anything under a metre across was framed as if it were a metre, so a 26 cm bottle filled about a tenth of the frame; it now fills most of it, and very small objects (a 1.3 cm test) are not clipped by the camera.
+- Product shots and turntables use a plain backdrop by default: the HDRI still lights the object but its photo (studio gear, a room) is no longer the background. environment_visible=true shows it again.
+- The site's structured data no longer lists a price-0 offer; one per-GPU-second offer carries the welcome credit in its description (search summaries had read the site as free).
+- New guide: Cycles is slow on my MacBook, what to do (Metal, settings that cut render time, and where to render instead, with times measured on the production GPU).
+- The README shows real outputs from one-command samples on a public-domain GLB (four product shots, a 360-degree turntable, a .blend or script to MP4) with their GPU time and price, and a troubleshooting section.
+
 ## 0.4.39 (2026-10-10)
 
 - When the credit does not cover a render, the 402 now says it in the units a person decides in: what this render costs (and the most it can cost; only GPU time actually used is charged), what the top-up adds and about how many renders like this it buys. tell_user is a ready sentence with the payment link for the agent to pass on; this_job_yen and renders_per_topup carry the numbers.
