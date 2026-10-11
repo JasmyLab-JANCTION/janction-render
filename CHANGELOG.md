@@ -2,6 +2,12 @@
 
 The live, per-version list is at https://render.janction.jp/changelog (Atom: https://render.janction.jp/changelog.xml). Versions are the PyPI releases of `janction-render`; the hosted service follows the same numbers.
 
+## 0.4.49 (2026-10-12)
+
+- Getting ready to turn on the card model (a new key gets 100 JPY of free GPU time, and saving a card on a Stripe page that charges nothing adds 400 JPY more, once per card): keys made before the switch keep their welcome credit as it was (JR_WELCOME_CARD_SINCE), the card bonus lasts 14 days from when it is added, and it is not limited by the per-network daily cap.
+- The page after saving a card says what happened: free GPU time added, or why not (prepaid cards and cards already used do not qualify, and such a card is not kept). If the card cannot be confirmed yet, nothing is charged and the free time is added later by a billing call or the webhook retry.
+- While the card model is on, pages, guides, llms.txt and Markdown describe the welcome credit as up to 500 JPY, with the 100 JPY and 400 JPY split; the changelog keeps its history.
+
 ## 0.4.48 (2026-10-12)
 
 - The public wording follows the welcome model: under JR_WELCOME_MODEL=card, the one-line definition (facts.json, /facts, llms.txt), the pricing sentence, the pricing page, /v1/pricing (welcome_credit.card_bonus) and the JSON-LD offer state the cardless amount and the card bonus; under the default network model every text is unchanged.

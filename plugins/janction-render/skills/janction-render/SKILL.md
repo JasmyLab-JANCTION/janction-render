@@ -6,8 +6,9 @@ description: Render Blender scenes, bpy scripts, 3D files (GLB, glTF, FBX, USD, 
 # JANCTION Render
 
 The `janction-render` MCP server (`https://render.janction.jp/mcp`) renders Blender 5.0 scenes with Cycles on JANCTION's
-NVIDIA GPUs. A new key gets a 500 JPY welcome credit (14 days; one full credit per network every 30 days, further keys on the
-same network share what is left); after that, previews are free up to 2 GPU-minutes a day and other renders cost 0.1 JPY per
+NVIDIA GPUs. A new key gets 100 JPY of free GPU time (14 days; one per network every 30 days, further keys on the same
+network share what is left), and 400 JPY more, once per card, when the user saves a card on a Stripe page that charges
+nothing (the service offers it as `card_offer` once the 100 JPY is used up; tell the user it costs nothing); after that, previews are free up to 2 GPU-minutes a day and other renders cost 0.1 JPY per
 GPU-second from prepaid credit. Up to 1,000 frames per instruction (the service runs them as parts of 240 under one job id): 1920x1080 on free time, up to
 3840x2160 on prepaid credit. Inputs and results
 are deleted 24 hours after last use.
