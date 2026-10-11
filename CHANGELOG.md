@@ -2,6 +2,16 @@
 
 The live, per-version list is at https://render.janction.jp/changelog (Atom: https://render.janction.jp/changelog.xml). Versions are the PyPI releases of `janction-render`; the hosted service follows the same numbers.
 
+## 0.4.43 (2026-10-12)
+
+- Saved settings on /start: give the use, the light and the next step you took a name (for example 'white backdrop, square') and pick it at the top of the page next time. A public page's 'Try these settings on your own model' opens /start in the same use and light.
+- Every guide starts with three lines: what it does, what it does not do, and the button to try it. The 'Blender is slow' and animation guides say what the cloud does not fix.
+- The welcome credit is described the same way everywhere: a 500 JPY welcome credit for a new key, one per network every 30 days, further keys on the same network sharing what is left. A network shared by several people (a school, an office) is re-evaluated by hand: write to the contact address with the key prefix.
+- After a first successful final render, an external key is told once that publishing the result as a listed public page earns 2,000 JPY of GPU credit after review. Public pages and the gallery say that creators may have received credit, and that the amount does not depend on what they say.
+- Turntables and product shots ordered from /start are quoted at the outcome's fixed price ceiling, so the quote and the reservation agree; when the service answers that a job would reserve more than the quote, the page shows the service's number instead of asking again.
+- A person who already has a key, or a network that created its new keys for the day, can paste the key at /start and continue. sitemap.xml never dates a page older than the pricing version it shows.
+- Two guides were rebuilt without the blocks they shared with other pages: 'How to render Blender without a GPU' decides between your CPU, your own GPU, Colab, SheepIt, render farms and this service with the same scene measured on each (a laptop CPU, a laptop GPU and the production GPU, per frame); 'Blender cloud rendering, step by step' shows the real output of one command, a preview verdict, the wait and what you can send.
+
 ## 0.4.42 (2026-10-11)
 
 - A browser page, /start, renders your own file without a connector, a CLI or a key you have to manage: choose a .blend, a 3D file or paste the bpy script an AI wrote; the scene is read first (missing files, cameras, frame range), the quote says whether the free GPU time covers it, the preview runs with max_yen 0 so nothing can be charged, and the result page offers the next step (change the light, four angles, a turntable, the animation as MP4, a high-quality still, the same settings on another file, a public page) with its price or 'no payment' before you press. Reloading returns to the last render. JR_START_PAGE=0 turns the page off without touching MCP, CLI or API.
