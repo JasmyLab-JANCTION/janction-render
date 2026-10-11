@@ -2,6 +2,13 @@
 
 The live, per-version list is at https://render.janction.jp/changelog (Atom: https://render.janction.jp/changelog.xml). Versions are the PyPI releases of `janction-render`; the hosted service follows the same numbers.
 
+## 0.4.45 (2026-10-12)
+
+- The BlendSwap comparison page is rebuilt on BlendSwap's own page as checked on 2026-10-11 (the price per GPU-hour and the Studio plan, rounding up and the two-credit minimum per job, L40S workers, 250 frames, 500 MB uploads, the bundled Blender versions, no free tier), with what ten previews and one finished scene cost here, and without the blocks it shared with other guides. It also says what we do not claim: no speed comparison between GPUs.
+- The number of GPUs available right now, counted the same way as /v1/health, appears on the comparison page and the pricing page and updates itself when GPUs are added; a GPU on standby, shared with other work, is counted separately.
+- Jobs charged from prepaid credit may render up to 4K (3840x2160); jobs covered by free time stay at 1080p. One job may use at most 10 GPU-hours, checked on the estimate before anything is held (JR_PAID_MAX_PIXELS, JR_MAX_JOB_GPU_SECONDS).
+- tools/indexnow_daily.py sends IndexNow only the URLs whose sitemap date is today, once a day, instead of on every deploy.
+
 ## 0.4.44 (2026-10-12)
 
 - Five use-case guides open with a measured table in one shape (machine or route, settings, GPU seconds, cost, round trip): 'Cycles is slow on my MacBook' puts a laptop CPU, the same laptop's GPU and the production GPU side by side on the same frame; 'AI-agent-generated 3D' shows one real loop from a prompt to a finished video with a real preview verdict; the GLB-to-MP4, product-turntable and product-shot guides show the one-command runs with their GPU seconds and prices.

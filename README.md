@@ -76,7 +76,7 @@ Keep 3D files in a repository? Add a button that lets anyone render them from th
   errors with the fix, spending caps per key, safe retries with `Idempotency-Key`.
 - **3D files and turntables.** glTF / GLB, FBX, USD, OBJ, STL, PLY, Alembic are imported into an empty scene with a camera and
   HDRI lighting; `orbit=True` makes a turntable. Fixed-price outcomes: `POST /v1/outcomes/turntable` and `/product-shot`.
-- **Honest limits.** a 500 JPY welcome credit for a new key (14 days; one per network every 30 days), then 0.1 JPY per GPU-second (previews free up to 2 GPU-minutes a day), finals up to 240 frames at 1080p, one GPU shared with another
+- **Honest limits.** a 500 JPY welcome credit for a new key (14 days; one per network every 30 days), then 0.1 JPY per GPU-second (previews free up to 2 GPU-minutes a day), finals up to 240 frames per job (1080p on free time, up to 4K on prepaid credit), one GPU shared with another
   workload (jobs can wait; the ETA says so). Inputs and results are deleted 24 hours after last use (7 days for keys that have topped up) and never used for training.
 - **Not Render.com.** Same word, different product.
 
@@ -377,7 +377,7 @@ per network every 30 days (later keys on the same network share what is left of 
 free up to 2 GPU-minutes a day and finals cost 0.1 JPY per
 GPU-second from prepaid credit, bought by card at a Stripe Checkout page (from 500 JPY; 2,000 JPY gives 2,200 JPY of credit,
 5,000 gives 5,750, 10,000 gives 12,000; the first top-up in the welcome period counts 1.5x, bonus up to 500 JPY). Only the part
-the free time does not cover is charged. Finals go up to 240 frames at 1080p. `POST /v1/estimate` quotes what will be charged
+the free time does not cover is charged. Finals go up to 240 frames per job: 1080p on free time, up to 4K (3840x2160) on prepaid credit. `POST /v1/estimate` quotes what will be charged
 (`cost.estimated_yen`), the currency and an expiry before any GPU time is used: https://render.janction.jp/pricing
 
 ## Troubleshooting
