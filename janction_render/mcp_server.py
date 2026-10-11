@@ -162,6 +162,8 @@ P: dict[str, str] = {
     "fps": "Frames per second of the video output (default 24).",
     "output": "'auto' (mp4 for a range, png for one frame) | 'png' | 'exr' | 'mp4' | 'webm' | 'prores' | 'gif' | 'webp'.",
     "notify_url": "Optional https URL that receives one JSON POST when the final render finishes.",
+    "max_yen": "Budget for this job in JPY (-1 = none). The job is refused before it starts if it could cost more; pass what the user agreed to.",
+    "idempotency_key": "Optional key (letters, digits, . _ : -). Resubmitting with the same key returns the first job instead of rendering and charging twice.",
     "kind": "'final' (frame_start..frame_end at width x height, samples) or 'preview' (frames like '1-24').",
     "job_id": "The job_id returned by render_preview or render_final (looks like j_…).",
     "wait_seconds": "Wait up to this many seconds for the job to finish before downloading (0 = do not wait).",
@@ -227,7 +229,8 @@ def _quota_block(exc: ClientError) -> Optional[dict[str, Any]]:
         return None
     x = exc.extra
     sug = x.get("suggested")
-    return {"quota_exceeded": True, "detail": exc.detail, "scope": x.get("scope"),
+    return {"quota_exceeded": True, "detail": exc.detail, "code": "QUOTA_EXCEEDED", "retryable": True,
+            "recommended_action": "WAIT_UNTIL_RESET", "scope": x.get("scope"),
             "gpu_seconds_used_today": x.get("gpu_seconds_used_today"), "gpu_seconds_per_day": x.get("gpu_seconds_per_day"),
             "resets_at": x.get("resets_at_iso") or x.get("resets_at"),
             # 残りに何コマ入るか（受付 10/8 から。古い受付なら無い）
@@ -237,6 +240,17 @@ def _quota_block(exc: ClientError) -> Optional[dict[str, Any]]:
                      if isinstance(sug, dict) else
                      "tell the user today's free GPU time is used up and when it resets; a smaller job (fewer frames, "
                      "lower resolution or samples) may still fit")}
+
+
+def _fail(exc: Exception) -> dict[str, Any]:
+    """道具の失敗（10/11）: 今までの error の 1 文に、受付の REST と同じ code / retryable / recommended_action を足す。
+    エージェントは code で分岐し（AUTH_REQUIRED は接続の案内、INSUFFICIENT_CREDIT は決済、…）、同じ入力を繰り返さない。"""
+    out: dict[str, Any] = {"ok": False, "error": str(exc)}
+    if isinstance(exc, ClientError):
+        out.update(exc.agent_fields())
+    else:   # この PC の上の入力（ファイルが無い・形が違う）
+        out.update({"code": "INVALID_INPUT", "retryable": False, "recommended_action": "FIX_INPUT"})
+    return out
 
 
 def _payment_block(exc: ClientError) -> Optional[dict[str, Any]]:
@@ -374,7 +388,7 @@ def scene_info(scene_path: Annotated[str, D("scene_path", "")] = "",
         if j["status"] != "done":
             j = _wait_unless_gated(c, j, INFO_WAIT_S)
     except (ClientError, ValueError, FileNotFoundError) as exc:
-        return _j({"ok": False, "error": str(exc)})
+        return _j(_fail(exc))
     if j["status"] != "done":
         b = _brief(j)
         b["hint"] = (_gated_hint(j, "scene_info(scene_id)") or "still queued (a GPU worker may be busy); call scene_info again in a moment") \
@@ -430,7 +444,7 @@ def asset_search(query: Annotated[str, Field(description=P["query"])],
     try:
         return _j(c.asset_search(query, kind))
     except ClientError as exc:
-        return _j({"ok": False, "error": str(exc)})
+        return _j(_fail(exc))
 
 
 @mcp.tool(annotations=_ann(WRITE, "Render preview"), structured_output=False, meta=_ui_meta(), description=RENDER_PREVIEW_DESCRIPTION)
@@ -474,9 +488,9 @@ def render_preview(
         j = _wait_unless_gated(c, j, PREVIEW_WAIT_S)
     except ClientError as exc:
         block = _payment_block(exc) or _quota_block(exc)
-        return [_j(block if block else {"ok": False, "error": str(exc)})]
+        return [_j(block if block else _fail(exc))]
     except (ValueError, FileNotFoundError) as exc:
-        return [_j({"ok": False, "error": str(exc)})]
+        return [_j(_fail(exc))]
     brief = _brief(j)
     if j["status"] != "done":
         brief["hint"] = ((_gated_hint(j, "render_status(job_id)") or "still running: call render_status(job_id) and then render_download")
@@ -524,9 +538,9 @@ def render_review(
         j = _wait_unless_gated(c, j, PREVIEW_WAIT_S)
     except ClientError as exc:
         block = _payment_block(exc) or _quota_block(exc)
-        return [_j(block if block else {"ok": False, "error": str(exc)})]
+        return [_j(block if block else _fail(exc))]
     except (ValueError, FileNotFoundError) as exc:
-        return [_j({"ok": False, "error": str(exc)})]
+        return [_j(_fail(exc))]
     if j["status"] != "done":
         b = _brief(j)
         b["hint"] = ((_gated_hint(j, "render_status(job_id)") or "still running: call render_status(job_id) and then render_download")
@@ -573,7 +587,7 @@ def render_estimate(scene_id: Annotated[str, D("scene_id", "")] = "",
                 params.pop("frame_end", None)
         est = c.estimate(scene_id or None, **params)
     except (ClientError, ValueError) as exc:
-        return _j({"ok": False, "error": str(exc)})
+        return _j(_fail(exc))
     out = estimate_brief(est) or {}
     out["kind"] = kind
     q = est.get("quota") or {}
@@ -639,6 +653,8 @@ def render_final(
     engine: Annotated[str, D("engine", "")] = "",
     transparent: Annotated[bool, D("transparent", False)] = False,
     notify_url: Annotated[str, D("notify_url", "")] = "",
+    max_yen: Annotated[int, D("max_yen", -1)] = -1,
+    idempotency_key: Annotated[str, D("idempotency_key", "")] = "",
 ) -> str:
     """Render the final frames (or a video) of a Blender scene on JANCTION GPUs. (full description on the tool)."""
     c = _client()
@@ -656,12 +672,13 @@ def render_final(
         j = c.submit(sid, kind="final", frame_start=frame_start, frame_end=frame_end,
                      width=width, height=height, samples=samples, fps=fps, output=output,
                      camera=camera or None, transparent=(True if transparent else None), notify_url=notify_url or None,
+                     max_yen=(max_yen if max_yen >= 0 else None), idempotency_key=idempotency_key or None,
                      **_job_params(environment, environment_strength, environment_visible, blender, engine=engine), **extra)
     except ClientError as exc:
         block = _payment_block(exc) or _quota_block(exc)
-        return _j(block if block else {"ok": False, "error": str(exc)})
+        return _j(block if block else _fail(exc))
     except (ValueError, FileNotFoundError) as exc:
-        return _j({"ok": False, "error": str(exc)})
+        return _j(_fail(exc))
     brief = _brief(j)
     est = j.get("estimate") or {}
     if cameras:
@@ -686,7 +703,7 @@ def render_status(job_id: Annotated[str, Field(description=P["job_id"])]) -> str
     try:
         j = _client().job(job_id)
     except ClientError as exc:
-        return _j({"ok": False, "error": str(exc)})
+        return _j(_fail(exc))
     b = _brief(j)
     if j["status"] in ("queued", "running"):
         b["next"] = f"tell the user: {((j.get('eta') or {}).get('human') or 'still working')}; check again in a while"
@@ -713,7 +730,7 @@ def render_download(job_id: Annotated[str, Field(description=P["job_id"])],
         out = Path(out_dir) if out_dir else _out_root() / job_id
         paths = c.download(job_id, out, only=only)
     except (ClientError, ValueError) as exc:
-        return _j({"ok": False, "error": str(exc)})
+        return _j(_fail(exc))
     b = _brief(j)
     names = [str(p) for p in paths]
     b["output_file"] = next((n for n in names if n.endswith("output.mp4") or n.endswith("sheet.png")), None)
@@ -734,7 +751,7 @@ def render_cancel(job_id: Annotated[str, Field(description=P["job_id"])]) -> str
     try:
         return _j(_brief(_client().cancel(job_id)))
     except ClientError as exc:
-        return _j({"ok": False, "error": str(exc)})
+        return _j(_fail(exc))
 
 
 @mcp.tool(annotations=_ann(WRITE, "Share a render"))
@@ -752,7 +769,7 @@ def render_share(job_id: Annotated[str, Field(description=P["job_id"])],
     try:
         return _j(_client().share(job_id, title=title, note=note, include_script=include_script, listed=listed, prompt=prompt))
     except ClientError as exc:
-        return _j({"ok": False, "error": str(exc)})
+        return _j(_fail(exc))
 
 
 @mcp.tool(annotations=_ann(CANCEL, "Unshare a render"))
@@ -761,7 +778,7 @@ def render_unshare(job_id: Annotated[str, Field(description=P["job_id"])]) -> st
     try:
         return _j(_client().unshare(job_id))
     except ClientError as exc:
-        return _j({"ok": False, "error": str(exc)})
+        return _j(_fail(exc))
 
 
 @mcp.tool(annotations=_ann(READ, "Quota and billing"))
@@ -815,7 +832,7 @@ def billing(topup_yen: Annotated[int, D("topup_yen", 0)] = 0) -> str:
                    "pending_checkout_url": me["billing"]["pending_checkout_url"],
                    "charged_yen_total": me["charged_yen_total"]})
     except ClientError as exc:
-        return _j({"ok": False, "error": str(exc)})
+        return _j(_fail(exc))
 
 
 @mcp.tool(annotations=_ann(READ, "Service status"))
@@ -829,7 +846,7 @@ def render_info() -> str:
         health = c.health()
         me = c.me()
     except (ClientError, Exception) as exc:  # noqa: BLE001
-        return _j({"ok": False, "server": c.server, "error": str(exc)})
+        return _j({**_fail(exc), "server": c.server})
     return _j({"ok": True, "server": c.server, "workers": health["workers"], "queue": health["queue"],
                "features": health.get("features"),
                "key": me, "downloads_go_to": str(_out_root()),

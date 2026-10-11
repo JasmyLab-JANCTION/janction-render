@@ -1,0 +1,7 @@
+{
+  "mcpServers": {
+    "janction-render": {
+      "serverUrl": "https://render.janction.jp/mcp?src=antigravity-plugin"
+    }
+  }
+}

@@ -1,0 +1,98 @@
+name: JANCTION Render - Blender cloud GPU
+description: Render Blender scenes, bpy scripts and 3D files (GLB, FBX, USD) on cloud GPUs from a workflow, with a cost cap per job.
+author: JasmyLab Inc.
+branding:
+  icon: box
+  color: purple
+
+inputs:
+  api-key:
+    description: JANCTION Render API key. Store it as a repository secret (for example JANCTION_RENDER_API_KEY).
+    required: true
+  scene-file:
+    description: Path in the repository to a .blend, a bpy .py script or a 3D file (.glb .gltf .fbx .usd .obj), or an https link.
+    required: true
+  kind:
+    description: "preview (up to 4 frames tiled in one image, up to 1280x720) or final (frames or a video)."
+    required: false
+    default: preview
+  frames:
+    description: "Preview: 1, 1-24 or 1,8,16 (up to 4 frames). Final: a range such as 1-48 (at most 240 per job)."
+    required: false
+    default: "1"
+  width:
+    description: Width in pixels (final up to 1920x1080; previews keep the aspect ratio within 1280x720).
+    required: false
+    default: "1280"
+  height:
+    description: Height in pixels.
+    required: false
+    default: "720"
+  samples:
+    description: Cycles samples per pixel (preview default 16, final default 128).
+    required: false
+    default: ""
+  output:
+    description: "Final only: auto (mp4 for a range, png for one frame), png, exr, mp4, webm, gif or webp."
+    required: false
+    default: auto
+  max-cost-yen:
+    description: The job is refused before it starts if it could cost more than this (JPY). 0 allows only jobs the free GPU time covers.
+    required: false
+    default: "100"
+  timeout-seconds:
+    description: Give up (and cancel the job) after this many seconds.
+    required: false
+    default: "900"
+  output-dir:
+    description: Folder for the rendered files.
+    required: false
+    default: render-output
+  allow-fork-pull-requests:
+    description: "Set to true to render for pull_request_target events from forks (they can spend your credit). Default: refuse."
+    required: false
+    default: "false"
+  cli-version:
+    description: Version of the janction-render package on PyPI to use.
+    required: false
+    default: "0.4.41"
+  server:
+    description: Service URL.
+    required: false
+    default: https://render.janction.jp
+
+outputs:
+  job-id:
+    description: The render job id.
+    value: ${{ steps.render.outputs.job-id }}
+  files:
+    description: JSON array of the files written to output-dir.
+    value: ${{ steps.render.outputs.files }}
+  gpu-seconds:
+    description: GPU seconds the job used.
+    value: ${{ steps.render.outputs.gpu-seconds }}
+  charged-yen:
+    description: JPY charged for the job (0 when the free GPU time covered it).
+    value: ${{ steps.render.outputs.charged-yen }}
+
+runs:
+  using: composite
+  steps:
+    - id: render
+      shell: bash
+      run: bash "$GITHUB_ACTION_PATH/render.sh"
+      env:
+        JR_IN_API_KEY: ${{ inputs.api-key }}
+        JR_IN_SCENE: ${{ inputs.scene-file }}
+        JR_IN_KIND: ${{ inputs.kind }}
+        JR_IN_FRAMES: ${{ inputs.frames }}
+        JR_IN_WIDTH: ${{ inputs.width }}
+        JR_IN_HEIGHT: ${{ inputs.height }}
+        JR_IN_SAMPLES: ${{ inputs.samples }}
+        JR_IN_OUTPUT: ${{ inputs.output }}
+        JR_IN_MAX_YEN: ${{ inputs.max-cost-yen }}
+        JR_IN_TIMEOUT: ${{ inputs.timeout-seconds }}
+        JR_IN_OUT_DIR: ${{ inputs.output-dir }}
+        JR_IN_ALLOW_FORKS: ${{ inputs.allow-fork-pull-requests }}
+        JR_IN_CLI_VERSION: ${{ inputs.cli-version }}
+        JR_IN_SERVER: ${{ inputs.server }}

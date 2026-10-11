@@ -2,6 +2,18 @@
 
 The live, per-version list is at https://render.janction.jp/changelog (Atom: https://render.janction.jp/changelog.xml). Versions are the PyPI releases of `janction-render`; the hosted service follows the same numbers.
 
+## 0.4.41 (2026-10-11)
+
+- Errors carry code (AUTH_REQUIRED, INSUFFICIENT_CREDIT, COST_LIMIT_EXCEEDED, QUOTA_EXCEEDED, JOB_TOO_LARGE, MISSING_ASSET, WORKERS_UNAVAILABLE ...) and recommended_action (CONNECT, TOP_UP, ASK_USER, SPLIT_JOB ...) next to the existing error, detail and retryable, over the HTTP API and in MCP tool results. A failed job's failure also has category in the same words.
+- max_yen on POST /v1/jobs and /v1/estimate: the most this one job may cost. A job that could cost more is refused before any credit is held (403 spend_cap_exceeded, scope request); the estimate says within_max_yen. The charge never exceeds the amount held, so a job that passes stays within max_yen.
+- Estimates carry uncertainty: the GPU seconds the hold covers and how sure the estimate is (measured on this scene, on similar renders, or a default).
+- CLI: estimate (time and price without rendering, exit 5 when over --max-yen), doctor (service, key, credit and the AI apps on this machine), login (saves a key without putting it in the shell history), billing (same as balance), --max-yen and --idempotency-key on render, --json for jobs and doctor.
+- janction-render connect installs the plugin for Claude Code and Codex (the MCP server and the workflow skill together) and falls back to the MCP server alone when the plugin cannot be fetched.
+- The plugin's skill was rewritten: when to use the service, how to tell the user it is not connected, the standard flow (preview, fix, estimate, ask, render, download), rules (no final without a preview, nothing paid without an estimate and a yes, no public share unless asked, no retry loops) and what to do for each error code, with examples and troubleshooting pages.
+- The same plugin folder installs in Antigravity CLI (mcp_config.json). Each distribution channel tags its MCP URL (?src=claude-plugin, codex-plugin, antigravity-plugin, gemini-extension, and the connect command per app) so the service can tell which channel a key came from.
+- A GitHub Action (integrations/github-action): a preview or a final render from a workflow, with a cost cap checked before the job and again by the service, an idempotency key from the run, cancel on timeout, and a job summary.
+- Guessed paths go to the page that answers them (/integrations, /integrations/claude-code, /codex, /gemini, /cli, /docs, /about), and links with Japanese punctuation glued to them (、。）」) go to the page without it.
+
 ## 0.4.40 (2026-10-10)
 
 - Product shots and turntables frame the object at its real size. Anything under a metre across was framed as if it were a metre, so a 26 cm bottle filled about a tenth of the frame; it now fills most of it, and very small objects (a 1.3 cm test) are not clipped by the camera.

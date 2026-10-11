@@ -7,6 +7,9 @@
     janction-render cancel JOB
     janction-render jobs
     janction-render info
+    janction-render estimate scene.blend --frames 1-48       # 時間と値段だけ（描かない）
+    janction-render doctor                                # つながるか・鍵・残高・AI アプリの接続を点検
+    janction-render login                                 # 鍵を確かめてこの PC に覚える（貼った鍵は履歴に残さない）
     janction-render connect [claude-code|codex|gemini|cursor|windsurf|vscode|all]   # ほかの AI につなぐ
     janction-render init                                  # このプロジェクトのエージェントに使い方を書く
 """
@@ -14,6 +17,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 from typing import Any
@@ -108,7 +112,7 @@ def cmd_preview(c: Client, args: argparse.Namespace) -> int:
     w, h = args.size
     frames = parse_frames(args.frames, default=args.frame)
     j = c.submit(sid, kind="preview", frames=frames, camera=args.camera, width=w, height=h,
-                 samples=args.samples, engine=args.engine)
+                 samples=args.samples, engine=args.engine, max_yen=args.max_yen)
     print(f"job {j['job_id']} queued: frames {frames} (estimate ~{j['estimate']['seconds']}s)", file=sys.stderr)
     j = c.wait(j["job_id"], timeout=args.timeout, on_progress=_progress)
     if j["status"] != "done":
@@ -128,11 +132,14 @@ def cmd_render(c: Client, args: argparse.Namespace) -> int:
     fs, fe = args.frames
     j = c.submit(sid, kind="final", frame_start=fs, frame_end=fe, width=w, height=h,
                  samples=args.samples, fps=args.fps, output=args.output, camera=args.camera, engine=args.engine,
-                 transparent=args.transparent or None, notify_url=args.notify_url or None)
+                 transparent=args.transparent or None, notify_url=args.notify_url or None,
+                 max_yen=args.max_yen, idempotency_key=args.idempotency_key or None)
+    if j.get("idempotent_replayed"):
+        print(f"job {j['job_id']} was already submitted with this idempotency key (nothing new queued or charged)", file=sys.stderr)
     print(f"job {j['job_id']} queued: {fe - fs + 1} frames in {j['progress']['chunks_total']} chunks, "
-          f"estimate ~{j['estimate']['seconds']}s", file=sys.stderr)
+          f"estimate ~{(j.get('estimate') or {}).get('seconds', '?')}s", file=sys.stderr)
     if not args.wait:
-        print(_j({"job_id": j["job_id"], "scene_id": sid, "estimate": j["estimate"]}))
+        print(_j({"job_id": j["job_id"], "scene_id": sid, "estimate": j.get("estimate")}))
         return 0
     j = c.wait(j["job_id"], timeout=args.timeout, on_progress=_progress)
     if j["status"] != "done":
@@ -197,6 +204,9 @@ def cmd_unshare(c: Client, args: argparse.Namespace) -> int:
 
 def cmd_jobs(c: Client, args: argparse.Namespace) -> int:
     rows = c.jobs(args.limit)
+    if args.json:
+        print(_j(rows))
+        return 0
     for j in rows:
         p = j["progress"]
         print(f"{j['job_id']}  {j['kind']:<7} {j['status']:<9} {j['frame_start']}-{j['frame_end']}  "
@@ -216,6 +226,105 @@ def cmd_balance(c: Client, args: argparse.Namespace) -> int:
     print(_j({"balance_yen": me["balance_yen"], "free_previews_left": me["free_previews_left"],
               "billing": me["billing"], "just_credited": synced.get("credited", []),
               "ledger": c.ledger(args.limit)["entries"]}))
+    return 0
+
+
+def cmd_estimate(c: Client, args: argparse.Namespace) -> int:
+    """描かずに時間と値段だけ（10/11）。--max-yen を付けると、その額に収まるかも見る（収まらなければ 5 で終わる＝CI で止まる）。"""
+    sid = _scene(c, args)
+    w, h = args.size
+    body: dict[str, Any] = {"width": w, "height": h, "samples": args.samples, "engine": args.engine, "max_yen": args.max_yen}
+    if args.preview:
+        body.update({"kind": "preview", "frames": parse_frames(args.frames or "1")})
+    else:
+        fs, fe = _frames(args.frames or "1")
+        body.update({"kind": "final", "frame_start": fs, "frame_end": fe})
+    est = c.estimate(sid, **body)
+    cost = est.get("cost") or {}
+    free = bool(cost.get("free") or cost.get("free_beta"))
+    print(f"{est.get('human') or 'estimate'}: about {round(float(est.get('seconds') or 0))} GPU seconds, "
+          + ("free" if free else f"about {cost.get('estimated_yen')} JPY (up to {cost.get('reserved_yen')} JPY held)"),
+          file=sys.stderr)
+    print(_j({"scene_id": sid, **est}))
+    if args.max_yen is not None and cost.get("within_max_yen") is False:
+        print(f"over budget: this job may hold {cost.get('reserved_yen')} JPY, above --max-yen {args.max_yen}", file=sys.stderr)
+        return 5
+    return 0
+
+
+def cmd_doctor(c: Client, args: argparse.Namespace) -> int:
+    """つながるか・鍵が効くか・残高・GPU・この PC の AI アプリを点検する（10/11）。鍵の中身は出さない（頭の数文字だけ）。"""
+    from . import __version__
+    checks: list[dict[str, Any]] = []
+
+    def add(name: str, ok: bool, detail: str, fix: str = "") -> None:
+        checks.append({"check": name, "ok": ok, "detail": detail, **({"fix": fix} if fix and not ok else {})})
+
+    add("version", True, f"janction-render {__version__}")
+    try:
+        health = c.health()
+        ws = [w for w in health.get("workers") or [] if isinstance(w, dict)]
+        ready = sum(1 for w in ws if w.get("online") and not w.get("gated"))
+        add("service", True, f"{c.server} reachable, {ready} of {len(ws)} GPU worker(s) ready")
+    except ClientError as exc:
+        add("service", False, str(exc), "check your network and https://render.janction.jp/status")
+    if os.environ.get("JANCTION_RENDER_API_KEY"):
+        src = "JANCTION_RENDER_API_KEY"
+    elif args.key:
+        src = "--key"
+    elif Client._read_cache().get(c.server):
+        src = "the key saved in ~/.janction-render.json"
+    else:
+        src = ""
+    if not src:
+        add("key", True, "no key yet: one is created on the first render (free credit, no sign-up)")
+    else:
+        try:
+            me = c.me()
+            add("key", True, f"{src} works (prefix {me.get('prefix') or '?'})")
+            add("credit", True, f"balance {me.get('balance_yen')} JPY")
+        except ClientError as exc:
+            add("key", False, str(exc), "run `janction-render login` with a working key, or unset JANCTION_RENDER_API_KEY")
+    found = [x["label"] for x in hookup.clients(server=args.server) if x.get("found")]
+    add("ai_apps", True, ("found " + ", ".join(found) + "; `janction-render connect` adds JANCTION Render to them") if found
+        else "no AI coding apps found on this machine")
+    ok = all(x["ok"] for x in checks)
+    if args.json:
+        print(_j({"ok": ok, "checks": checks}))
+    else:
+        for x in checks:
+            print(f"  [{'ok' if x['ok'] else 'NG'}] {x['check']}: {x['detail']}")
+            if x.get("fix"):
+                print(f"        fix: {x['fix']}")
+        print("all good" if ok else "some checks failed")
+    return 0 if ok else 1
+
+
+def cmd_login(c: Client, args: argparse.Namespace) -> int:
+    """鍵を確かめてこの PC に覚える（10/11）。鍵は引数に書かせない（シェルの履歴に残る）: 標準入力か、表示しない入力欄。
+    何も入れなければ、覚えている鍵を確かめる（無ければ新しい鍵＝無料の分つきを作って覚える）。"""
+    import getpass
+    raw = ""
+    if args.with_key_stdin:
+        raw = sys.stdin.readline().strip()
+    elif not args.new and sys.stdin.isatty():
+        raw = getpass.getpass("API key (jr_...; leave empty to use or create a free key): ").strip()
+    if raw:
+        c2 = Client(server=args.server, api_key=raw, client="cli")
+        try:
+            me = c2.me()
+        except ClientError as exc:
+            print(f"error: that key does not work ({exc})", file=sys.stderr)
+            return 2
+        cache = Client._read_cache()
+        cache[c2.server] = raw
+        Client._write_cache(cache)
+        print(f"saved key {me.get('prefix') or ''} for {c2.server} in ~/.janction-render.json")
+        return 0
+    if os.environ.get("JANCTION_RENDER_API_KEY"):
+        print("JANCTION_RENDER_API_KEY is set: that key is used and nothing is saved", file=sys.stderr)
+    me = c.me()       # 覚えている鍵か、無ければ新しい鍵を作って覚える
+    print(f"using key {me.get('prefix') or ''} for {c.server}; `janction-render doctor` checks the connection")
     return 0
 
 
@@ -323,7 +432,9 @@ def build_parser() -> argparse.ArgumentParser:
                                 description="Render Blender scenes on JANCTION GPUs from the terminal (free GPU time for new keys).",
                                 epilog=QUICKSTART)
     p.add_argument("--server", default=None, help="server URL (default: JANCTION_RENDER_SERVER or https://render.janction.jp; a local server is http://127.0.0.1:8340)")
-    p.add_argument("--key", default=None, help="API key (default: JANCTION_RENDER_API_KEY or an auto-issued temporary key)")
+    p.add_argument("--key", default=None, help="API key (default: JANCTION_RENDER_API_KEY, the key saved by `login`, or an "
+                                               "auto-issued free key; a key typed here stays in the shell history)")
+    p.add_argument("--json", action="store_true", help="machine-readable output for commands that print text (jobs, doctor)")
     sub = p.add_subparsers(dest="cmd")   # 名前なしは始め方を出す（10/10。エラーで終わらせない）
 
     s = sub.add_parser("try", help="render a sample scene in seconds to see it work (free)")
@@ -348,6 +459,7 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--engine", choices=["cycles", "eevee"], default=None, help="cycles (default) or eevee (cheaper drafts)")
     s.add_argument("--out", default=None)
     s.add_argument("--timeout", type=float, default=300)
+    s.add_argument("--max-yen", type=int, default=None, help="refuse the preview if it could cost more than this (JPY)")
     s.set_defaults(fn=cmd_preview)
 
     s = sub.add_parser("render", help="render final frames (MP4 or PNG)")
@@ -366,7 +478,28 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--out", default=None)
     s.add_argument("--wait", action="store_true", help="wait until done and download")
     s.add_argument("--timeout", type=float, default=7200)
+    s.add_argument("--max-yen", type=int, default=None, help="refuse the job before it starts if it could cost more than this (JPY)")
+    s.add_argument("--idempotency-key", default=None, help="same key = same job: a retry never renders or charges twice")
     s.set_defaults(fn=cmd_render)
+
+    s = sub.add_parser("estimate", help="time and price of a render before running it (no GPU used)")
+    s.add_argument("scene", nargs="?", help="a .blend, a bpy script or a 3D file: a path or an https link")
+    s.add_argument("--scene-id", default=None, help="reuse an uploaded scene")
+    s.add_argument("--frames", default="", help="e.g. 1-240 (final) or 1,8,16 (with --preview)")
+    s.add_argument("--preview", action="store_true", help="estimate a preview instead of a final render")
+    s.add_argument("--size", type=_size, default=(1920, 1080))
+    s.add_argument("--samples", type=int, default=128)
+    s.add_argument("--engine", choices=["cycles", "eevee"], default=None)
+    s.add_argument("--max-yen", type=int, default=None, help="exit with code 5 when the job could cost more than this (JPY)")
+    s.set_defaults(fn=cmd_estimate)
+
+    s = sub.add_parser("doctor", help="check the connection, the key, the credit and the AI apps on this machine")
+    s.set_defaults(fn=cmd_doctor)
+
+    s = sub.add_parser("login", help="check a key and save it on this machine (it asks; never put a key in the command line)")
+    s.add_argument("--with-key-stdin", action="store_true", help="read the key from standard input")
+    s.add_argument("--new", action="store_true", help="do not ask; use the saved key or create a new free key")
+    s.set_defaults(fn=cmd_login)
 
     s = sub.add_parser("status")
     s.add_argument("job")
@@ -408,7 +541,7 @@ def build_parser() -> argparse.ArgumentParser:
     s = sub.add_parser("info")
     s.set_defaults(fn=cmd_info)
 
-    s = sub.add_parser("balance", help="credit balance, price, and recent ledger (also confirms payments)")
+    s = sub.add_parser("balance", aliases=["billing"], help="credit balance, price, and recent ledger (also confirms payments)")
     s.add_argument("--limit", type=int, default=20)
     s.set_defaults(fn=cmd_balance)
 

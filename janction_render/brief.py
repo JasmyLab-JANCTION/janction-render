@@ -42,7 +42,7 @@ def estimate_brief(e: dict[str, Any] | None) -> dict[str, Any] | None:
     if not e:
         return None
     keep = ("human", "seconds", "wall_seconds", "queue_wait_seconds", "per_frame_seconds", "frames", "chunks",
-            "workers_online", "basis", "basis_note", "note", "quota", "cost", "gate")
+            "workers_online", "basis", "basis_note", "note", "quota", "cost", "gate", "uncertainty")
     return {k: e[k] for k in keep if e.get(k) is not None}
 
 

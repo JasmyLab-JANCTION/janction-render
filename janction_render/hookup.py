@@ -21,6 +21,8 @@ from typing import Any, Callable, Optional
 NAME = "janction-render"
 DEFAULT_BASE = "https://render.janction.jp"
 GEMINI_EXTENSION = "https://github.com/JasmyLab-JANCTION/janction-render"
+REPO = "JasmyLab-JANCTION/janction-render"              # Claude Code と Codex のプラグインのマーケットプレイス（公開リポ）
+PLUGIN = "janction-render@janction-render"
 MARK_START = "<!-- janction-render:start -->"
 MARK_END = "<!-- janction-render:end -->"
 
@@ -29,8 +31,9 @@ def base_url(server: Optional[str] = None) -> str:
     return (server or os.environ.get("JANCTION_RENDER_SERVER") or DEFAULT_BASE).rstrip("/")
 
 
-def mcp_url(server: Optional[str] = None) -> str:
-    return base_url(server) + "/mcp"
+def mcp_url(server: Optional[str] = None, src: str = "") -> str:
+    """src: 流入元の札（/mcp?src=…、受付の keys.source に残る。10/11）。どの入口から来た鍵かを数える"""
+    return base_url(server) + "/mcp" + (f"?src={src}" if src else "")
 
 
 # ---- 設定ファイル（JSON）に 1 項目足す -------------------------------------------------------------------------
@@ -103,18 +106,28 @@ def clients(server: Optional[str] = None, home: Optional[Path] = None,
     url = mcp_url(server)
     home = home or Path.home()
     out: list[dict[str, Any]] = []
-    for key, label, exe, argv in (
-        ("claude-code", "Claude Code", "claude", ["mcp", "add", "--scope", "user", "--transport", "http", NAME, url]),
-        ("codex", "Codex CLI", "codex", ["mcp", "add", NAME, "--url", url]),
-        ("gemini", "Gemini CLI", "gemini", ["extensions", "install", GEMINI_EXTENSION]),
+    # Claude Code と Codex はプラグイン（MCP ＋ 使い方のスキル）を入れる（10/11）。MCP だけだと、つないでも道具を選ばない
+    # （Codex は 7 日で接続のあいさつ 6 千回に対して道具 15 回）。マーケットプレイスが取れないとき（git が無い等）は MCP だけ足す
+    for key, label, exe, steps, fallback in (
+        ("claude-code", "Claude Code", "claude",
+         [["plugin", "marketplace", "add", REPO], ["plugin", "install", PLUGIN]],
+         ["mcp", "add", "--scope", "user", "--transport", "http", NAME, mcp_url(server, "cli-claude-code")]),
+        ("codex", "Codex CLI", "codex",
+         [["plugin", "marketplace", "add", REPO], ["plugin", "add", PLUGIN]],
+         ["mcp", "add", NAME, "--url", mcp_url(server, "cli-codex")]),
+        ("gemini", "Gemini CLI", "gemini", [["extensions", "install", GEMINI_EXTENSION]], None),
     ):
         path = which(exe)
+        exe_path = path or exe
         out.append({"key": key, "label": label, "kind": "cmd", "found": bool(path),
-                    "argv": [path or exe, *argv], "show": " ".join([exe, *argv])})
+                    "steps": [[exe_path, *a] for a in steps], "fallback": [exe_path, *fallback] if fallback else None,
+                    "argv": [exe_path, *steps[-1]], "show": " && ".join(" ".join([exe, *a]) for a in steps)})
     for key, label, cfg, top, entry in (
-        ("cursor", "Cursor", home / ".cursor" / "mcp.json", "mcpServers", {"url": url}),
-        ("windsurf", "Windsurf", home / ".codeium" / "windsurf" / "mcp_config.json", "mcpServers", {"serverUrl": url}),
-        ("vscode", "VS Code", _app_config_dir(home) / "Code" / "User" / "mcp.json", "servers", {"type": "http", "url": url}),
+        ("cursor", "Cursor", home / ".cursor" / "mcp.json", "mcpServers", {"url": mcp_url(server, "cli-cursor")}),
+        ("windsurf", "Windsurf", home / ".codeium" / "windsurf" / "mcp_config.json", "mcpServers",
+         {"serverUrl": mcp_url(server, "cli-windsurf")}),
+        ("vscode", "VS Code", _app_config_dir(home) / "Code" / "User" / "mcp.json", "servers",
+         {"type": "http", "url": mcp_url(server, "cli-vscode")}),
     ):
         out.append({"key": key, "label": label, "kind": "json", "found": cfg.parent.exists(), "path": cfg, "top": top,
                     "entry": entry, "show": f"{cfg}: \"{top}\": {{\"{NAME}\": {json.dumps(entry)}}}"})
@@ -161,15 +174,27 @@ def connect(target: str = "", yes: bool = False, server: Optional[str] = None, h
                 echo(f"{c['label']}: '{c['argv'][0]}' is not on PATH; install it first, or run: {c['show']}")
                 rc = 1
                 continue
-            p = run(c["argv"], capture_output=True, text=True)
-            msg = ((p.stdout or "") + (p.stderr or "")).strip()
-            if p.returncode == 0:
+            done, msg, code = True, "", 0
+            for argv in c["steps"]:
+                p = run(argv, capture_output=True, text=True)
+                msg = ((p.stdout or "") + (p.stderr or "")).strip()
+                if p.returncode != 0 and "already" not in msg.lower():
+                    done, code = False, p.returncode
+                    break
+            if done:
                 echo(f"{c['label']}: connected ({c['show']})")
-            elif "already exists" in msg.lower():
-                echo(f"{c['label']}: already connected")
-            else:
-                echo(f"{c['label']}: failed ({p.returncode}): {msg[-300:]}")
-                rc = 1
+                continue
+            if c.get("fallback"):
+                # プラグインが入らない（git が無い・古い版）: MCP だけ足す。スキルの無い分は AGENTS.md（init）で補える
+                p = run(c["fallback"], capture_output=True, text=True)
+                msg2 = ((p.stdout or "") + (p.stderr or "")).strip()
+                if p.returncode == 0 or "already exists" in msg2.lower():
+                    echo(f"{c['label']}: connected the MCP server only (the plugin step failed: {msg[-160:]}); "
+                         "`janction-render init` adds the instructions to this project")
+                    continue
+                msg, code = msg2, p.returncode
+            echo(f"{c['label']}: failed ({code}): {msg[-300:]}")
+            rc = 1
             continue
         try:
             action = merge_json(c["path"], c["top"], c["entry"])
@@ -231,7 +256,7 @@ def init(directory: Path, server: Optional[str] = None, cursor: Optional[bool] =
     """プロジェクトに書く。既定: AGENTS.md と .mcp.json。CLAUDE.md・GEMINI.md・.cursor・.vscode は、すでにあるときか
     フラグで明示したときだけ（人のプロジェクトにファイルを増やしすぎない）。戻り値 [(パス, 'added'/'updated'/'unchanged')]。"""
     d = Path(directory)
-    url = mcp_url(server)
+    url = mcp_url(server, "project-init")   # プロジェクトの .mcp.json はリポジトリで共有される: そこから来た鍵を数える
     section = agents_section(server)
     done: list[tuple[Path, str]] = []
     done.append((d / "AGENTS.md", upsert_section(d / "AGENTS.md", section, dry_run)))

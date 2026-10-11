@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import json
+import re
 import os
 import time
 from pathlib import Path
@@ -229,11 +230,27 @@ class ClientError(RuntimeError):
         self.detail = detail
         self.extra = extra or {}   # 402 のときは checkout_url / needed_yen / balance_yen など
 
+    def agent_fields(self) -> dict[str, Any]:
+        """受付が返した code / retryable / recommended_action / possible_fix（10/11）。古い受付や受付に届かないときは
+        状態コードから決める（5xx と届かない = INTERNAL_ERROR か WORKERS_UNAVAILABLE、待って再送）。"""
+        x = self.extra or {}
+        out = {k: x[k] for k in ("code", "retryable", "recommended_action", "possible_fix", "retry_after_s", "resets_at_iso")
+               if x.get(k) is not None}
+        if "code" not in out:
+            if self.error == "server_unreachable" or self.status >= 500:
+                out.update({"code": "WORKERS_UNAVAILABLE" if self.error == "server_unreachable" else "INTERNAL_ERROR",
+                            "retryable": True, "recommended_action": "WAIT_AND_RETRY"})
+            else:
+                out.update({"code": re.sub(r"[^A-Z0-9_]", "_", (self.error or "error").upper())[:40],
+                            "retryable": self.status == 429, "recommended_action": "READ_DETAIL"})
+        return out
+
     def payment(self) -> Optional[dict[str, Any]]:
         """残高不足（402）なら、決済ページのリンクなどをまとめて返す。"""
         if self.status != 402:
             return None
-        out = {"payment_required": True, "detail": self.detail,
+        out = {"payment_required": True, "detail": self.detail, "code": "INSUFFICIENT_CREDIT", "retryable": False,
+               "recommended_action": "TOP_UP",
                **{k: self.extra.get(k) for k in ("needed_yen", "balance_yen", "topup_yen", "checkout_url",
                                                  "session_id", "yen_per_gpu_second", "how")}}
         for k in ("tell_user", "this_job_yen", "renders_per_topup"):   # 人間に伝える 1 文と、成果物の単位の値段（0.4.39）
