@@ -266,6 +266,16 @@ def brief(j: dict[str, Any]) -> dict[str, Any]:
         out["cost"] = ("free" if c["free"] else
                        (f"{c['charged_yen']} yen charged" if c["settled"] else f"up to {c['reserved_yen']} yen reserved"))
     out["artifacts"] = [a["name"] for a in j["artifacts"]][:50]
+    # 案内（10/12）: 要約で落ちていた公開のお礼と、クレジットが尽きそうなときのオートチャージ。結果を見せたあとに 1 回だけ聞く
+    asks = []
+    if j.get("share_offer"):
+        out["share_offer"] = j["share_offer"]
+        asks.append("share_offer.tell_user")
+    if j.get("autocharge_offer"):
+        out["autocharge_offer"] = j["autocharge_offer"]
+        asks.append("autocharge_offer.ask_user (share its link only if the user says yes)")
+    if asks:
+        out["after_showing_the_result"] = "ask the user once: " + "; then ".join(asks)
     return out
 
 def plan_fields(me: dict[str, Any]) -> dict[str, Any]:
@@ -281,7 +291,9 @@ def plan_fields(me: dict[str, Any]) -> dict[str, Any]:
     if links:
         out["links"] = links
         out["links_note"] = ("each link opens a confirmation page where the user decides on Stripe; share one only when the user "
-                             "asks about auto top-up, a monthly plan or the saved card")
+                             "asks about auto top-up, a monthly plan or the saved card, or says yes to autocharge_offer")
+    if me.get("autocharge_offer"):
+        out["autocharge_offer"] = me["autocharge_offer"]     # クレジットが尽きそう（10/12）: 1 回聞いて、はいならリンク
     return out
 
 
@@ -336,6 +348,9 @@ def welcome_billing(w: dict[str, Any], me: dict[str, Any], synced: dict[str, Any
                        + "; a top-up link comes with the next job that needs credit (402 checkout_url)")
     if me.get("usd_indicative"):
         out["usd_indicative"] = me["usd_indicative"]     # ドルの目安（受付の env があるとき、10/12）
+    if me.get("autocharge_offer") and not me.get("card_offer"):
+        out["next"] = ((out.get("next") or "") + "; " if out.get("next") else "") + (
+            "ask the user once: autocharge_offer.ask_user (share its link only if they say yes)")
     if me.get("card_offer"):
         out["card_offer"] = me["card_offer"]            # 無料分を使い切った人へのカード登録の案内（0 円、10/12）
         out["next"] = (out.get("next") or "") + "; tell the user card_offer.tell_user: registering a card (no payment) adds free GPU time; POST /v1/billing/card gives the page"

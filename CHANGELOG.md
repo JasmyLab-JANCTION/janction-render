@@ -2,6 +2,11 @@
 
 The live, per-version list is at https://render.janction.jp/changelog (Atom: https://render.janction.jp/changelog.xml). Versions are the PyPI releases of `janction-render`; the hosted service follows the same numbers.
 
+## 0.4.50 (2026-10-12)
+
+- Auto top-up is offered when the credit is about to run out: after a final, if what is left (free credit plus balance) is below 100 JPY or below what that render cost, the reply carries autocharge_offer, at most once a week per key: what is left, what the last render cost, the settings (below 200 JPY, add 2,000 JPY, up to 10,000 JPY a month) and a link to a confirmation page. /v1/me, the billing reply and /start show it while the credit stays low. Keys that can still get the free card bonus are offered that first.
+- MCP replies now pass the share thanks offer and the auto top-up offer to the agent, with an instruction to ask the user once after showing the result.
+
 ## 0.4.49 (2026-10-12)
 
 - Getting ready to turn on the card model (a new key gets 100 JPY of free GPU time, and saving a card on a Stripe page that charges nothing adds 400 JPY more, once per card): keys made before the switch keep their welcome credit as it was (JR_WELCOME_CARD_SINCE), the card bonus lasts 14 days from when it is added, and it is not limited by the per-network daily cap.
