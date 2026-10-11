@@ -36,8 +36,9 @@ connection in a few seconds.
 5. `render_estimate` - GPU seconds, wall time (`human`), queue wait, and `cost` (`free`, `estimated_yen`, `reserved_yen`,
    `balance_yen`, `within_caps`). Tell the user the time and the price in yen.
 6. Ask before every final, even a free one: say the time and the price (0 yen when `cost.free` is true) and wait for a yes.
-   Skip the question only when the user already said "render the final" in this conversation. If they set a budget, pass
-   it as `max_yen`.
+   Skip the question only when the user already said "render the final" in this conversation. If they set a budget, keep
+   the job inside it (`reserved_yen` from `render_estimate`); on the terminal server or the HTTP API, also pass it as
+   `max_yen`.
 7. `render_final` - returns `job_id`. Tell the user how long it will take.
 8. `render_status(job_id)` - report `eta.human`. If it says the GPU is lent out, tell the user the wait and stop polling.
 9. `render_download(job_id)` - links that need no key and work for about 24 hours.
@@ -56,8 +57,9 @@ preview shows all four in one image.
   (`POST /v1/me/limits`) or buy credit on your own; give the user the `checkout_url` and let them pay.
 - Do not call `render_share` (a public page) unless the user asks to publish.
 - Retry only errors marked `retryable: true`, at most twice, waiting as told (`retry_after_s`, `Retry-After`). Do not loop.
-- Do not resubmit a final job that timed out on your side: check `render_status` first. Pass the same `idempotency_key` when
-  you resubmit so a network retry never renders (or charges) twice.
+- Do not resubmit a final job that timed out on your side: check `render_status` or the job list first. On the terminal
+  server or the HTTP API, send the same `idempotency_key` so a resubmission returns the first job instead of rendering (or
+  charging) twice.
 
 ## When something fails
 
