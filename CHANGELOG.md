@@ -2,6 +2,12 @@
 
 The live, per-version list is at https://render.janction.jp/changelog (Atom: https://render.janction.jp/changelog.xml). Versions are the PyPI releases of `janction-render`; the hosted service follows the same numbers.
 
+## 0.4.44 (2026-10-12)
+
+- Five use-case guides open with a measured table in one shape (machine or route, settings, GPU seconds, cost, round trip): 'Cycles is slow on my MacBook' puts a laptop CPU, the same laptop's GPU and the production GPU side by side on the same frame; 'AI-agent-generated 3D' shows one real loop from a prompt to a finished video with a real preview verdict; the GLB-to-MP4, product-turntable and product-shot guides show the one-command runs with their GPU seconds and prices.
+- The citation panel now records whether JANCTION was the first service named in an answer (first-choice rate) and tags every question with its use case (no GPU, slow, GLB, product, agent, compare, developer); the morning report adds the first-choice rate and, per use case, the recommendation and first-choice rates. Four MCP/API duplicates were replaced by four use-case questions, so the panel stays at 52 questions.
+- The morning report carries a weekly line for Bing's AI Performance (Copilot citations), kept by hand in aio/bing_ai.json.
+
 ## 0.4.43 (2026-10-12)
 
 - Saved settings on /start: give the use, the light and the next step you took a name (for example 'white backdrop, square') and pick it at the top of the page next time. A public page's 'Try these settings on your own model' opens /start in the same use and light.
