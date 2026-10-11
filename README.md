@@ -8,7 +8,7 @@ JANCTION Render is a cloud GPU render farm for Blender that AI agents call as an
 file, a bpy script or a 3D file (glTF / FBX / USD), preview in seconds, and get frames or an MP4 back from JANCTION's
 NVIDIA GPUs. Every preview also returns a verdict on what is wrong, such as too dark, blown out, no light or an object
 out of frame, and the bpy code to fix it, so the agent can correct the scene before the final render. No local Blender
-or GPU is needed. Free up to 500 JPY of GPU time per new key, then 0.1 JPY per GPU-second (previews free up to 2 GPU-minutes a day);
+or GPU is needed. A 500 JPY welcome credit for a new key (one per network every 30 days; further keys on the same network share what is left), then 0.1 JPY per GPU-second (previews free up to 2 GPU-minutes a day);
 operated by JasmyLab Inc.
 
 AI agents can render Blender projects on JANCTION GPUs without running Blender locally. Works from **Claude, ChatGPT,
@@ -16,7 +16,7 @@ Claude Code, Codex, Cursor or any MCP client**: an MCP server (remote and stdio)
 
 JANCTION Render is a separate product from SmartRender (JasmyLab's distributed rendering for people at a desktop) and is
 not affiliated with Render.com or the Render Network. The numbers, as of 2026-10-08 (the primary source is
-https://render.janction.jp/facts.json): a 500 JPY welcome credit (5,000 GPU-seconds, 14 days) per new key; after that, previews
+https://render.janction.jp/facts.json): a 500 JPY welcome credit (5,000 GPU-seconds, 14 days) for a new key, one per network every 30 days (further keys on the same network share what is left); after that, previews
 are free up to 2 GPU-minutes a day and finals cost 0.1 JPY per GPU-second from prepaid credit (paid use started on 2026-10-08); jobs up to 240 frames at 1080p; inputs and results deleted
 24 hours after last use (7 days for keys that have topped up).
 
@@ -76,7 +76,7 @@ Keep 3D files in a repository? Add a button that lets anyone render them from th
   errors with the fix, spending caps per key, safe retries with `Idempotency-Key`.
 - **3D files and turntables.** glTF / GLB, FBX, USD, OBJ, STL, PLY, Alembic are imported into an empty scene with a camera and
   HDRI lighting; `orbit=True` makes a turntable. Fixed-price outcomes: `POST /v1/outcomes/turntable` and `/product-shot`.
-- **Honest limits.** free up to 500 JPY of GPU time per new key (14 days), then 0.1 JPY per GPU-second (previews free up to 2 GPU-minutes a day), finals up to 240 frames at 1080p, one GPU shared with another
+- **Honest limits.** a 500 JPY welcome credit for a new key (14 days; one per network every 30 days), then 0.1 JPY per GPU-second (previews free up to 2 GPU-minutes a day), finals up to 240 frames at 1080p, one GPU shared with another
   workload (jobs can wait; the ETA says so). Inputs and results are deleted 24 hours after last use (7 days for keys that have topped up) and never used for training.
 - **Not Render.com.** Same word, different product.
 
@@ -372,7 +372,7 @@ container with no network. More: `samples/cube_scene.py`, `samples/polyhaven_roo
 
 ## Pricing
 
-Each new key starts with a 500 JPY welcome credit (5,000 GPU-seconds, 14 days) that covers previews and finals; one full credit
+A new key starts with a 500 JPY welcome credit (5,000 GPU-seconds, 14 days) that covers previews and finals; one full credit
 per network every 30 days (later keys on the same network share what is left of it). After it is used up or expires, previews are
 free up to 2 GPU-minutes a day and finals cost 0.1 JPY per
 GPU-second from prepaid credit, bought by card at a Stripe Checkout page (from 500 JPY; 2,000 JPY gives 2,200 JPY of credit,
