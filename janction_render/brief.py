@@ -336,4 +336,7 @@ def welcome_billing(w: dict[str, Any], me: dict[str, Any], synced: dict[str, Any
                        + "; a top-up link comes with the next job that needs credit (402 checkout_url)")
     if me.get("usd_indicative"):
         out["usd_indicative"] = me["usd_indicative"]     # ドルの目安（受付の env があるとき、10/12）
+    if me.get("card_offer"):
+        out["card_offer"] = me["card_offer"]            # 無料分を使い切った人へのカード登録の案内（0 円、10/12）
+        out["next"] = (out.get("next") or "") + "; tell the user card_offer.tell_user: registering a card (no payment) adds free GPU time; POST /v1/billing/card gives the page"
     return out

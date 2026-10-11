@@ -2,6 +2,11 @@
 
 The live, per-version list is at https://render.janction.jp/changelog (Atom: https://render.janction.jp/changelog.xml). Versions are the PyPI releases of `janction-render`; the hosted service follows the same numbers.
 
+## 0.4.47 (2026-10-12)
+
+- A second welcome model, off by default (JR_WELCOME_MODEL=card): a new key gets 100 JPY of free GPU time once per network, and saving a card on a Stripe page that charges nothing adds 400 JPY more, once per card (prepaid cards do not qualify). The card is asked for only when the 100 JPY is used up: the 402, /v1/me, the MCP billing reply and /start then carry card_offer with the amount and the fact that nothing is charged. JR_WELCOME_MODEL=network keeps today's 500 JPY per new key. The morning report names the model and the day's new keys, finished renders, paying keys and card registrations, so the two can be compared.
+- The dollar figure names its source (JR_USD_JPY_SOURCE, for example an ECB reference rate) and the date it was checked.
+
 ## 0.4.46 (2026-10-12)
 
 - A final longer than 240 frames is no longer refused: the service splits it into parts of 240 frames under one job id (b_...), and GET /v1/jobs/{id}, DELETE and the MCP render_status / render_download work on that id; each part is charged on its own GPU seconds and comes back as its own file (part-01_output.mp4, ...). One instruction takes up to 1,000 frames (JR_MAX_FRAMES_PER_INSTRUCTION).
