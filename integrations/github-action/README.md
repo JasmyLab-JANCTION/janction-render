@@ -1,5 +1,7 @@
 # JANCTION Render GitHub Action
 
+Published as [JasmyLab-JANCTION/render-action](https://github.com/JasmyLab-JANCTION/render-action) (`uses: JasmyLab-JANCTION/render-action@v1`). This folder is its source.
+
 Render a Blender scene, a bpy script or a 3D file (GLB, glTF, FBX, USD, OBJ) on JANCTION Render's cloud GPUs from a
 workflow: a preview image on every push, a turntable or an animation MP4 on a release. No Blender or GPU on the runner.
 
@@ -24,7 +26,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: JasmyLab-JANCTION/janction-render/integrations/github-action@v0.4.41
+      - uses: JasmyLab-JANCTION/render-action@v1
         id: render
         with:
           api-key: ${{ secrets.JANCTION_RENDER_API_KEY }}
@@ -41,7 +43,7 @@ jobs:
 A final MP4 on release:
 
 ```yaml
-      - uses: JasmyLab-JANCTION/janction-render/integrations/github-action@v0.4.41
+      - uses: JasmyLab-JANCTION/render-action@v1
         with:
           api-key: ${{ secrets.JANCTION_RENDER_API_KEY }}
           scene-file: scenes/turntable.blend
