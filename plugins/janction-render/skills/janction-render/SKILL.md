@@ -35,15 +35,19 @@ connection in a few seconds.
 4. Show the preview and confirm frames, resolution and samples with the user.
 5. `render_estimate` - GPU seconds, wall time (`human`), queue wait, and `cost` (`free`, `estimated_yen`, `reserved_yen`,
    `balance_yen`, `within_caps`). Tell the user the time and the price in yen.
-6. If `cost.free` is false, ask the user before going on and name the amount. If they set a budget, pass it as `max_yen`.
+6. Ask before every final, even a free one: say the time and the price (0 yen when `cost.free` is true) and wait for a yes.
+   Skip the question only when the user already said "render the final" in this conversation. If they set a budget, pass
+   it as `max_yen`.
 7. `render_final` - returns `job_id`. Tell the user how long it will take.
 8. `render_status(job_id)` - report `eta.human`. If it says the GPU is lent out, tell the user the wait and stop polling.
 9. `render_download(job_id)` - links that need no key and work for about 24 hours.
 10. Show the image inline, give the MP4 link, or save it locally when the user wants a file.
 
 For a model the user wants seen from all sides, pass `orbit=True`: the preview shows four angles and
-`render_final(orbit=True)` renders one full turn (24 frames) as an MP4. Lighting: `environment="studio"` (or `sunset`,
-`overcast`, `night`); `environment="compare"` on a preview shows all four in one image.
+`render_final(orbit=True)` renders one full turn (24 frames) as an MP4. "A turntable preview" means
+`render_preview(orbit=True)` (one image with four angles), nothing more; the MP4 turn is a final, so it comes after the
+question in step 6. Lighting: `environment="studio"` (or `sunset`, `overcast`, `night`); `environment="compare"` on a
+preview shows all four in one image.
 
 ## Rules
 
