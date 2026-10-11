@@ -681,6 +681,10 @@ def render_final(
         return _j(_fail(exc))
     brief = _brief(j)
     est = j.get("estimate") or {}
+    if j.get("split"):
+        # 240 コマを超える仕上げは受付が部分に分けて 1 つの ID で返す（10/12）。道具の説明は変えず、返事で伝える
+        brief["split"] = j["split"]
+        brief["tell_user"] = j.get("tell_user")
     if cameras:
         brief["next"] = (f"tell the user it will take {est.get('human', 'a few minutes')}; then render_status(job_id) "
                          "until status is done, then render_download(job_id, only='frames'); camera_files says which PNG is which camera")
@@ -819,7 +823,7 @@ def billing(topup_yen: Annotated[int, D("topup_yen", 0)] = 0) -> str:
                        "gpu_seconds_used_today": q["gpu_seconds_used_today"], "gpu_seconds_per_day": q["gpu_seconds_per_day"],
                        "gpu_seconds_left_today": max(0, q["gpu_seconds_per_day"] - q["gpu_seconds_used_today"]),
                        "resets_at": q["resets_at"], "max_frames_per_job": q["max_frames_per_job"],
-                       "max_pixels": q["max_pixels"], "balance_yen": me["balance_yen"],
+                       "max_pixels": q["max_pixels"], "balance_yen": me["balance_yen"], "usd_indicative": me.get("usd_indicative"),
                        "held_yen": me.get("held_yen", 0), "held_jobs": me.get("held_jobs", 0), "yen_per_gpu_second": yen,
                        "min_topup_yen": me["billing"]["min_topup_yen"], "just_credited": synced.get("credited", []),
                        "pending_checkout_url": me["billing"]["pending_checkout_url"],

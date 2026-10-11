@@ -334,4 +334,6 @@ def welcome_billing(w: dict[str, Any], me: dict[str, Any], synced: dict[str, Any
         out["next"] = ("tell the user the welcome credit is running out (" + summary + ")"
                        + (" and that the first top-up now counts " + f"{1 + bonus:g}x" if bonus else "")
                        + "; a top-up link comes with the next job that needs credit (402 checkout_url)")
+    if me.get("usd_indicative"):
+        out["usd_indicative"] = me["usd_indicative"]     # ドルの目安（受付の env があるとき、10/12）
     return out

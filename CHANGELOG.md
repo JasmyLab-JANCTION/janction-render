@@ -2,6 +2,11 @@
 
 The live, per-version list is at https://render.janction.jp/changelog (Atom: https://render.janction.jp/changelog.xml). Versions are the PyPI releases of `janction-render`; the hosted service follows the same numbers.
 
+## 0.4.46 (2026-10-12)
+
+- A final longer than 240 frames is no longer refused: the service splits it into parts of 240 frames under one job id (b_...), and GET /v1/jobs/{id}, DELETE and the MCP render_status / render_download work on that id; each part is charged on its own GPU seconds and comes back as its own file (part-01_output.mp4, ...). One instruction takes up to 1,000 frames (JR_MAX_FRAMES_PER_INSTRUCTION).
+- A dollar figure for reference, when the operator sets JR_USD_JPY and JR_USD_JPY_CHECKED: /v1/me (balance), /v1/estimate (cost), /v1/pricing, the pricing page and the MCP billing reply show the amount in USD next to the yen, marked indicative; charges stay in JPY.
+
 ## 0.4.45 (2026-10-12)
 
 - The BlendSwap comparison page is rebuilt on BlendSwap's own page as checked on 2026-10-11 (the price per GPU-hour and the Studio plan, rounding up and the two-credit minimum per job, L40S workers, 250 frames, 500 MB uploads, the bundled Blender versions, no free tier), with what ten previews and one finished scene cost here, and without the blocks it shared with other guides. It also says what we do not claim: no speed comparison between GPUs.
