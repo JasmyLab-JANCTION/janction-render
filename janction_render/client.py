@@ -511,10 +511,14 @@ class Client:
         return r.json()
 
     def revoke_key(self) -> dict[str, Any]:
-        """この鍵を失効させる（つながっているアプリも全部切れる）。手元の控えも消す。"""
+        """この鍵を失効させる（つながっているアプリも全部切れる）。手元の控えは、失効させた鍵がその控えと同じときだけ消す
+        （10/11: 環境変数の別の鍵を失効させたら、保存済みの鍵の控えまで消えていた）。"""
+        key = self.key()
         r = self.s.post(f"{self.server}/v1/keys/revoke", headers=self._headers(), timeout=30)
         self._raise(r)
-        self.forget_key()
+        if self._read_cache().get(self.server) == key:
+            self.forget_key()
+        self._key = None
         return r.json()
 
     def connections(self) -> dict[str, Any]:

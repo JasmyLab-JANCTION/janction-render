@@ -12,6 +12,8 @@ also has `failure` with `code`, `category`, `reason`, `recommended_action` (a se
 - The browser page says "unknown app": the app's redirect address is not one the service knows. Use the official app or
   pass an API key as `Authorization: Bearer <key>` instead.
 - Terminal check: `uvx janction-render doctor` reports the service, the key, the credit and the AI apps on the machine.
+- Antigravity CLI shows janction-render as Disabled (untrusted): it stops MCP servers in folders it does not trust. Trust the
+  folder (the first-run prompt, or `trustedWorkspaces` in its settings) and start it again.
 
 ## Money
 

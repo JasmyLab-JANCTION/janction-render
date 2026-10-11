@@ -2,6 +2,16 @@
 
 The live, per-version list is at https://render.janction.jp/changelog (Atom: https://render.janction.jp/changelog.xml). Versions are the PyPI releases of `janction-render`; the hosted service follows the same numbers.
 
+## 0.4.42 (2026-10-11)
+
+- A browser page, /start, renders your own file without a connector, a CLI or a key you have to manage: choose a .blend, a 3D file or paste the bpy script an AI wrote; the scene is read first (missing files, cameras, frame range), the quote says whether the free GPU time covers it, the preview runs with max_yen 0 so nothing can be charged, and the result page offers the next step (change the light, four angles, a turntable, the animation as MP4, a high-quality still, the same settings on another file, a public page) with its price or 'no payment' before you press. Reloading returns to the last render. JR_START_PAGE=0 turns the page off without touching MCP, CLI or API.
+- The guides open /start in the matching state (a GLB-to-MP4 page starts in turntable mode, an animation page in video mode, an AI page with the paste box), and the client guides carry the route for an AI without a connector: a prompt that makes it write the bpy script, which you paste at /start. The home page leads with 'No high-end GPU? Turn your 3D into images and video' and the two buttons.
+- Estimates carry the breakdown a person decides with: covered_by_free_yen, from_credit_yen, max_charge_yen (the ceiling) and pricing_version; facts.json and /v1/pricing carry the same pricing version.
+- Every scene records where it came from (upload, link, /upload drop, pasted script, or an operator sample) and jobs report input.own. The scorecard and the weekly metrics count 'first success with the user's own input', demo-only keys and repeat use on another day, and split money into credit consumed and free time covered.
+- A daily budget for free GPU time across the service (JR_FREE_DAILY_BUDGET_YEN; off by default): when it is reached, new free jobs wait for the next day with a clear 429 while paid jobs run. Granted welcome credit is not reduced.
+- POST /v1/ui/events records the browser funnel (landing, input, validation, quote, result, download, top-up) with short labels only; no file names, prompts or keys.
+- The 'Blender is slow' guides start with a chooser: a slow final frame, an animation that never ends, out-of-memory, a slow viewport (fix locally; the cloud does not help there), simulations (not done here) and AI code that will not run each go to the right place. The agent-generated-3D guide lists, per app, how it connects and whether external users have actually rendered from it.
+
 ## 0.4.41 (2026-10-11)
 
 - Errors carry code (AUTH_REQUIRED, INSUFFICIENT_CREDIT, COST_LIMIT_EXCEEDED, QUOTA_EXCEEDED, JOB_TOO_LARGE, MISSING_ASSET, WORKERS_UNAVAILABLE ...) and recommended_action (CONNECT, TOP_UP, ASK_USER, SPLIT_JOB ...) next to the existing error, detail and retryable, over the HTTP API and in MCP tool results. A failed job's failure also has category in the same words.
