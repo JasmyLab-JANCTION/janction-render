@@ -2,6 +2,26 @@
 
 The live, per-version list is at https://render.janction.jp/changelog (Atom: https://render.janction.jp/changelog.xml). Versions are the PyPI releases of `janction-render`; the hosted service follows the same numbers.
 
+## 0.4.62 (2026-10-12)
+
+The rest of Phase 1 of the refactoring requirements (docs/60 §8, docs/61). Additive only.
+
+- **Signed webhooks.** Every `notify_url` POST carries `X-JR-Timestamp` and `X-JR-Signature: v1=hex(HMAC-SHA256(secret, "<timestamp>.<body>"))`; the per-key secret is in `GET /v1/me` (`webhook.secret`). Receivers can reject forged or replayed calls.
+- **Workers read only their own inputs.** A worker that names itself (`X-Worker-Id`) can fetch the scene and assets only for chunks assigned to it.
+- **A script that builds nothing is reported.** When a bpy script leaves Blender's startup scene untouched (default cube, light and camera), the preview critic says so (`default_scene`, check) instead of scoring the cube.
+- **Intake can be paused without stopping the service.** `tools/incident.py pause-intake "<reason>"` writes `data/INTAKE_PAUSED`; new renders get 503 `intake_paused` (`WORKERS_UNAVAILABLE`, retryable) while status, downloads and billing keep working; `/v1/health` shows `intake` and the reason in `notice`; `resume-intake` lifts it.
+- **Stripe subscription events in any order.** An older `customer.subscription.*` event no longer overwrites a newer state (the last applied event's `created` is kept).
+- **GPU out-of-memory is classified** from Blender's "out of GPU memory" wording too (`OUT_OF_MEMORY` / `JOB_TOO_LARGE`), so the agent gets the "reduce resolution or geometry" advice instead of a generic failure.
+- **The job journal no longer stores client IPs** (the database keeps them for 90 days, as published). The OAuth refresh error says that the access token expires after 30 days and that the OAuth flow should be run again. `mcp_rpc` events carry `request_id`.
+- **Docs and tooling.** `docs/env_vars.md` is a generated inventory of every `JR_*` setting (`tools/env_inventory.py`, checked by a test); `docs/61` states the internal SLO targets, the list of endpoints that need no key, and the per-client compatibility table. The `server` extra now requires `mcp>=2.0` (the remote server needs it).
+- **/start and the result page.** /start shows the expected wait (queue) before you press render, has a "Preview again" button, sends `X-Client: web/start` (its renders are no longer counted as plain API use), tags its browser events with a per-browser id and records `render_started`, and lays out on phones. The signed progress page (`/w/…`) now ends with next steps (what to ask the agent for, a feedback link, /start) and the expiry time instead of only a download. Download events distinguish an inline view from a save.
+
+## 0.4.61 (2026-10-12)
+
+- Every page shows one update date: the footer, the sitemap `lastmod` and the structured data's `dateModified` come from the same place.
+- Meta descriptions on the terms, privacy, legal notice, security and support pages; the benchmarks page is dated by its latest measurement (2026-10-12); the footer names the Blender versions the workers run; images declare their height; the viewport sets `initial-scale=1`; the guide list links the product-shots and render-farm comparison guides.
+- /status is indexable and in the sitemap, and defines the 7-day success rate (finished previews and finals, done and failed; cancelled jobs not counted; failures caused by the user's own script included).
+
 ## 0.4.60 (2026-10-12)
 
 P0 of the refactoring requirements (docs/60): correctness of results, money, agent safety and operations. No API or MCP contract changes; every field is additive.
