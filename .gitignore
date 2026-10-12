@@ -6,3 +6,4 @@ render_out/
 .env
 dist/
 build/
+npm/node_modules/

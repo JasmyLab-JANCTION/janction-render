@@ -257,6 +257,7 @@ in Claude Code: try_janction_render, render_my_scene, turntable_video, product_s
 | Cursor | `.cursor/mcp.json` (project) or `~/.cursor/mcp.json`: `{"mcpServers": {"janction-render": {"url": "https://render.janction.jp/mcp"}}}`, then sign in when Cursor asks (OAuth). One click: [install in Cursor](cursor://anysphere.cursor-deeplink/mcp/install?name=janction-render&config=eyJ1cmwiOiJodHRwczovL3JlbmRlci5qYW5jdGlvbi5qcC9tY3AifQ==) |
 | VS Code (Copilot agent mode) | `.vscode/mcp.json`: `{"servers": {"janction-render": {"type": "http", "url": "https://render.janction.jp/mcp"}}}` or `code --add-mcp '{"name":"janction-render","type":"http","url":"https://render.janction.jp/mcp"}'`, then Start the server and sign in (OAuth) |
 | Windsurf, Cline, Goose, other MCP clients | Streamable HTTP at the URL above (OAuth, or a Bearer API key header). Installer notes: [llms-install.md](https://github.com/JasmyLab-JANCTION/janction-render/blob/main/llms-install.md). Cursor project rule (when to use it, preview-first flow): [integrations/cursor](https://github.com/JasmyLab-JANCTION/janction-render/tree/main/integrations/cursor) |
+| Claude Desktop and other stdio-only clients (npm) | `{"mcpServers": {"janction-render": {"command": "npx", "args": ["-y", "janction-render"]}}}`: the npm package [janction-render](https://www.npmjs.com/package/janction-render) bridges stdio to the URL above with OAuth (`--key jr_...` for a key you have, `--local` for the Python stdio server through uv). Claude Code: `claude mcp add janction-render -- npx -y janction-render` |
 
 Remote tools take `scene_script` (bpy code as text), `scene_url` (an https link to a `.blend`, `.py` or a 3D file, or a link
 from https://render.janction.jp/upload) or `scene_id`, plus `asset_urls` for textures or glTF `.bin` files. Results come back as
@@ -271,7 +272,7 @@ Claude Code plugin (the remote connector plus a skill with the workflow):
 
 ### Stdio (sends local files)
 
-The package is on PyPI as `janction-render`.
+The package is on PyPI as `janction-render` (and the npm launcher `janction-render` runs it with `npx -y janction-render --local` when `uv` is installed).
 
 ```
 # Claude Code (uvx runs it without a global install)

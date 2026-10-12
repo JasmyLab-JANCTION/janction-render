@@ -1,0 +1,50 @@
+{
+  "name": "janction-render",
+  "version": "1.0.0",
+  "description": "JANCTION Render for AI agents from npm: one command connects Claude Desktop, Cursor, Windsurf, Claude Code or any stdio MCP client to a cloud GPU render farm for Blender (preview in seconds, product shots, turntables, animations). No local Blender or GPU.",
+  "license": "MIT",
+  "homepage": "https://render.janction.jp",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/JasmyLab-JANCTION/janction-render.git",
+    "directory": "npm"
+  },
+  "bugs": {
+    "url": "https://github.com/JasmyLab-JANCTION/janction-render/issues"
+  },
+  "author": "JasmyLab Inc.",
+  "keywords": [
+    "mcp",
+    "mcp-server",
+    "model-context-protocol",
+    "blender",
+    "rendering",
+    "render-farm",
+    "cloud-rendering",
+    "gpu",
+    "ai-agent",
+    "claude",
+    "cursor",
+    "codex",
+    "gltf",
+    "bpy",
+    "3d-rendering"
+  ],
+  "bin": {
+    "janction-render": "bin/janction-render.js"
+  },
+  "files": [
+    "bin/",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "mcp-remote": "^0.14.3"
+  },
+  "scripts": {
+    "test": "node bin/janction-render.js --help >/dev/null && node bin/janction-render.js --version"
+  }
+}
