@@ -2,6 +2,14 @@
 
 The live, per-version list is at https://render.janction.jp/changelog (Atom: https://render.janction.jp/changelog.xml). Versions are the PyPI releases of `janction-render`; the hosted service follows the same numbers.
 
+## 0.4.67 (2026-10-13)
+
+The structural refactoring in one pass (docs/60 §14: ARCH-02, ARCH-03, SEC-04/05). Receptionist only; no worker change; no change to any URL, response or price.
+
+- **app.py split.** The 6,500-line receptionist is now shared layers (`core`, `views`, `intake`, `checkout`, `submit`, `sweep`) and route modules (`routes_public`, `routes_keys`, `routes_files`, `routes_shares`, `routes_batches`, `routes_partner`, `routes_jobs`, `routes_start`, `routes_worker`, `routes_billing`). `app.py` keeps the app, middleware, error handlers and the MCP mount, and forwards `appmod.X` reads and writes to the part that owns the name, so tests and tools did not change.
+- **Typed request bodies.** `server/schemas.py` holds pydantic models for the POST bodies; `openapi.json` is generated from them (the hand-written dicts are gone). Runtime parsing is unchanged (its error wording is the agent contract).
+- **OAuth scopes.** `render` (everything; the default and what every existing token and API key has), `read` (status, links, estimates, quota and billing only) and `share` (publish or remove share pages). A read-only connection gets `insufficient_scope` with a reconnect hint instead of rendering; the consent page says what the app will be able to do.
+
 ## 0.4.66 (2026-10-12)
 
 Phase 2 and 3 leftovers (docs/60 §13). Receptionist and the stdio package; no worker change.
