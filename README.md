@@ -17,7 +17,7 @@ Claude Code, Codex, Cursor or any MCP client**: an MCP server (remote and stdio)
 JANCTION Render is a separate product from SmartRender (JasmyLab's distributed rendering for people at a desktop) and is
 not affiliated with Render.com or the Render Network. The numbers, as of 2026-10-08 (the primary source is
 https://render.janction.jp/facts.json): a 100 JPY welcome credit (1,000 GPU-seconds, 14 days, no card) for a new key, one per network every 30 days (further keys on the same network share what is left), plus 400 JPY more once a card is saved on a page that charges nothing (once per card); after that, previews
-are free up to 2 GPU-minutes a day and finals cost 0.1 JPY per GPU-second from prepaid credit (paid use started on 2026-10-08); jobs up to 240 frames at 1080p; inputs and results deleted
+are free up to 2 GPU-minutes a day and finals cost 0.1 JPY per GPU-second from prepaid credit (paid use started on 2026-10-08); finals up to 1,000 frames per instruction (run as parts of 240 under one job id); 1080p on free time, up to 4K on prepaid credit; inputs and results deleted
 24 hours after last use (7 days for keys that have topped up).
 
 Official site: https://render.janction.jp · MCP endpoint: `https://render.janction.jp/mcp` · Fact sheet: https://render.janction.jp/facts

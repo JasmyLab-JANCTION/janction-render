@@ -30,7 +30,7 @@ Claude Desktop, Cursor and other clients (`mcpServers` in their JSON settings):
 ```
 
 The `[blend]` extra adds blender-asset-tracer, so a .blend is sent together with the textures it points to.
-JANCTION Render needs no sign-up: the first call creates a key. Each new key gets 500 JPY of GPU time free (welcome credit, 14 days);
+JANCTION Render needs no sign-up: the first call creates a key. Each new key gets 100 JPY of GPU time free with no card, and 400 JPY more after saving a card on a page that charges nothing (once per card): up to 500 JPY for 14 days (welcome credit);
 after that, previews are free up to 2 GPU-minutes a day and finals cost 0.1 JPY per GPU-second from prepaid credit. A 720p preview usually takes 2 to 10 GPU-seconds.
 
 ## Two hand-offs
@@ -98,5 +98,5 @@ Run on 2026-10-08 with Blender 5.2.0 and janction-render 0.4.22: the .blend prev
 
 - mcp-for-blender's README says its safe mode (`BLENDER_MCP_SAFE_MODE=1`) still allows saving and exporting, so both hand-offs should work with it on (not tested here).
 - Inputs and results are deleted 24 hours after last use. Previews are 720p by default; the final render goes up to
-  1920x1080 and 240 frames per job.
+  up to 1,000 frames per instruction (run as parts of 240 under one job id); 1080p on free time, up to 4K on prepaid credit.
 - More: https://render.janction.jp/llms.txt and https://render.janction.jp/blender-mcp

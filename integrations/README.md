@@ -139,8 +139,8 @@ key is no longer known to the service, the tools create a new one once and retry
   camera and orbits the model.
 - Frame rate comes from the app's setting (Maya time unit, `hou.fps()`, `doc.GetFps()`), rounded
   to a whole number.
-- A job renders at most 240 frames and 1080p worth of pixels; the tools scale the
-  final size down and refuse longer ranges with a message.
+- The service takes up to 1,000 frames per instruction (run as parts of 240 under one job id) and up to 4K on prepaid credit;
+  these submit tools still send at most 240 frames and 1080p per job: they scale the final size down and refuse longer ranges with a message.
 
 ## Manual fallback from any application
 

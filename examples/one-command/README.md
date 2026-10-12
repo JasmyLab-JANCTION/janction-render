@@ -15,7 +15,7 @@ Khronos's glTF sample assets, dedicated to the public domain (CC0 1.0) by Micros
 | `anim.gif` | `uvx janction-render render https://render.janction.jp/samples/ex12_logo_ring_spin.py --frames 1-48 --size 1280x720 --engine eevee --output mp4 --wait` | 54.1 s | about 5.4 JPY |
 
 `uvx` needs [uv](https://docs.astral.sh/uv/); `pip install janction-render` and drop the `uvx` works too. The first run
-creates a free key (each new key starts with a 500 JPY welcome credit, which covers all three). The CLI accepts a local
+creates a free key (each new key starts with a welcome credit of up to 500 JPY: 100 JPY with no card, 400 JPY more after saving a card that is not charged; it covers all three). The CLI accepts a local
 path or an https link; links to file pages on GitHub and Hugging Face are turned into raw links.
 
 The shots and the turntable are fixed-price outcomes (`POST /v1/outcomes/product-shot` and `/turntable`): the price
