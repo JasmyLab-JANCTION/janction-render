@@ -2,6 +2,12 @@
 
 The live, per-version list is at https://render.janction.jp/changelog (Atom: https://render.janction.jp/changelog.xml). Versions are the PyPI releases of `janction-render`; the hosted service follows the same numbers.
 
+## 0.4.57 (2026-10-12)
+
+- The preview reply leads with the image: show_user is one ready line with the image (and its link for when the image does not show), next_actions lists what to do next with its time and price (the final render with the exact arguments, a 360-degree turntable video, or changing the look; a fix found by the preview check comes first), and keep says how to keep the result before the link expires. The in-chat card shows the same choices with their time and price, and a Save button.
+- A scene_id unknown to the current connection no longer stops the call when scene_script or scene_url comes with it: the scene is sent again. On its own, the error says why (a scene belongs to the key that sent it, reconnecting the app makes a new key, and scenes expire 24 hours after the last use) and what to send instead.
+- The Maya, Houdini and Cinema 4D sender (jr_submit.py 0.1.2) sends scene files whose names have spaces or non-Latin letters, tidied the same way the service does, instead of refusing them.
+
 ## 0.4.56 (2026-10-12)
 
 - Codex: the Codex guide (/codex-blender#run-without-prompts), llms.txt, `janction-render connect codex` and the skill's troubleshooting explain that Codex asks before each MCP tool call and that `codex exec` cannot ask, so an unapproved call stops with "MCP tool call requires approval" and never reaches the service. They give the `~/.codex/config.toml` block that approves the read, preview, estimate and download tools one by one under the server's `url`, while `render_final` keeps asking. (A block with only the tool lines makes Codex reject the whole config with "invalid transport".)

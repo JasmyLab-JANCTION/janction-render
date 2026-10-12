@@ -31,7 +31,7 @@ from mcp.types import ToolAnnotations
 
 from janction_render.brief import plan_fields, review_reply, scene_next, welcome_billing
 from janction_render.brief import brief as _brief, estimate_brief, final_body_after_preview, followup_after_preview, \
-    next_after_preview, trim
+    next_after_preview, trim, PRESENT_FIRST, preview_presentation, turntable_estimate
 from janction_render.client import Client, ClientError, parse_frames
 from janction_render import prompts as _prompts, tooldocs
 
@@ -407,6 +407,18 @@ def _preview_followup(c: Client, j: dict[str, Any]) -> dict[str, Any]:
     return followup_after_preview(est, {**body, "scene_id": j.get("scene_id")})
 
 
+def _turntable_followup(c: Client, j: dict[str, Any]) -> dict[str, Any]:
+    """試し描きの次の一手「360 度の回転動画」の時間と値段（10/12）。回転・複数カメラの試し描きには出さない。"""
+    p = j.get("params") or {}
+    if p.get("orbit") or p.get("cameras") or not j.get("scene_id"):
+        return {}
+    try:
+        return turntable_estimate(c.estimate(j["scene_id"], kind="final", preset="turntable"))
+    except Exception as exc:  # noqa: BLE001
+        _log(f"turntable estimate skipped: {exc}")
+        return {}
+
+
 @mcp.tool(annotations=_ann(STORE, "Read scene info"))
 def scene_info(scene_path: Annotated[str, D("scene_path", "")] = "",
                scene_id: Annotated[str, D("scene_id", "")] = "",
@@ -550,8 +562,9 @@ def render_preview(
     brief["files"] = [str(p) for p in paths]
     fu = _preview_followup(c, j)
     brief.update(fu)
-    brief["next"] = next_after_preview(fu, "edit it and call render_preview again", "ask the user before calling render_final",
-                                       critic=j.get("critic"))
+    brief.update(preview_presentation(j, fu, saved_to=str(show or out), turntable=_turntable_followup(c, j)))
+    brief["next"] = PRESENT_FIRST + next_after_preview(fu, "edit it and call render_preview again",
+                                                       "ask the user before calling render_final", critic=j.get("critic"))
     _attach_upload_notes(brief)
     result: list[Any] = [_j(brief)]
     if show is not None:

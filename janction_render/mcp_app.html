@@ -102,9 +102,19 @@ function render() {
   html += `<div class="row">`;
   if (status === "queued" || status === "running") html += `<button data-act="refresh">Refresh</button>`;
   if (status === "done" && out) html += `<button class="primary" data-open="${esc(out)}">Open ${/\.(mp4|webm|mov)/.test(out) ? "video" : "image"}</button>`;
+  // 10/12（Codex で試した人の感想）: 保存の道と、次の一手の時間と値段をボタンに
+  if (status === "done" && out) html += `<button data-open="${esc(out + (out.includes("?") ? "&" : "?") + "download=1")}">Save</button>`;
   const frameLinks = Object.entries(links).filter(([n]) => n.startsWith("frame_"));
   if (status === "done" && frameLinks.length) html += `<button data-open="${esc(frameLinks[0][1])}">Open first frame</button>`;
-  if (status === "done" && job.kind === "preview") html += `<button data-say="This preview looks right. Please ask me about frames, resolution and samples, then render the final.">Looks good, go final</button><button data-say="Please adjust the scene and preview again.">Needs changes</button>`;
+  const acts = Array.isArray(job.next_actions) ? job.next_actions : [];
+  if (status === "done" && job.kind === "preview" && acts.length) {
+    html += acts.map(a => {
+      const tail = [a.time, a.price].filter(Boolean).join(" · ");
+      return `<button data-say="${esc(a.do + (tail ? " (" + tail + ")" : ""))}.">${esc(a.do)}${tail ? `<br><span class="muted">${esc(tail)}</span>` : ""}</button>`;
+    }).join("");
+  } else if (status === "done" && job.kind === "preview") {
+    html += `<button data-say="This preview looks right. Please ask me about frames, resolution and samples, then render the final.">Looks good, go final</button><button data-say="Please adjust the scene and preview again.">Needs changes</button>`;
+  }
   html += `</div>`;
   const warns = (job.warnings || []).filter(w => !String(w).startsWith("compare:"));
   if (warns.length) html += `<details><summary>${warns.length} note${warns.length > 1 ? "s" : ""} from Blender</summary><ul class="warn">${warns.map(w => `<li>${esc(w)}</li>`).join("")}</ul></details>`;

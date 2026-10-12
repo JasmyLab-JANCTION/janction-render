@@ -28,7 +28,7 @@ import urllib.request
 import uuid
 from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
-__version__ = "0.1.1"
+__version__ = "0.1.2"
 
 DEFAULT_SERVER = "https://render.janction.jp"
 CONFIG_NAME = ".janction_render.json"
@@ -489,6 +489,18 @@ def _asset_items(assets: Optional[Sequence[Any]]) -> List[Tuple[str, str]]:
     return items
 
 
+def _tidy_scene_name(name: str) -> str:
+    """The scene file name as the service keeps it: letters, digits, . _ - (max 120), the rest tidied the same way the
+    service does (2026-10-12: a name with spaces, brackets or non-Latin letters is sent, not refused). The extension stays."""
+    if _SCENE_NAME_RE.match(name) and not name.startswith("."):
+        return name
+    stem, dot, ext = name.rpartition(".")
+    if not dot or not re.match(r"^[A-Za-z0-9]{1,10}$", ext):
+        stem, ext = name, ""
+    stem = re.sub(r"[^A-Za-z0-9_.-]+", "_", stem).strip("._-")[:100] or "scene"
+    return stem + "." + ext if ext else stem
+
+
 def upload_cap(conn: Connection) -> int:
     """Bytes one upload may carry: the edge limit for render.janction.jp, 0 (no check) elsewhere."""
     return EDGE_UPLOAD_BYTES if conn.server == DEFAULT_SERVER else 0
@@ -544,8 +556,7 @@ def upload(path: str, assets: Optional[Sequence[Any]] = None, conn: Optional[Con
         raise JRError("not_found", "%s is not a file" % path)
     if os.path.splitext(name)[1].lower() not in SCENE_SUFFIXES:
         raise JRError("unsupported", "scene must be one of %s (got %s)" % (", ".join(SCENE_SUFFIXES), name))
-    if not _SCENE_NAME_RE.match(name):
-        raise JRError("bad_name", "scene file name '%s': letters, digits, . _ - only (rename it)" % name)
+    send_name = _tidy_scene_name(name)
     items = _asset_items(assets)
     scene = None  # type: Optional[Dict[str, Any]]
     if reuse:
@@ -561,7 +572,7 @@ def upload(path: str, assets: Optional[Sequence[Any]] = None, conn: Optional[Con
             data = fh.read()
         if not data:
             raise JRError("empty", "%s is empty" % name)
-        body, ctype = _multipart([("file", name, data)])
+        body, ctype = _multipart([("file", send_name, data)])
         scene = _json(conn, "POST", "/v1/files", raw=body, content_type=ctype, timeout=max(conn.timeout, 1800))
     have = set()  # type: set
     for a in scene.get("assets") or []:

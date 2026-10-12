@@ -177,6 +177,84 @@ def next_after_preview(fu: dict[str, Any] | None, edit_hint: str, final_hint: st
     return text + final_estimate_text(fu)
 
 
+# 試し描きの見せ方（10/12、Codex で試した人の感想「プレビューどれ？」）: 絵を先に・次の一手に時間と値段・残し方。
+# エージェントがこのまま見せられる形で返す。数字は見積もり（estimate）と仕事の記録から取り、書き足さない
+PRESENT_FIRST = ("Begin the reply with show_user (the image first, then that one line) so the user does not have to ask where the "
+                 "preview is; then offer next_actions as short choices with their time and price. ")
+
+
+def _price_words(est: dict[str, Any] | None) -> str | None:
+    """見積もりの値段を一言に（無料の分で賄えるなら free、そうでなければ見込み額）。分からなければ None。"""
+    e = est or {}
+    if e.get("charge_yen") == 0:
+        return "free (covered by the free credit)"
+    if e.get("charge_yen"):
+        return f"about {e['charge_yen']} JPY"
+    if e.get("list_price_yen") is not None:       # 請求しない受付（自前・無料の形）は定価だけを言う
+        return f"list price about {e['list_price_yen']} JPY"
+    return None
+
+
+def turntable_estimate(est: dict[str, Any] | None) -> dict[str, Any]:
+    """回転動画（preset='turntable'）の見積もりを next_actions 用に縮める。"""
+    if not est:
+        return {}
+    cost = est.get("cost") or {}
+    return {"human": est.get("human"), "gpu_seconds": est.get("seconds"), "charge_yen": cost.get("estimated_yen"),
+            "list_price_yen": cost.get("list_price_yen")}
+
+
+def preview_presentation(j: dict[str, Any], fu: dict[str, Any] | None, image_url: str = "", saved_to: str = "",
+                         turntable: dict[str, Any] | None = None) -> dict[str, Any]:
+    """試し描きの返事に足す show_user・next_actions・keep。image_url はリモート（鍵なしで開けるリンク）、saved_to は stdio（手元の場所）。"""
+    gs = j.get("gpu_seconds")
+    c = j.get("cost") or {}
+    paid = ("free" if (not c or c.get("free")) else
+            f"{c.get('charged_yen')} JPY" if c.get("settled") else f"up to {c.get('reserved_yen')} JPY")
+    head = f"Preview ready ({gs:g} GPU-seconds, {paid})." if isinstance(gs, (int, float)) else "Preview ready."
+    if image_url:
+        show = f"{head}\n\n![preview]({image_url})\n\nIf the image does not show, open {image_url}"
+    elif saved_to:
+        show = f"{head} Saved to {saved_to}"
+    else:
+        show = head
+    sid = j.get("scene_id")
+    p = j.get("params") or {}
+    fe = (fu or {}).get("final_estimate") or {}
+    body = final_body_after_preview(j) or {}
+    actions: list[dict[str, Any]] = []
+    if fe:
+        args = {k: body[k] for k in ("scene_id", "frame_start", "frame_end", "width", "height", "samples", "camera", "cameras",
+                                     "environment", "orbit", "engine", "blender", "transparent") if body.get(k) not in (None, "")}
+        actions.append({"do": f"Render the final in full quality ({fe.get('what')}, {fe.get('size')})", "tool": "render_final",
+                        "args": args, "time": fe.get("human"), "price": _price_words(fe)})
+    if turntable and not p.get("orbit") and not p.get("cameras"):
+        actions.append({"do": "Make a 360-degree turntable video", "tool": "render_final",
+                        "args": {"scene_id": sid, "preset": "turntable"}, "time": turntable.get("human"),
+                        "price": _price_words(turntable)})
+    again = "free" if paid == "free" else f"about the same as this preview ({paid})"
+    crit = j.get("critic") or {}
+    fix = next((i for i in (crit.get("issues") or []) if i.get("severity") == "fix"), None)
+    if crit.get("verdict") == "fix" and fix:
+        # 批評が直すものを見つけたら、直す一手を先頭に（仕上げはその後）
+        actions.insert(0, {"do": "Fix what the preview check found, then preview again", "tool": "render_preview",
+                           "how": str(fix.get("fix") or fix.get("message") or "")[:300], "time": "a few seconds", "price": again})
+    else:
+        actions.append({"do": "Change the look", "tool": "render_preview",
+                        "how": "edit the script, or change environment, camera or preset, then preview again",
+                        "time": "a few seconds", "price": again})
+    if image_url:
+        keep = ("The link works for about 24 hours after the last use. To keep the image, an agent with a shell saves it into "
+                f"the project now (curl -L -o preview.png '{image_url}'); in a chat app, tell the user to save the image. "
+                "render_share makes a page that stays (unlisted).")
+    else:
+        keep = f"Saved to {saved_to}; the files stay there (the service deletes its own copy 24 hours after the last use)." if saved_to else ""
+    out: dict[str, Any] = {"show_user": show, "next_actions": actions}
+    if keep:
+        out["keep"] = keep
+    return out
+
+
 def final_estimate_text(fu: dict[str, Any] | None) -> str:
     """「仕上げなら約 N 秒、今日の無料枠はあと M 秒」の 1 文（見積もりが無ければ空）。"""
     fe = (fu or {}).get("final_estimate") or {}
