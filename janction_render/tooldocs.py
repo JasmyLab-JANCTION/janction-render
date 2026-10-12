@@ -98,16 +98,20 @@ def _free_offer(short: bool = False) -> str:
             "GPU-second (prepaid)")
 
 
+MAX_FRAMES_PER_INSTRUCTION = 1000      # billing.max_frames_per_instruction の既定値（240 ずつの部分に分けて 1 つの仕事 ID で）
+PAID_MAX_SIZE = "3840x2160"            # 先払いのクレジットでの上限（無料の時間は 1080p まで）
+
+
 def _limits() -> str:
-    return (f"LIMITS: {_free_offer(short=True)}; {FREE_MAX_FRAMES} frames and {FREE_MAX_SIZE} per job; files kept "
-            f"{RETENTION_HOURS} h.")
+    return (f"LIMITS: {_free_offer(short=True)}; up to {MAX_FRAMES_PER_INSTRUCTION:,} frames per instruction (parts of {FREE_MAX_FRAMES}), "
+            f"{FREE_MAX_SIZE} free / {PAID_MAX_SIZE} prepaid; kept {RETENTION_HOURS} h.")
 
 
 def _presets(flavor: str) -> str:
     """用途のプリセット（10/12、ChatGPT の実検証「用途別に背景・カメラ・光を自動で」）。モデルを持たない人の商品写真の手順
     （asset_search → render_preview(preset='product')）は asset_search の説明に書く（指示文は 1,800 字まで）。"""
     return ("PRESETS: preset='product' (4 studio shots, plain backdrop) | 'turntable' (360-degree MP4) | 'animation' (scene's "
-            "own frames); no model? asset_search.")
+            "frames); no model? asset_search.")
 
 
 def product_recipe(flavor: str) -> str:
@@ -126,7 +130,7 @@ def _free_left() -> str:
     return "today's free quota"
 _SCRIPTS = ("SCRIPTS: Blender 5.0 bpy; build only the scene, camera and frame range (the service sets resolution and samples); "
             "`import jr_assets; jr_assets.frame_camera()` fits every object; a script that raises fails the job (nothing rendered).")
-_MORE = f"Examples: {SITE}/examples; more: {SITE}/llms.txt"
+_MORE = f"Examples and docs: {SITE}/examples, {SITE}/llms.txt"
 
 
 def instructions(flavor: str) -> str:
@@ -137,12 +141,12 @@ def instructions(flavor: str) -> str:
                 "wait_seconds=45) until the links come back; tell the user eta.human, and if the GPU is lent out tell them the "
                 "wait, do not poll.")
         return " ".join([head, _WHEN, _DONT, _FIRST, flow, _presets(flavor), _limits(), _SCRIPTS, _MORE])
-    head = ("JANCTION Render: Blender rendering on cloud GPUs for AI agents, from the terminal (no local GPU or Blender; a key "
-            "is made on first use).")
-    local = "LOCAL FILES: scene_path (a .blend, .py or 3D file); results in ~/janction-render/<job_id>."
-    flow = ("FLOW: render_preview (image saved and shown + critic verdict with fix code; fix and preview again) -> ask the user "
-            "-> render_estimate for long jobs or an uncertain quota -> render_final -> render_status (eta.human to the user) "
-            "-> render_download(job_id, only='mp4'); if the GPU is lent out tell the user the wait, do not poll.")
+    head = ("JANCTION Render: Blender rendering on cloud GPUs for AI agents, from the terminal (no local GPU or Blender; key "
+            "made on first use).")
+    local = "LOCAL FILES: scene_path (.blend, .py or 3D file); results in ~/janction-render/<job_id>."
+    flow = ("FLOW: render_preview (image saved and shown + critic verdict with fix code; fix, repeat) -> ask the user "
+            "-> render_estimate when long or the quota is uncertain -> render_final -> render_status (tell eta.human) "
+            "-> render_download(job_id, only='mp4'); GPU lent out? say the wait, do not poll.")
     return " ".join([head, _WHEN, _DONT, _FIRST, local, flow, _presets(flavor), _limits(), _SCRIPTS, _MORE])
 
 
@@ -275,8 +279,8 @@ def param_docs(flavor: str, wait_cap_s: int = 50) -> dict[str, str]:
         "frames": "Preview frames: '' = frame 1; '12' = one frame; '1,8,16,24' or '1-24' = up to 4 frames tiled in one labeled image (to judge camera motion and animation; same GPU time as one 720p frame).",
         "camera": "Name of the camera object to render from (default: the scene's active camera, or an automatic camera if there is none). Ignored with orbit=True; not combinable with cameras.",
         "cameras": "Several camera object names (up to 8) rendered from the same frame in one job: the preview tiles them in one labeled sheet, the final returns one PNG/EXR per camera (camera_files maps names to files). For product shots from fixed angles. Not combinable with orbit, environment='compare' or camera.",
-        "width": "Output width in pixels (previews are capped at 1280x720 keeping the aspect ratio; a final frame can have at most 1920x1080 pixels).",
-        "height": "Output height in pixels (previews are capped at 1280x720 keeping the aspect ratio; a final frame can have at most 1920x1080 pixels).",
+        "width": "Output width in pixels (previews are capped at 1280x720 keeping the aspect ratio; a final frame can have at most 1920x1080 pixels on free time, 3840x2160 on prepaid credit).",
+        "height": "Output height in pixels (previews are capped at 1280x720 keeping the aspect ratio; a final frame can have at most 1920x1080 pixels on free time, 3840x2160 on prepaid credit).",
         "samples": "Cycles samples per pixel (preview: up to 32, default 16; final: default 128).",
         "out_dir": "Local folder to save the files in (default ~/janction-render/<job_id>).",
         "environment": "Lighting preset: '' (the scene's own world), 'studio', 'sunset', 'overcast' or 'night' (bundled HDRIs; a good first render for scenes without lighting work), or 'compare' (preview only: all four in one labeled 2x2 image, to pick one).",
@@ -287,6 +291,8 @@ def param_docs(flavor: str, wait_cap_s: int = 50) -> dict[str, str]:
         "orbit_frames": "Number of frames for one full turn (default 24).",
         "preset": "Purpose preset: 'product' (4 studio shots at 0/90/180/270 deg on a plain backdrop; the final gives 4 PNGs at 1440x1440), 'turntable' (one full turn as an MP4, studio light, plain backdrop), 'animation' (the scene's own camera, lights and frame range; the scene is read first when the range is unknown), or '' (none). It fills what you do not pass; environment, orbit_frames, width/height and the frames still win when given.",
         "orbit_elevation": "Orbit camera elevation in degrees (default 18).",
+        "max_yen": "Ceiling for this job in JPY (-1 = none): the job is refused before anything is reserved when its reservation would exceed it. 0 means 'only if it fits the free time'.",
+        "idempotency_key": "Any string up to 128 characters that identifies this order: sending the same key again returns the first job instead of rendering twice (a different body with the same key is refused).",
         "orbit_target": "Object name or 'x,y,z' to centre the orbit on (default: the scene's main objects).",
         "orbit_distance": "Multiplier for the orbit camera distance (default 1.0).",
         "engine": "'' or 'cycles' (path tracing, default) | 'eevee' (real-time rasterizer: about half the per-frame cost on animations of a few dozen frames or more; each job pays about 7 s of shader compilation, so previews stay on Cycles).",

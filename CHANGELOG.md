@@ -2,6 +2,24 @@
 
 The live, per-version list is at https://render.janction.jp/changelog (Atom: https://render.janction.jp/changelog.xml). Versions are the PyPI releases of `janction-render`; the hosted service follows the same numbers.
 
+## 0.4.60 (2026-10-12)
+
+P0 of the refactoring requirements (docs/60): correctness of results, money, agent safety and operations. No API or MCP contract changes; every field is additive.
+
+- **Broken output is not a success.** Every frame a worker sends is checked (PNG signature, header and end marker; EXR signature); an empty or truncated frame fails the job as `OUTPUT_VERIFICATION_FAILED` on JANCTION's side (nothing charged). A video is probed after encoding (`ffprobe`), and a file with fewer frames than were rendered is a failure, not a download. The preview critic no longer scores an unreadable preview 100.
+- **JANCTION-side failures cost nothing.** A job that fails for a reason on our side (worker lost, container, encoder, sandbox, verification) is settled at 0 JPY even when some chunks had finished, as the terms say. Free time is not consumed by them either.
+- **Stripe events are applied once and in any order.** Each webhook event id is recorded; a refund that arrives before its payment's credit is held and applied the moment the credit lands; chargebacks (`charge.dispute.*`) take the disputed amount back (and restore it when the dispute is won); failed or expired Checkout sessions are closed.
+- **Jobs and ledger rows carry the pricing version and the rate they were quoted with**; a job is settled at the rate in force when it was submitted.
+- **Holds cannot get stuck.** Lost chunks are requeued by the sweeper as well as by worker polls, so a job whose workers all went away is failed and its reservation released even with no worker polling; `ledger_check` flags a job that has held credit for over a day.
+- **Worker binding.** A worker names itself (`X-Worker-Id`) and the receptionist accepts a chunk's frames, completion or failure only from the worker it was assigned to.
+- **Cancelling a split final** (`b_…`) stops the parts not yet submitted and reports the job as `canceled`, not `failed`.
+- **`request_id` everywhere.** Every response carries `X-Request-Id` (yours is echoed if you send one); REST and MCP error bodies and the `api_error` / `mcp_tool_error` events carry the same id. Unhandled errors return the common JSON error shape (`internal_error`, `INTERNAL_ERROR`) instead of a bare 500 and are recorded.
+- **Remote MCP errors for bad arguments are `INVALID_INPUT` / `FIX_INPUT`, not retryable internal errors.** `render_final` takes `max_yen` and `idempotency_key` on the remote server too. Job views mark `log_tail` and `warnings` as untrusted output (`untrusted`, `untrusted_note`).
+- **Limits are stated the same way everywhere:** up to 1,000 frames per instruction (run as parts of 240 under one job id), 1920x1080 on free time and 3840x2160 on prepaid credit (tool docs, prompts, skill, guides, npm README).
+- **Retention as published.** Client IPs are cleared from the database after 90 days (`JR_IP_RETENTION_DAYS`); Blender's console tail is deleted with the job; an unshared page drops its script and prompt; share media is cached for 1 hour instead of 24; the privacy page describes what the logs keep.
+- **Security.** `scene_url` / `asset_urls` refuse credentials in the URL; asset downloads stream to disk instead of buffering in memory; glTF null-fixing skips files over `JR_GLTF_FIX_MAX_MB` and survives deeply nested JSON; `.usdz` archives are checked for entry count and compression ratio; webhook (`notify_url`) log lines carry no query or credentials; `JR_SANDBOX_REQUIRED=1` makes the worker fail a job instead of falling back from gVisor to runc.
+- **Operations.** `/v1/health` reports `degraded` and `workers_online`; the watch alerts on receptionist 5xx and on payment failures; the audit chain verifies after old days are pruned (anchor); `server.sh build` keeps the previous image as `:prev` and `server.sh rollback` swaps back to it; pytest and ruff run in CI on every push.
+
 ## 0.4.59 (2026-10-12)
 
 - The listings say what the service is for: the MCP Registry entry, the PyPI description, the Claude Code / Codex plugin and the Gemini extension lead with the inputs (Blender scenes and GLB, FBX, USD, OBJ, STL models) and the outcomes (product shots, 360-degree turntables, animations, stills) instead of the format list.

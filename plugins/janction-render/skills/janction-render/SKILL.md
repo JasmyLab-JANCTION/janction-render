@@ -88,7 +88,7 @@ Errors carry `code`, `retryable` and `recommended_action`. Act on the action:
 | INSUFFICIENT_CREDIT | Tell the user the price; show `checkout_url` (they pay in the browser), or make the job smaller. |
 | COST_LIMIT_EXCEEDED | The job is above the spending cap. Ask the user; offer fewer frames, lower resolution or samples. |
 | QUOTA_EXCEEDED / RATE_LIMITED | Wait until `resets_at` or `retry_after_s`; say when. |
-| JOB_TOO_LARGE | Split the job: at most 240 frames and 1920x1080 per job. |
+| JOB_TOO_LARGE | Too big for one instruction: at most 1,000 frames (run as parts of 240), 1920x1080 on free time and 3840x2160 on prepaid credit; split the range or lower the size. |
 | INVALID_SCENE / SCRIPT_BLOCKED | Fix the script (see below); do not retry the same input. |
 | MISSING_ASSET | Name the missing files; pass them in `asset_urls` or pack them into the .blend. |
 | WORKERS_UNAVAILABLE | Tell the user the wait from `eta`; offer to check later. |
