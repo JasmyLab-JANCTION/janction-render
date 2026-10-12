@@ -1,6 +1,6 @@
 # janction-render (npm)
 
-One command connects an MCP client to **JANCTION Render**, a cloud GPU render farm for Blender built for AI agents: a preview in seconds with a critic verdict and fix code, then product shots, 360-degree turntables and animations as frames or an MP4. No local Blender or GPU. The same service as the Python package `janction-render` on PyPI and the remote MCP endpoint `https://render.janction.jp/mcp`.
+Blender scenes and 3D models (GLB, FBX, USD, OBJ, STL) rendered on cloud GPUs from Claude Desktop and other stdio-only MCP clients: product shots, 360-degree turntables, animations and stills. No local GPU or Blender; free to start. One command connects the client to **JANCTION Render**: a preview in seconds with a critic verdict and fix code, then the final frames or an MP4. The same service as the Python package `janction-render` on PyPI and the remote MCP endpoint `https://render.janction.jp/mcp`.
 
 ```
 npx -y janction-render
