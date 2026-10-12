@@ -2,6 +2,14 @@
 
 The live, per-version list is at https://render.janction.jp/changelog (Atom: https://render.janction.jp/changelog.xml). Versions are the PyPI releases of `janction-render`; the hosted service follows the same numbers.
 
+## 0.4.65 (2026-10-12)
+
+Phase 3 of the refactoring requirements, first part (docs/60 §12): one source for the numbers in every public text. Receptionist only.
+
+- **A page for "fix Blender render errors"** (/fix-blender-render-errors, en and ja): pink textures, script exceptions, a script that built nothing, no camera, no light, out of GPU memory, timeouts, import failures and our-side failures, each with the code the API and the MCP tools return and the fix.
+- **Distribution channel ledger.** `docs/channels.json` records every listing and package (state, last update) and `tools/channel_ledger.py` adds the inflow per channel tag from the ledger (keys, first success, finals, paying keys and yen).
+- **Prices, limits and retention in every public text follow the settings.** The metered price, the free preview minutes, the retention hours, the frames per job part, the minimum top-up and the welcome credit are written once (`server/terms.py`, from the billing settings) and every page, FAQ, guide, Markdown variant, llms.txt and pricing JSON is rendered through it. A new test renders every public page with unusual values (0.37 JPY, 3 minutes, 37 hours, 333 frames, 700 JPY) under both welcome models and fails if a default number is still written by hand.
+
 ## 0.4.64 (2026-10-12)
 
 Phase 2 of the refactoring requirements, third batch (docs/60 §11). Receptionist and the stdio package; no worker change.

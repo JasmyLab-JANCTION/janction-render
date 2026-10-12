@@ -29,7 +29,7 @@ except ImportError:  # mcp 1.x
     from mcp.server.fastmcp import FastMCP as MCPServer, Image  # type: ignore
 from mcp.types import ToolAnnotations
 
-from janction_render.brief import plan_fields, review_reply, welcome_billing
+from janction_render.brief import review_reply
 from janction_render.brief import brief as _brief, estimate_brief, final_body_after_preview, followup_after_preview, \
     next_after_preview, trim, PRESENT_FIRST, preview_presentation, turntable_estimate
 from janction_render.client import Client, ClientError, parse_frames
@@ -783,37 +783,7 @@ def billing(topup_yen: Annotated[int, D("topup_yen", 0)] = 0) -> str:
         if me["billing"]["enabled"]:
             synced = c.billing_sync()
             me = c.me()
-        q = me.get("quota") or {}
-        if q and q.get("mode", "free_beta") == "free_beta":
-            return _j({"mode": "free_beta", "note": "no charges during the free beta; daily GPU-time quota per key",
-                       "gpu_seconds_used_today": q["gpu_seconds_used_today"], "gpu_seconds_per_day": q["gpu_seconds_per_day"],
-                       "gpu_seconds_left_today": max(0, q["gpu_seconds_per_day"] - q["gpu_seconds_used_today"]),
-                       "resets_at": q["resets_at"], "max_frames_per_job": q["max_frames_per_job"],
-                       "max_pixels": q["max_pixels"]})
-        if q and q.get("welcome"):
-            # ようこそクレジット（10/8 夜 本人の判断、docs/46）: リモートの billing と同じ形
-            return _j(welcome_billing(q["welcome"], me, synced))
-        if q:
-            # 有料（10/8〜）: 毎日の無料枠と、超えた分を払う残高の両方
-            yen = me["billing"]["yen_per_gpu_second"]
-            return _j({"mode": "free_allowance",
-                       "note": (f"the first {q['gpu_seconds_per_day'] // 60} GPU-minutes of each day are free; beyond that "
-                                f"{yen} JPY per GPU-second from prepaid credit (only the part over the free time is charged)"),
-                       "gpu_seconds_used_today": q["gpu_seconds_used_today"], "gpu_seconds_per_day": q["gpu_seconds_per_day"],
-                       "gpu_seconds_left_today": max(0, q["gpu_seconds_per_day"] - q["gpu_seconds_used_today"]),
-                       "resets_at": q["resets_at"], "max_frames_per_job": q["max_frames_per_job"],
-                       "max_pixels": q["max_pixels"], "balance_yen": me["balance_yen"], "usd_indicative": me.get("usd_indicative"),
-                       "held_yen": me.get("held_yen", 0), "held_jobs": me.get("held_jobs", 0), "yen_per_gpu_second": yen,
-                       "min_topup_yen": me["billing"]["min_topup_yen"], "just_credited": synced.get("credited", []),
-                       "pending_checkout_url": me["billing"]["pending_checkout_url"],
-                       "topup_options": (me["billing"].get("topup_options") or {}).get("options"),
-                       "charged_yen_total": me["charged_yen_total"], **plan_fields(me)})
-        return _j({"balance_yen": me["balance_yen"], "free_previews_left": me["free_previews_left"],
-                   "yen_per_gpu_second": me["billing"]["yen_per_gpu_second"],
-                   "min_topup_yen": me["billing"]["min_topup_yen"], "billing_enabled": me["billing"]["enabled"],
-                   "just_credited": synced.get("credited", []),
-                   "pending_checkout_url": me["billing"]["pending_checkout_url"],
-                   "charged_yen_total": me["charged_yen_total"]})
+        return _j(mcp_common.billing_reply(me, synced))
     except ClientError as exc:
         return _j(_fail(exc))
 

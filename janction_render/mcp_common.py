@@ -8,7 +8,7 @@
 受付の server/jobs.py もプリセットの名前はここから取る。"""
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Optional
 
 PURPOSE_PRESETS = ("product", "turntable", "animation")
 FINAL_TOOL_DEFAULTS = {"width": 1920, "height": 1080, "samples": 128, "output": "auto"}
@@ -119,6 +119,49 @@ def scene_info_reply(j: dict[str, Any], assets_param: str) -> dict[str, Any]:
         info["object_names"] = trim(info["object_names"], 30)
     info.update(scene_next(info))          # 次の一手: シーンの縦横比に合わせた試し描き（10/9）
     return info
+
+
+def billing_reply(me: dict[str, Any], synced: Optional[dict[str, Any]] = None) -> dict[str, Any]:
+    """billing 道具の返事（GET /v1/me の形から）。無料ベータ / ようこそ / 毎日の無料枠 / 旧形 の 4 通りを両方の道具で同じに。"""
+    from .brief import plan_fields, welcome_billing
+    synced = synced or {}
+    q = me.get("quota") or {}
+    prefix = me.get("prefix")
+    if q and q.get("mode", "free_beta") == "free_beta":
+        return {"mode": "free_beta", "note": "no charges during the free beta; daily GPU-time quota per key",
+                "gpu_seconds_used_today": q["gpu_seconds_used_today"], "gpu_seconds_per_day": q["gpu_seconds_per_day"],
+                "gpu_seconds_left_today": max(0, q["gpu_seconds_per_day"] - q["gpu_seconds_used_today"]),
+                "resets_at": q["resets_at"], "max_frames_per_job": q["max_frames_per_job"], "max_pixels": q["max_pixels"],
+                **({"key_prefix": prefix} if prefix else {})}
+    if q and q.get("welcome"):
+        # ようこそクレジット（10/8 夜 本人の判断、docs/46）: 残りの円と期限、期間の後の試し描き、最初のチャージの特典
+        return welcome_billing(q["welcome"], me, synced)
+    if q:
+        # 有料（10/8〜）: 毎日の無料枠と、超えた分を払う残高の両方
+        yen = me["billing"]["yen_per_gpu_second"]
+        out = {"mode": "free_allowance",
+               "note": (f"the first {q['gpu_seconds_per_day'] // 60} GPU-minutes of each day are free; beyond that "
+                        f"{yen} JPY per GPU-second from prepaid credit (only the part over the free time is charged)"),
+               "gpu_seconds_used_today": q["gpu_seconds_used_today"], "gpu_seconds_per_day": q["gpu_seconds_per_day"],
+               "gpu_seconds_left_today": max(0, q["gpu_seconds_per_day"] - q["gpu_seconds_used_today"]),
+               "resets_at": q["resets_at"], "max_frames_per_job": q["max_frames_per_job"], "max_pixels": q["max_pixels"],
+               "balance_yen": me["balance_yen"], "held_yen": me.get("held_yen", 0), "held_jobs": me.get("held_jobs", 0),
+               "yen_per_gpu_second": yen, "min_topup_yen": me["billing"]["min_topup_yen"],
+               "pending_checkout_url": me["billing"]["pending_checkout_url"], "charged_yen_total": me["charged_yen_total"],
+               "topup_options": (me["billing"].get("topup_options") or {}).get("options"),
+               "just_credited": synced.get("credited", []), **plan_fields(me)}
+        if me.get("usd_indicative") is not None:
+            out["usd_indicative"] = me["usd_indicative"]
+        if prefix:
+            out["key_prefix"] = prefix
+        return out
+    out = {"balance_yen": me["balance_yen"], "free_previews_left": me["free_previews_left"],
+           "yen_per_gpu_second": me["billing"]["yen_per_gpu_second"], "min_topup_yen": me["billing"]["min_topup_yen"],
+           "billing_enabled": me["billing"]["enabled"], "just_credited": synced.get("credited", []),
+           "pending_checkout_url": me["billing"]["pending_checkout_url"], "charged_yen_total": me["charged_yen_total"]}
+    if prefix:
+        out["key_prefix"] = prefix
+    return out
 
 
 # ------------------------------------------------------------------ 引数の説明（道具の description の末尾に足す）
