@@ -36,6 +36,29 @@ def mcp_url(server: Optional[str] = None, src: str = "") -> str:
     return base_url(server) + "/mcp" + (f"?src={src}" if src else "")
 
 
+# Codex は MCP の道具を呼ぶたびに承認を求める（10/12、codex 0.162.1 で確認）。codex exec（approval: never）では承認の無い呼び出しが
+# 「MCP tool call requires approval, but approval policy is never」で止まり、受付には何も届かない（Codex の接続 644 回に道具 16 回）。
+# 読む・試し描き・見積もり・状態・取得・残高・素材の検索だけ通し、お金のかかる render_final と公開・取り消しは聞いたままにする。
+# 道具の行は url と同じ [mcp_servers.<名前>] の下に置く。url の無い表だけ足すと config.toml が読めなくなる（invalid transport）
+CODEX_APPROVE = ("scene_info", "render_preview", "render_estimate", "render_status", "render_download", "render_info",
+                 "billing", "asset_search")
+
+
+def codex_toml(server: Optional[str] = None, src: str = "") -> str:
+    """~/.codex/config.toml の 1 まとまり: サーバーの url と、道具ごとの承認（CODEX_APPROVE）。"""
+    lines = [f"[mcp_servers.{NAME}]", f'url = "{mcp_url(server, src)}"', ""]
+    for t in CODEX_APPROVE:
+        lines += [f"[mcp_servers.{NAME}.tools.{t}]", 'approval_mode = "approve"']
+    return "\n".join(lines)
+
+
+def codex_note(server: Optional[str] = None) -> str:
+    """connect codex のあとに出す一言。設定ファイルには書かない（承認は利用者が決める）。"""
+    return ("Codex asks before each JANCTION Render tool call: allow it when asked. `codex exec` cannot ask and stops with "
+            "\"MCP tool call requires approval\"; to preview without prompts (render_final still asks), see "
+            f"{base_url(server)}/codex-blender#run-without-prompts")
+
+
 # ---- 設定ファイル（JSON）に 1 項目足す -------------------------------------------------------------------------
 
 def merge_json(path: Path, top: str, entry: dict[str, Any], dry_run: bool = False) -> str:
@@ -107,7 +130,8 @@ def clients(server: Optional[str] = None, home: Optional[Path] = None,
     home = home or Path.home()
     out: list[dict[str, Any]] = []
     # Claude Code と Codex はプラグイン（MCP ＋ 使い方のスキル）を入れる（10/11）。MCP だけだと、つないでも道具を選ばない
-    # （Codex は 7 日で接続のあいさつ 6 千回に対して道具 15 回）。マーケットプレイスが取れないとき（git が無い等）は MCP だけ足す
+    # （Codex は 7 日で接続のあいさつ 6 千回に対して道具 15 回。10/12: codex exec では承認の無い道具の呼び出しが止まる分もあった＝
+    # codex_note）。マーケットプレイスが取れないとき（git が無い等）は MCP だけ足す
     for key, label, exe, steps, fallback in (
         ("claude-code", "Claude Code", "claude",
          [["plugin", "marketplace", "add", REPO], ["plugin", "install", PLUGIN]],
@@ -183,6 +207,8 @@ def connect(target: str = "", yes: bool = False, server: Optional[str] = None, h
                     break
             if done:
                 echo(f"{c['label']}: connected ({c['show']})")
+                if c["key"] == "codex":
+                    echo("  " + codex_note(server))
                 continue
             if c.get("fallback"):
                 # プラグインが入らない（git が無い・古い版）: MCP だけ足す。スキルの無い分は AGENTS.md（init）で補える
@@ -191,6 +217,8 @@ def connect(target: str = "", yes: bool = False, server: Optional[str] = None, h
                 if p.returncode == 0 or "already exists" in msg2.lower():
                     echo(f"{c['label']}: connected the MCP server only (the plugin step failed: {msg[-160:]}); "
                          "`janction-render init` adds the instructions to this project")
+                    if c["key"] == "codex":
+                        echo("  " + codex_note(server))
                     continue
                 msg, code = msg2, p.returncode
             echo(f"{c['label']}: failed ({code}): {msg[-300:]}")

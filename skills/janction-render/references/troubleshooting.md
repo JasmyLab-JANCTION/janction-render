@@ -9,6 +9,10 @@ also has `failure` with `code`, `category`, `reason`, `recommended_action` (a se
 - Tools missing, or `AUTH_REQUIRED`: the server is not authenticated. Claude Code: `/mcp` -> janction-render ->
   Authenticate. Codex: `codex mcp login janction-render`. Gemini CLI: `/mcp auth janction-render`. Claude.ai and ChatGPT:
   open the connector settings and connect again. Connecting creates a free key; no account or card is needed.
+- Codex stops with `MCP tool call requires approval, but approval policy is never`: Codex asks before each MCP tool
+  call and `codex exec` cannot ask, so the call never reaches the service. Tell the user to allow it when Codex asks, or to
+  approve the read, preview and estimate tools one by one in `~/.codex/config.toml`, under the server entry that has its
+  `url` (https://render.janction.jp/codex-blender#run-without-prompts). Leave `render_final` asking.
 - The browser page says "unknown app": the app's redirect address is not one the service knows. Use the official app or
   pass an API key as `Authorization: Bearer <key>` instead.
 - Terminal check: `uvx janction-render doctor` reports the service, the key, the credit and the AI apps on the machine.
@@ -27,7 +31,8 @@ also has `failure` with `code`, `category`, `reason`, `recommended_action` (a se
 
 ## Input
 
-- `JOB_TOO_LARGE`: more than 240 frames or more than 1920x1080 in one job. Split the frame range.
+- `JOB_TOO_LARGE`: over 1,000 frames in one instruction (longer finals are split into parts of 240 under one job id
+  automatically), over 1920x1080 on free time (up to 4K on prepaid credit) or over 10 GPU-hours. Split the frame range.
 - `SCRIPT_BLOCKED`: the script uses something the sandbox refuses (subprocesses, sockets, network imports such as urllib or
   requests, absolute paths). Keep the script to building the scene; pass web files in `asset_urls`.
 - `MISSING_ASSET`: a texture, `.bin` or `.mtl` is missing or points outside the upload. Pass it in `asset_urls` (https) or

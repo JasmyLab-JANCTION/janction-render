@@ -2,6 +2,11 @@
 
 The live, per-version list is at https://render.janction.jp/changelog (Atom: https://render.janction.jp/changelog.xml). Versions are the PyPI releases of `janction-render`; the hosted service follows the same numbers.
 
+## 0.4.56 (2026-10-12)
+
+- Codex: the Codex guide (/codex-blender#run-without-prompts), llms.txt, `janction-render connect codex` and the skill's troubleshooting explain that Codex asks before each MCP tool call and that `codex exec` cannot ask, so an unapproved call stops with "MCP tool call requires approval" and never reaches the service. They give the `~/.codex/config.toml` block that approves the read, preview, estimate and download tools one by one under the server's `url`, while `render_final` keeps asking. (A block with only the tool lines makes Codex reject the whole config with "invalid transport".)
+- The skill's troubleshooting states the current job limits (1,000 frames per instruction in parts of 240, 4K on prepaid credit, 10 GPU-hours per job).
+
 ## 0.4.55 (2026-10-12)
 
 - Blender add-on 0.1.5 (/extensions/index.json): a .blend over 100 MB is stopped before sending with what to do (unpack packed textures so they are sent separately, or make the scene lighter), and textures go in parts of up to 100 MB; one texture over 100 MB is stopped with a hint to save it smaller.
