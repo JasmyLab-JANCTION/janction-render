@@ -24,6 +24,10 @@ CACHE = Path.home() / ".janction-render.json"
 SCENE_SUFFIXES = (".blend", ".py", ".fbx", ".glb", ".gltf", ".obj", ".stl", ".ply", ".usd", ".usda", ".usdc", ".usdz", ".abc")
 ONLY_CHOICES = ("all", "mp4", "frames", "sheet", "output", "video")
 ARCHIVE_MIN_FILES = 8   # これ以上の数のファイルは zip で 1 回で取る（1 枚ずつだと入口の回数制限 429 に当たる、10/9）
+# 公開の受付（render.janction.jp）の前に立つ Cloudflare は、1 回の送信を 100 MB までしか通さない（無料プラン）。超えると受付に
+# 届かず HTML の 413 になるので、送る前に断ってリンク（scene_url / asset_urls）で渡すよう言う。素材は 100 MB ずつに分けて送る
+# （10/12）。手元や自前の受付には掛けない。JANCTION_RENDER_MAX_UPLOAD_MB で変えられる（0 で見ない）
+EDGE_UPLOAD_MB = 100
 
 
 def select_artifacts(artifacts: list[dict[str, Any]], only: Optional[str] = None) -> list[dict[str, Any]]:
@@ -421,6 +425,9 @@ class Client:
         except ClientError:
             out = None
         if out is None:
+            cap = self.upload_cap_bytes()
+            if cap and p.stat().st_size > cap:
+                raise self._too_large(f"the scene file {p.name}", p.stat().st_size, cap, "scene_url")
             with p.open("rb") as fh:
                 r = self.s.post(f"{self.server}/v1/files", headers=self._headers(),
                                 files={"file": (p.name, fh, "application/octet-stream")}, timeout=1800)
@@ -476,8 +483,48 @@ class Client:
         out["missing_assets"] = missing
         return out
 
+    def upload_cap_bytes(self) -> int:
+        """1 回の送信の上限（バイト）。0 は見ない（手元・自前の受付）。"""
+        raw = (os.environ.get("JANCTION_RENDER_MAX_UPLOAD_MB") or "").strip()
+        if raw:
+            try:
+                return max(0, int(raw)) * 1024 * 1024
+            except ValueError:
+                pass
+        return EDGE_UPLOAD_MB * 1024 * 1024 if self.server.rstrip("/") == DEFAULT_SERVER else 0
+
+    def _too_large(self, what: str, size: int, cap: int, link_field: str) -> ClientError:
+        return ClientError(413, "too_large",
+                           f"{what} is {size / 1048576:.0f} MB; one upload to {self.server} is limited to {cap // 1048576} MB. "
+                           f"Put the file on a public https link that downloads it and pass the link as {link_field}, "
+                           "or make it smaller (fewer or smaller textures)",
+                           extra={"code": "INVALID_INPUT", "retryable": False, "recommended_action": "FIX_INPUT",
+                                  "possible_fix": f"pass a public https link as {link_field} instead of uploading the file, or shrink it"})
+
     def upload_assets(self, scene_id: str, items: list[tuple[str, str | Path]]) -> dict[str, Any]:
-        """素材をシーンに足す。items は [(送るときの名前, 場所)]。名前にフォルダを含めてよい（textures/a.png）。"""
+        """素材をシーンに足す。items は [(送るときの名前, 場所)]。名前にフォルダを含めてよい（textures/a.png）。
+        公開の受付には 1 回 100 MB までに分けて送る（1 つで超える素材は断ってリンクを案内する）。"""
+        cap = self.upload_cap_bytes()
+        if not cap:
+            return self._post_assets(scene_id, items)
+        room = cap - 1024 * 1024           # multipart の見出しのぶんを空ける
+        batches: list[list[tuple[str, str | Path]]] = [[]]
+        used = 0
+        for name, path in items:
+            n = Path(path).stat().st_size
+            if n > room:
+                raise self._too_large(f"asset {name}", n, cap, "asset_urls")
+            if batches[-1] and used + n > room:
+                batches.append([])
+                used = 0
+            batches[-1].append((name, path))
+            used += n
+        out: dict[str, Any] = {}
+        for b in batches:
+            out = self._post_assets(scene_id, b)
+        return out
+
+    def _post_assets(self, scene_id: str, items: list[tuple[str, str | Path]]) -> dict[str, Any]:
         handles = []
         try:
             files = []

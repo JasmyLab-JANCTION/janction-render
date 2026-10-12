@@ -2,6 +2,12 @@
 
 The live, per-version list is at https://render.janction.jp/changelog (Atom: https://render.janction.jp/changelog.xml). Versions are the PyPI releases of `janction-render`; the hosted service follows the same numbers.
 
+## 0.4.54 (2026-10-12)
+
+- The CLI and the stdio MCP check the size before uploading to render.janction.jp: a scene file over 100 MB is refused with too_large and a hint to pass a public https link as scene_url, and assets go in parts of up to 100 MB (an asset over 100 MB gets the same hint for asset_urls). JANCTION_RENDER_MAX_UPLOAD_MB changes the limit; a self-hosted server has none.
+- The hint on a job over a per-job limit (beta_limit) no longer says beta or 1080p: detail names the limit, and resolutions above 1920x1080 need prepaid credit.
+- The BlendSwap comparison page gives the upload limit as 100 MB per upload and 512 MB from a link.
+
 ## 0.4.53 (2026-10-12)
 
 - The machine-readable pricing matches the pricing page. In GET /v1/pricing the free plan and the product prices state the current welcome credit (100 JPY of free GPU time with no card, 400 JPY more after saving a card that is not charged) and the current limits (1,000 frames per instruction, 4K on prepaid credit, 10 GPU-hours per job), also in a new `limits` block; the indicative USD price per GPU-second no longer rounds to 0. The Japanese llms.txt no longer calls the metered price planned, and the products page no longer mentions planned monthly plans.
