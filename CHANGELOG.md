@@ -2,6 +2,14 @@
 
 The live, per-version list is at https://render.janction.jp/changelog (Atom: https://render.janction.jp/changelog.xml). Versions are the PyPI releases of `janction-render`; the hosted service follows the same numbers.
 
+## 0.4.66 (2026-10-12)
+
+Phase 2 and 3 leftovers (docs/60 §13). Receptionist and the stdio package; no worker change.
+
+- **MCP sharing, third stage.** The `billing` reply is built once (`mcp_common.billing_reply`) for the remote and the stdio server. What remains different between the two servers is transport (the stdio server saves files and uploads local paths; the remote server returns links and images), not wording.
+- **/start: save all frames as a ZIP** (one request with the key; the browser saves `<job_id>.zip`).
+- The distribution channel ledger skips the operator's own check tags (`smoke-…`).
+
 ## 0.4.65 (2026-10-12)
 
 Phase 3 of the refactoring requirements, first part (docs/60 §12): one source for the numbers in every public text. Receptionist only.
