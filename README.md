@@ -124,6 +124,8 @@ print(job["status"], c.download(job["job_id"], "out", only="mp4"))
 Pay per use with prepaid credit; no subscription is needed (prices: https://render.janction.jp/pricing).
 Instead of polling, pass `notify_url` (https) to `POST /v1/jobs` and get one JSON POST when the job finishes (`job.done` /
 `job.failed`, with download links); an `Idempotency-Key` header makes retries safe. OpenAPI: https://render.janction.jp/openapi.json
+A complete app example (a user uploads a GLB, the app orders fixed-price product shots, a webhook stores the images):
+https://render.janction.jp/blender-render-api#embed
 
 **Agent frameworks** connect to the remote MCP server at `https://render.janction.jp/mcp` with the key as a bearer token
 (`curl -s -X POST https://render.janction.jp/v1/keys` gives one, no sign-up).

@@ -2,6 +2,11 @@
 
 The live, per-version list is at https://render.janction.jp/changelog (Atom: https://render.janction.jp/changelog.xml). Versions are the PyPI releases of `janction-render`; the hosted service follows the same numbers.
 
+## 0.4.58 (2026-10-12)
+
+- The HTTP API guide has a complete app example (https://render.janction.jp/blender-render-api#embed): a user uploads a GLB, the app orders fixed-price product shots with an `Idempotency-Key` and a `notify_url`, and the webhook handler reads the job back with the key and stores the images.
+- The sitemap's `lastmod` for /pricing, /products, /compare and /facts follows the update date those pages show, so a change there reaches IndexNow the same day.
+
 ## 0.4.57 (2026-10-12)
 
 - The preview reply leads with the image: show_user is one ready line with the image (and its link for when the image does not show), next_actions lists what to do next with its time and price (the final render with the exact arguments, a 360-degree turntable video, or changing the look; a fix found by the preview check comes first), and keep says how to keep the result before the link expires. The in-chat card shows the same choices with their time and price, and a Save button.
