@@ -2,6 +2,10 @@
 
 The live, per-version list is at https://render.janction.jp/changelog (Atom: https://render.janction.jp/changelog.xml). Versions are the PyPI releases of `janction-render`; the hosted service follows the same numbers.
 
+## 0.4.59 (2026-10-12)
+
+- The listings say what the service is for: the MCP Registry entry, the PyPI description, the Claude Code / Codex plugin and the Gemini extension lead with the inputs (Blender scenes and GLB, FBX, USD, OBJ, STL models) and the outcomes (product shots, 360-degree turntables, animations, stills) instead of the format list.
+
 ## 0.4.58 (2026-10-12)
 
 - The HTTP API guide has a complete app example (https://render.janction.jp/blender-render-api#embed): a user uploads a GLB, the app orders fixed-price product shots with an `Idempotency-Key` and a `notify_url`, and the webhook handler reads the job back with the key and stores the images.
