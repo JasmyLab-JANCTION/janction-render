@@ -28,7 +28,7 @@ import urllib.request
 import uuid
 from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 
 DEFAULT_SERVER = "https://render.janction.jp"
 CONFIG_NAME = ".janction_render.json"
@@ -38,6 +38,11 @@ ASSET_SUFFIXES = (".png", ".jpg", ".jpeg", ".exr", ".hdr", ".tif", ".tiff", ".we
                   ".bin", ".mtl", ".fbx", ".glb", ".gltf", ".obj", ".usd", ".usda", ".usdc", ".usdz", ".abc",
                   ".mp4", ".mov", ".json", ".txt", ".csv", ".ttf", ".otf")
 PRESETS = ("studio", "sunset", "overcast", "night")
+# render.janction.jp passes at most 100 MB per request (an edge in front of the service); a bigger upload
+# never reaches it. upload() checks the scene before sending and sends assets in parts under the limit
+# (2026-10-12). A self-hosted server has no such limit.
+EDGE_UPLOAD_BYTES = 100 * 1024 * 1024
+MULTIPART_ROOM = 1024 * 1024
 TERMINAL = ("done", "failed", "canceled")
 PREVIEW_MAX_FRAMES = 4
 FREE_MAX_FRAMES = 240
@@ -484,19 +489,43 @@ def _asset_items(assets: Optional[Sequence[Any]]) -> List[Tuple[str, str]]:
     return items
 
 
+def upload_cap(conn: Connection) -> int:
+    """Bytes one upload may carry: the edge limit for render.janction.jp, 0 (no check) elsewhere."""
+    return EDGE_UPLOAD_BYTES if conn.server == DEFAULT_SERVER else 0
+
+
 def upload_assets(scene_id: str, assets: Sequence[Any], conn: Optional[Connection] = None) -> Dict[str, Any]:
-    """POST /v1/files/{scene_id}/assets with [(relative_name, local_path)] (or plain paths, sent by basename)."""
+    """POST /v1/files/{scene_id}/assets with [(relative_name, local_path)] (or plain paths, sent by basename).
+    On render.janction.jp the assets go in parts that each stay under the upload limit."""
     conn = conn or connect()
     items = _asset_items(assets)
     if not items:
         raise JRError("bad_request", "no assets to send")
-    fields = []  # type: List[Tuple[str, str, bytes]]
+    cap = upload_cap(conn)
+    limit = cap - MULTIPART_ROOM if cap else 0
+    batches = [[]]  # type: List[List[Tuple[str, str]]]
+    used = 0
     for name, src in items:
-        with open(src, "rb") as fh:
-            fields.append(("files", name, fh.read()))
-    body, ctype = _multipart(fields)
-    return _json(conn, "POST", "/v1/files/%s/assets" % scene_id, raw=body, content_type=ctype,
-                 timeout=max(conn.timeout, 1800))
+        n = os.path.getsize(src)
+        if limit and n > limit:
+            raise JRError("too_large", "asset %s is %d MB; one upload to %s is limited to %d MB. Save it smaller "
+                                       "(JPEG, or a lower resolution) and send it again"
+                          % (name, n // 1048576, conn.server, cap // 1048576), 413)
+        if batches[-1] and limit and used + n > limit:
+            batches.append([])
+            used = 0
+        batches[-1].append((name, src))
+        used += n
+    out = {}  # type: Dict[str, Any]
+    for batch in batches:
+        fields = []  # type: List[Tuple[str, str, bytes]]
+        for name, src in batch:
+            with open(src, "rb") as fh:
+                fields.append(("files", name, fh.read()))
+        body, ctype = _multipart(fields)
+        out = _json(conn, "POST", "/v1/files/%s/assets" % scene_id, raw=body, content_type=ctype,
+                    timeout=max(conn.timeout, 1800))
+    return out
 
 
 def upload(path: str, assets: Optional[Sequence[Any]] = None, conn: Optional[Connection] = None,
@@ -523,6 +552,11 @@ def upload(path: str, assets: Optional[Sequence[Any]] = None, conn: Optional[Con
         scene = lookup(sha256_of(path), conn)
     reused = scene is not None
     if scene is None:
+        cap = upload_cap(conn)
+        if cap and os.path.getsize(path) > cap - MULTIPART_ROOM:
+            raise JRError("too_large", "%s is %d MB; one upload to %s is limited to %d MB. Export a lighter file "
+                                       "(fewer subdivisions, textures as separate files instead of embedded)"
+                          % (name, os.path.getsize(path) // 1048576, conn.server, cap // 1048576), 413)
         with open(path, "rb") as fh:
             data = fh.read()
         if not data:

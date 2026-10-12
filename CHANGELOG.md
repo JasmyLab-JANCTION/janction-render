@@ -2,6 +2,11 @@
 
 The live, per-version list is at https://render.janction.jp/changelog (Atom: https://render.janction.jp/changelog.xml). Versions are the PyPI releases of `janction-render`; the hosted service follows the same numbers.
 
+## 0.4.55 (2026-10-12)
+
+- Blender add-on 0.1.5 (/extensions/index.json): a .blend over 100 MB is stopped before sending with what to do (unpack packed textures so they are sent separately, or make the scene lighter), and textures go in parts of up to 100 MB; one texture over 100 MB is stopped with a hint to save it smaller.
+- The Maya, Houdini and Cinema 4D sender (jr_submit.py 0.1.1) checks the same 100 MB limit before sending and sends textures in parts.
+
 ## 0.4.54 (2026-10-12)
 
 - The CLI and the stdio MCP check the size before uploading to render.janction.jp: a scene file over 100 MB is refused with too_large and a hint to pass a public https link as scene_url, and assets go in parts of up to 100 MB (an asset over 100 MB gets the same hint for asset_urls). JANCTION_RENDER_MAX_UPLOAD_MB changes the limit; a self-hosted server has none.

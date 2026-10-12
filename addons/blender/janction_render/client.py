@@ -15,7 +15,7 @@ import uuid
 from pathlib import Path
 from typing import Any, Callable, Iterable, Optional, Sequence
 
-VERSION = "0.1.4"
+VERSION = "0.1.5"
 USER_AGENT = f"janction-render-blender/{VERSION}"
 CLIENT_NAME = f"blender {VERSION}"
 DEFAULT_SERVER = "https://render.janction.jp"
@@ -24,6 +24,11 @@ CHUNK = 1024 * 1024
 # One request to POST /v1/files/{id}/assets carries at most this many files / bytes.
 ASSET_BATCH_FILES = 10
 ASSET_BATCH_BYTES = 256 * 1024 * 1024
+# render.janction.jp sits behind an edge that passes at most 100 MB per request; a bigger upload
+# never reaches the service and comes back as a bare 413. The scene is checked before it is sent and
+# textures go in parts under the limit (2026-10-12). A self-hosted server has no such limit.
+EDGE_UPLOAD_BYTES = 100 * 1024 * 1024
+MULTIPART_ROOM = 1024 * 1024
 
 Asset = tuple[str, str]   # (relative name as the scene references it, absolute path on disk)
 
@@ -306,6 +311,12 @@ class Client:
                 raise
             scene = None
         if scene is None:
+            cap = self.upload_cap()
+            if cap and p.stat().st_size > cap - MULTIPART_ROOM:
+                raise JRError("too_large",
+                              f"The file is {p.stat().st_size / 1048576:.0f} MB and one upload to {self.server} is limited to "
+                              f"{cap // 1048576} MB. Unpack packed textures (File > External Data > Unpack Resources) so they "
+                              "are sent separately, or make the scene lighter (fewer subdivisions, smaller caches)", status=413)
             tell(f"Uploading {p.name} ({p.stat().st_size // 1024} KB)")
             body = MultipartBody()
             body.add_file("file", p.name, p)
@@ -318,12 +329,25 @@ class Client:
         sent: list[str] = []
         if todo:
             scene_id = str(scene["scene_id"])
-            for batch in _batches(todo):
+            cap = self.upload_cap()
+            limit = min(ASSET_BATCH_BYTES, cap - MULTIPART_ROOM) if cap else ASSET_BATCH_BYTES
+            for name, abs_path in todo:
+                n = Path(abs_path).stat().st_size
+                if n > limit:
+                    raise JRError("too_large",
+                                  f"The texture {name} is {n / 1048576:.0f} MB and one upload to {self.server} is limited to "
+                                  f"{cap // 1048576} MB. Save it smaller (JPEG, or a lower resolution) and render again",
+                                  status=413)
+            for batch in _batches(todo, limit):
                 tell(f"Uploading {len(sent) + len(batch)}/{len(todo)} textures")
                 scene = self.upload_assets(scene_id, batch)
                 sent += [name for name, _ in batch]
         scene["assets_sent"] = sent
         return scene
+
+    def upload_cap(self) -> int:
+        """Bytes one upload may carry: the edge limit for render.janction.jp, 0 (no check) elsewhere."""
+        return EDGE_UPLOAD_BYTES if self.server == DEFAULT_SERVER else 0
 
     def upload_assets(self, scene_id: str, assets: Sequence[Asset]) -> dict[str, Any]:
         """POST /v1/files/{scene_id}/assets with one multipart field ``files`` per asset."""
@@ -370,12 +394,12 @@ class Client:
         return dest
 
 
-def _batches(items: Sequence[Asset]) -> Iterable[list[Asset]]:
+def _batches(items: Sequence[Asset], max_bytes: int = ASSET_BATCH_BYTES) -> Iterable[list[Asset]]:
     batch: list[Asset] = []
     size = 0
     for name, abs_path in items:
         n = Path(abs_path).stat().st_size
-        if batch and (len(batch) >= ASSET_BATCH_FILES or size + n > ASSET_BATCH_BYTES):
+        if batch and (len(batch) >= ASSET_BATCH_FILES or size + n > max_bytes):
             yield batch
             batch, size = [], 0
         batch.append((name, abs_path))
