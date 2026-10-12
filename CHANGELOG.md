@@ -2,6 +2,12 @@
 
 The live, per-version list is at https://render.janction.jp/changelog (Atom: https://render.janction.jp/changelog.xml). Versions are the PyPI releases of `janction-render`; the hosted service follows the same numbers.
 
+## 0.4.68 (2026-10-13)
+
+Receptionist only; no worker change.
+
+- **Scripts that write their own output.** A script written for a local Blender often creates an output folder next to itself or sets `scene.render.filepath`; in the render container that fails with a permission error before the scene is built. The failure's reason and `recommended_action` now say so and name the lines to remove (`os.makedirs`, `scene.render.filepath`, `bpy.ops.render.render`; use `tempfile.mkdtemp()` for a real scratch file). Shown on /start, in the MCP tools and in `GET /v1/jobs/{id}`.
+
 ## 0.4.67 (2026-10-13)
 
 The structural refactoring in one pass (docs/60 §14: ARCH-02, ARCH-03, SEC-04/05). Receptionist only; no worker change; no change to any URL, response or price.
