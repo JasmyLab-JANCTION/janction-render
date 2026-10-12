@@ -1,6 +1,6 @@
 {
   "name": "janction-render",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "JANCTION Render for AI agents from npm: one command connects Claude Desktop, Cursor, Windsurf, Claude Code or any stdio MCP client to a cloud GPU render farm for Blender (preview in seconds, product shots, turntables, animations). No local Blender or GPU.",
   "license": "MIT",
   "homepage": "https://render.janction.jp",
