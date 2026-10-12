@@ -2,6 +2,25 @@
 
 The live, per-version list is at https://render.janction.jp/changelog (Atom: https://render.janction.jp/changelog.xml). Versions are the PyPI releases of `janction-render`; the hosted service follows the same numbers.
 
+## 0.4.53 (2026-10-12)
+
+- The machine-readable pricing matches the pricing page. In GET /v1/pricing the free plan and the product prices state the current welcome credit (100 JPY of free GPU time with no card, 400 JPY more after saving a card that is not charged) and the current limits (1,000 frames per instruction, 4K on prepaid credit, 10 GPU-hours per job), also in a new `limits` block; the indicative USD price per GPU-second no longer rounds to 0. The Japanese llms.txt no longer calls the metered price planned, and the products page no longer mentions planned monthly plans.
+- /pricing and /facts open with how to connect: the MCP URL, one line each for Claude.ai, ChatGPT, Claude Code, Codex, Cursor / VS Code and the HTTP API, and how much is free to start. The same is in `connect` in GET /v1/pricing and /facts.json.
+- /status and /status.json (`uptime`) show measured uptime, checked from outside every 5 minutes over 7 and 30 days, and the hourly end-to-end preview through the MCP. These are measurements, not a guarantee.
+- When the welcome credit expires within 3 days, the reply to a final says so (`credit_note`) even if plenty is left, so the user hears it before it lapses.
+- Tighter limits on creating many keys in a short time.
+
+## 0.4.52 (2026-10-12)
+
+- A final whose scene sets a frame step (frame_step 2, for example) renders every frame of the requested range. Before, Blender skipped every other frame and the job failed waiting for the missing ones.
+- Scene files whose names have spaces, brackets or non-Latin letters are accepted: the name is tidied and the extension kept, instead of a 400 bad_name.
+- The upload size shown on /start, /upload and facts.json is the real limit for files sent to render.janction.jp (100 MB). /start checks the size before sending and suggests a download link for a bigger file.
+- asset_search and GET /v1/assets/search accept more words for kind: 'hdr', 'environment' and 'sky' find HDRIs, 'material' and 'pbr' find textures, 'mesh' and '3d' find models. 'all' or any other word searches all three kinds instead of returning 400, and each result says its type (model, texture or hdri).
+- Asking for the same top-up again within an hour returns the same open checkout page instead of a new one.
+- Creating keys faster than the hourly limit returns a 429 that says to keep and reuse the key you already have (recommended_action REUSE_KEY; GET /v1/me checks a key). GET /v1/keys explains the same instead of only naming the allowed method.
+- Codex: the GET that Codex sends on each connection gets 405 (this server has no stream) instead of 401, so Codex no longer re-reads the OAuth metadata every time it connects.
+- Short and Markdown paths open the right page: /codex, /claude, /cursor and the other client names open their guide, /index.md and /llms.md open llms.txt, /ja/llms-full.txt opens the full English llms-full.txt, and '<page>.md' opens that page.
+
 ## 0.4.51 (2026-10-12)
 
 - A bpy script that does not run no longer comes back as a success. The server refuses a script that does not parse with 400 script_syntax_error (the line number, the offending line, nothing_rendered, no GPU time used), and the GPU worker exits Blender the moment the script raises (--python-exit-code around the user's script), so the job fails with SCRIPT_SYNTAX_ERROR or SCRIPT_ERROR, the line and nothing_rendered instead of rendering Blender's default cube and scoring it 100. Found by a real-user test on 2026-10-12.
