@@ -2,6 +2,20 @@
 
 The live, per-version list is at https://render.janction.jp/changelog (Atom: https://render.janction.jp/changelog.xml). Versions are the PyPI releases of `janction-render`; the hosted service follows the same numbers.
 
+## 0.4.63 (2026-10-12)
+
+Phase 2 of the refactoring requirements, second batch (docs/60 §10). Additive only; the receptionist and the workers both change (workers clean up leftover work dirs at start).
+
+- **Erase my data now.** `DELETE /v1/me/data` deletes every scene, render and share page of the key immediately (running jobs are cancelled first); the billing ledger and the key stay. Recorded as `data_erased`.
+- **A render being assembled cannot be cancelled** (`finalizing`): cancelling during video assembly used to leave a cancelled job with an output file. The cancel call returns the job with a note instead.
+- **Browser funnel in the scorecard.** /start events are grouped by the per-browser tag into landing → input → read → quote → render → success → download → next, with the drop at each step (visit without input, input failed, quote without render, render without success).
+- **/start** shows the key's spending caps and that failures on our side are not charged, says the remaining time in Japanese on /ja/start, and has `aria-live` progress, `role=alert` errors and labels on its inputs.
+- **Restore drill.** `tools/restore_drill.py` unpacks the latest nightly backup into a temp dir and checks integrity, the ledger invariants, the audit chain and the backup age (RPO), without touching production; backups now keep the audit `ANCHOR`.
+- Workers remove work directories left behind by a crashed process (older than a day) when they start.
+- **One source for the MCP servers' shared pieces.** The preset rules, the job-parameter builder and the argument docs that the remote and the stdio server used to keep as separate copies live in `janction_render/mcp_common.py`; the receptionist's preset names come from the same place.
+- **User classes and cohort retention in the scorecard.** External keys are counted as unclassified / tried / confirmed real / paying / recurring paying, and D30 and D90 retention are reported per cohort.
+- **OpenAPI request bodies.** `POST /v1/jobs`, `/v1/estimate`, `/v1/files/url`, `/v1/keys`, `/v1/try`, `/v1/me/limits`, `/v1/billing/checkout` and `/v1/jobs/{id}/share` describe their JSON bodies (fields, enums, required).
+
 ## 0.4.62 (2026-10-12)
 
 The rest of Phase 1 of the refactoring requirements (docs/60 §8, docs/61). Additive only.

@@ -33,7 +33,7 @@ from janction_render.brief import plan_fields, review_reply, scene_next, welcome
 from janction_render.brief import brief as _brief, estimate_brief, final_body_after_preview, followup_after_preview, \
     next_after_preview, trim, PRESENT_FIRST, preview_presentation, turntable_estimate
 from janction_render.client import Client, ClientError, parse_frames
-from janction_render import prompts as _prompts, tooldocs
+from janction_render import mcp_common, prompts as _prompts, tooldocs
 
 PREVIEW_WAIT_S = 240.0
 INFO_WAIT_S = 150.0
@@ -86,21 +86,9 @@ mcp = MCPServer(
     ),
 )
 
-OUTPUT_DOC = (" output: 'auto' (mp4 for a frame range, png for one frame) | 'png' | 'exr' (16-bit linear OpenEXR frames) | "
-              "'mp4' (H.264) | 'webm' (VP9) | 'prores' (ProRes 422 HQ .mov) | 'gif' | 'webp' (animated, at most 960 px wide; "
-              "good for chat and web). transparent=True renders on a transparent background (alpha): png / exr frames, webm, gif "
-              "and webp keep it, mp4 and prores cannot. notify_url: an https URL that receives one JSON POST when the job "
-              "finishes (event job.done / job.failed, artifacts with download links).")
-TRANSPARENT_DOC = (" transparent=True: transparent background (alpha) instead of the world/HDRI backdrop; the preview sheet "
-                   "shows it over dark grey.")
-ORBIT_DOC = (" orbit=True: turntable; an orbit camera circles the scene once over orbit_frames frames (default 24, "
-             "elevation orbit_elevation deg, default 18). Flat floors/walls are ignored when framing; orbit_target = an "
-             "object name or 'x,y,z' centres on that, orbit_distance scales the distance (1.0). A preview without frames "
-             "shows 0/90/180/270 deg; a final without frame_end renders the whole turn as an MP4. Best for imported models.")
-CAMERAS_DOC = (" cameras=['Front','Top','Iso']: render the same frame from several named camera objects in one job (up to 8). "
-               "A preview tiles them in one labeled sheet; a final returns one PNG/EXR per camera (frame_0001.. in that order; "
-               "camera_files maps camera name -> file). For product shots from fixed angles use this instead of one job per "
-               "camera. Not combinable with orbit, environment='compare' or camera.")
+# 引数の説明はリモートと共通（janction_render/mcp_common.py、10/12）
+_D = mcp_common.docs("stdio")
+OUTPUT_DOC, TRANSPARENT_DOC, ORBIT_DOC, CAMERAS_DOC = _D["OUTPUT_DOC"], _D["TRANSPARENT_DOC"], _D["ORBIT_DOC"], _D["CAMERAS_DOC"]
 # ---- MCP Apps（Claude Desktop など対応ホストに、絵と進み具合のパネルを出す。対応していないホストは無視する）
 UI_URI = "ui://janction-render/app.html"
 UI_MIME = "text/html;profile=mcp-app"
@@ -118,18 +106,7 @@ def ui_html() -> str:
     return (Path(__file__).resolve().parent / "mcp_app.html").read_text(encoding="utf-8")
 
 
-ENV_DOC = ("environment: '' keeps the scene's own world; 'studio' | 'sunset' | 'overcast' | 'night' replaces it with a "
-           "bundled HDRI (good first render for scenes without lighting work); 'compare' (render_preview only) renders the "
-           "first frame under all four presets in one 2x2 image with labels, so you can pick one; environment_strength scales it (1.0); "
-           "environment_visible=False hides the HDRI from the camera (flat grey backdrop, HDRI lighting only). "
-           "blender: '' (5.0) or '5.2' to render with Blender 5.2 when available. assets: local files (images, glTF "
-           ".bin, ...) sent along with the scene; a .blend finds them through relative paths, a script through "
-           "os.environ['JR_ASSETS_DIR'].")
-POLYHAVEN_DOC = (" assets may also hold 'polyhaven:<id>' (a CC0 model, texture or HDRI from polyhaven.com, fetched by the "
-                 "service into JR_ASSETS_DIR/<id>/; find ids with asset_search) or an https URL. Import a model with "
-                 "bpy.ops.import_scene.gltf(filepath=os.path.join(os.environ['JR_ASSETS_DIR'], '<id>', '<id>_1k.gltf')). "
-                 "Inside the scene script, `import jr_assets` gives helpers: jr_assets.import_model('<id>', location=(x,y,z), scale=1.0) imports a Poly Haven model (or any file under JR_ASSETS_DIR) and returns the objects; jr_assets.material('<id>', scale=1.0) builds a Principled material from a Poly Haven texture set (diff / nor_gl / rough / arm / disp); jr_assets.apply(obj, mat) assigns it; jr_assets.world_hdri('<id>', strength=1.0) uses a Poly Haven HDRI as the world.")
-ENV_DOC = ENV_DOC + POLYHAVEN_DOC
+ENV_DOC, POLYHAVEN_DOC = _D["ENV_DOC"], _D["POLYHAVEN_DOC"]
 
 # ---- 引数の説明（スキーマに出る。Glama の品質点と、各 AI が引数を正しく埋める助け。10/7）
 P: dict[str, str] = {
@@ -326,48 +303,12 @@ def _resolve_scene_local(c: Client, scene_path: str, scene_id: str, scene_script
     return up["scene_id"]
 
 
-def _job_params(environment: str, environment_strength: float, environment_visible: bool, blender: str,
-                engine: str = "") -> dict[str, Any]:
-    out: dict[str, Any] = {}
-    if engine:
-        out["engine"] = engine
-    if environment:
-        out.update({"environment": environment, "environment_strength": environment_strength,
-                    "environment_visible": environment_visible})
-    if blender:
-        out["blender"] = blender
-    return out
-
-
-PURPOSE_PRESETS = ("product", "turntable", "animation")
-FINAL_TOOL_DEFAULTS = {"width": 1920, "height": 1080, "samples": 128, "output": "auto"}
-
-
-def _preset_of(preset: str) -> str:
-    p = (preset or "").strip().lower()
-    if p and p not in PURPOSE_PRESETS:
-        raise ValueError("preset must be '', 'product', 'turntable' or 'animation'")
-    return p
-
-
-def _with_preset(params: dict[str, Any], preset: str, kind: str) -> dict[str, Any]:
-    """用途のプリセット（10/12）: 道具の既定値のままの項目は送らず、受付のプリセットの既定（商品写真は 1440x1440 の PNG 4 枚、
-    回転動画は 720p の MP4、アニメーションはシーンのコマ範囲）を効かせる。渡した値が既定と違えばそのまま勝つ。"""
-    if not preset:
-        return params
-    out = dict(params)
-    out["preset"] = preset
-    if kind == "final":
-        for k, dflt in FINAL_TOOL_DEFAULTS.items():
-            if out.get(k) == dflt:
-                out[k] = None
-        if (out.get("frame_end") or 0) <= (out.get("frame_start") or 0):
-            out["frame_end"] = None
-            if preset == "animation":
-                out["frame_start"] = None
-    if preset in ("product", "turntable") and out.get("environment_visible") is True:
-        out.pop("environment_visible", None)
-    return out
+# プリセットの規則と仕事の設定の組み立てはリモートと共通（mcp_common、10/12）
+_job_params = mcp_common.job_params
+PURPOSE_PRESETS = mcp_common.PURPOSE_PRESETS
+FINAL_TOOL_DEFAULTS = mcp_common.FINAL_TOOL_DEFAULTS
+_preset_of = mcp_common.preset_of
+_with_preset = mcp_common.with_preset
 
 
 def _ensure_scene_info(c: Client, sid: str) -> None:
