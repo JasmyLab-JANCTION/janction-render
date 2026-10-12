@@ -2,6 +2,13 @@
 
 The live, per-version list is at https://render.janction.jp/changelog (Atom: https://render.janction.jp/changelog.xml). Versions are the PyPI releases of `janction-render`; the hosted service follows the same numbers.
 
+## 0.4.64 (2026-10-12)
+
+Phase 2 of the refactoring requirements, third batch (docs/60 §11). Receptionist and the stdio package; no worker change.
+
+- **MCP sharing, second stage.** The estimate body, the estimate's next-step text and the scene_info reply are built once in `janction_render/mcp_common.py` for both the remote and the stdio server; the estimate's "too big" text states the current limits (parts of 240 frames under one job id, 1080p on free time, 4K on prepaid credit).
+- **/start: plain backdrop.** A checkbox on the preview's next steps hides the HDRI (`environment_visible=false`) for the next preview and the high-quality still.
+
 ## 0.4.63 (2026-10-12)
 
 Phase 2 of the refactoring requirements, second batch (docs/60 §10). Additive only; the receptionist and the workers both change (workers clean up leftover work dirs at start).

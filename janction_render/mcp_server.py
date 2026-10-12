@@ -29,7 +29,7 @@ except ImportError:  # mcp 1.x
     from mcp.server.fastmcp import FastMCP as MCPServer, Image  # type: ignore
 from mcp.types import ToolAnnotations
 
-from janction_render.brief import plan_fields, review_reply, scene_next, welcome_billing
+from janction_render.brief import plan_fields, review_reply, welcome_billing
 from janction_render.brief import brief as _brief, estimate_brief, final_body_after_preview, followup_after_preview, \
     next_after_preview, trim, PRESENT_FIRST, preview_presentation, turntable_estimate
 from janction_render.client import Client, ClientError, parse_frames
@@ -390,18 +390,7 @@ def scene_info(scene_path: Annotated[str, D("scene_path", "")] = "",
         b["hint"] = (_gated_hint(j, "scene_info(scene_id)") or "still queued (a GPU worker may be busy); call scene_info again in a moment") \
             if j["status"] in ("queued", "running") else "fix the scene and try again"
         return _j(b)
-    info = dict(j.get("info") or {})
-    info["scene_id"] = j["scene_id"]
-    if info.get("engine") and info["engine"] != "CYCLES":
-        info["engine_note"] = "JANCTION renders with CYCLES; the scene's engine setting is not used"
-    if j.get("warnings"):
-        info["blender_warnings"] = j["warnings"]
-    if info.get("missing_files"):
-        info["note"] = ("missing_files will render pink/black; send them with assets=[...] (kept next to the .blend), "
-                        "pack them into the .blend (File > External Data > Pack) or fix the paths")
-    if isinstance(info.get("object_names"), list):
-        info["object_names"] = trim(info["object_names"], 30)
-    info.update(scene_next(info))          # 次の一手: シーンの縦横比に合わせた試し描き（10/9）
+    info = mcp_common.scene_info_reply(j, "assets=[...]")
     return _j(_attach_upload_notes(info))
 
 
@@ -579,37 +568,16 @@ def render_estimate(scene_id: Annotated[str, D("scene_id", "")] = "",
     c = _client()
     try:
         preset = _preset_of(preset)
-        params: dict[str, Any] = {"kind": kind, "width": width, "height": height, "samples": samples}
-        if kind == "preview":
-            params["frames"] = parse_frames(frames) if (frames or not preset) else None
-        else:
-            params.update({"frame_start": frame_start, "frame_end": frame_end})
-        if cameras:
-            params["cameras"] = list(cameras)
-            if kind != "preview":
-                params.pop("frame_end", None)
-        if preset == "animation" and scene_id and (params.get("frames") is None if kind == "preview" else frame_end <= frame_start):
+        params, needs_info = mcp_common.estimate_body(kind, scene_id, frames, frame_start, frame_end, width, height, samples, cameras, preset)
+        params.pop("scene_id", None)
+        if needs_info:
             _ensure_scene_info(c, scene_id)
-        params = {k: v for k, v in _with_preset(params, preset, kind).items() if v is not None}
         est = c.estimate(scene_id or None, **params)
     except (ClientError, ValueError) as exc:
         return _j(_fail(exc))
     out = estimate_brief(est) or {}
     out["kind"] = kind
-    q = est.get("quota") or {}
-    cost = est.get("cost") or {}
-    if q and q.get("fits_size") is False:
-        out["next"] = f"too big for one job (max {q.get('max_frames_per_job')} frames and 1920x1080 per job); split it"
-    elif q and not q.get("fits_today", True) and q.get("mode") == "free_allowance":
-        # 有料モード（10/8〜）: 無料枠を超えた分は残高から。額と残高を言ってから
-        out["next"] = (f"this goes past the free GPU time left: about {cost.get('estimated_yen')} JPY would be charged from "
-                       f"credit (balance {cost.get('balance_yen')} JPY). Tell the user the time and the price and ask before "
-                       "render_final; a smaller job (fewer frames, lower resolution or samples) may stay free")
-    elif q and not q.get("fits_today", True):
-        out["next"] = ("this does not fit today's remaining free GPU time; propose fewer frames, lower resolution or "
-                       "samples, or wait until resets_at")
-    else:
-        out["next"] = "tell the user the estimate and ask before calling render_final"
+    out["next"] = mcp_common.estimate_next(est)
     return _j(out)
 
 

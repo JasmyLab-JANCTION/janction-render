@@ -60,6 +60,67 @@ def job_params(environment: str, environment_strength: float, environment_visibl
     return out
 
 
+# ------------------------------------------------------------------ 見積もりとシーンの読み取りの返事（両方の道具で同じ）
+
+def estimate_body(kind: str, scene_id: str, frames: str, frame_start: int, frame_end: int, width: int, height: int, samples: int,
+                  cameras: Any, preset: str) -> tuple[dict[str, Any], bool]:
+    """render_estimate の引数から受付への本文を作る。戻り値は (本文, シーンの読み取りが先に要るか)。
+    preset='animation' でコマの指定が無ければ、呼ぶ側が scene_info を済ませてから見積もる。"""
+    from .client import parse_frames
+    body: dict[str, Any] = {"kind": kind, "width": width, "height": height, "samples": samples}
+    if scene_id:
+        body["scene_id"] = scene_id
+    if kind == "preview":
+        body["frames"] = parse_frames(frames) if (frames or not preset) else None
+    else:
+        body.update({"frame_start": frame_start, "frame_end": frame_end})
+    if cameras:
+        body["cameras"] = list(cameras)
+        if kind != "preview":
+            body.pop("frame_end", None)
+    needs_info = bool(preset == "animation" and scene_id
+                      and (body.get("frames") is None if kind == "preview" else frame_end <= frame_start))
+    body = {k: v for k, v in with_preset(body, preset, kind).items() if v is not None}
+    return body, needs_info
+
+
+def estimate_next(est: dict[str, Any]) -> str:
+    """見積もりの返事の next（エージェントへの次の一手）。上限の言い方は docs/60 BRAND-02 に合わせる。"""
+    q = est.get("quota") or {}
+    cost = est.get("cost") or {}
+    if q and q.get("fits_size") is False:
+        return (f"too big for one job: at most {q.get('max_frames_per_job')} frames per job part (1920x1080 on free time, 3840x2160 "
+                "on prepaid credit); the service splits longer instructions into parts under one job id, or lower the size")
+    if q and not q.get("fits_today", True) and q.get("mode") == "free_allowance":
+        # 有料モード: 無料枠を超えた分は残高から（10/8）。額と残高を言ってから
+        return (f"this goes past the free GPU time left: about {cost.get('estimated_yen')} JPY would be charged from credit "
+                f"(balance {cost.get('balance_yen')} JPY). Tell the user the time and the price and ask before "
+                "render_final; a smaller job (fewer frames, lower resolution or samples) may stay free")
+    if q and not q.get("fits_today", True):
+        return ("this does not fit today's remaining free GPU time; propose fewer frames, lower resolution or samples, "
+                "or wait until resets_at")
+    return "tell the user the estimate and ask before calling render_final"
+
+
+def scene_info_reply(j: dict[str, Any], assets_param: str) -> dict[str, Any]:
+    """scene_info の返事（info に scene_id・エンジンの注意・警告・欠けたファイルの案内・次の一手）。assets_param は素材の渡し方の文
+    （remote: 'asset_urls'、stdio: 'assets=[...]'）。"""
+    from .brief import scene_next, trim
+    info = dict(j.get("info") or {})
+    info["scene_id"] = j.get("scene_id")
+    if info.get("engine") and info["engine"] != "CYCLES":
+        info["engine_note"] = "JANCTION renders with CYCLES; the scene's engine setting is not used"
+    if j.get("warnings"):
+        info["blender_warnings"] = j["warnings"]
+    if info.get("missing_files"):
+        info["note"] = (f"missing_files will render pink/black; send them with {assets_param} (kept next to the scene), "
+                        "pack them into the .blend (File > External Data > Pack) or fix the paths")
+    if isinstance(info.get("object_names"), list):
+        info["object_names"] = trim(info["object_names"], 30)
+    info.update(scene_next(info))          # 次の一手: シーンの縦横比に合わせた試し描き（10/9）
+    return info
+
+
 # ------------------------------------------------------------------ 引数の説明（道具の description の末尾に足す）
 
 _ENGINE_DOC = (" engine: '' or 'cycles' (path tracing, the default) | 'eevee' (Blender's real-time rasterizer: about half the "
