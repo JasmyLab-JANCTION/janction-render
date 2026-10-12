@@ -2,6 +2,15 @@
 
 The live, per-version list is at https://render.janction.jp/changelog (Atom: https://render.janction.jp/changelog.xml). Versions are the PyPI releases of `janction-render`; the hosted service follows the same numbers.
 
+## 0.4.51 (2026-10-12)
+
+- A bpy script that does not run no longer comes back as a success. The server refuses a script that does not parse with 400 script_syntax_error (the line number, the offending line, nothing_rendered, no GPU time used), and the GPU worker exits Blender the moment the script raises (--python-exit-code around the user's script), so the job fails with SCRIPT_SYNTAX_ERROR or SCRIPT_ERROR, the line and nothing_rendered instead of rendering Blender's default cube and scoring it 100. Found by a real-user test on 2026-10-12.
+- Purpose presets on render_preview, render_final, render_estimate and POST /v1/jobs: preset='product' (4 studio shots at 0/90/180/270 degrees on a plain backdrop; the final gives 4 PNGs at 1440x1440), 'turntable' (one full turn as a 720p MP4 on a plain backdrop) and 'animation' (the scene's own camera, lights and frame range; the scene is read first when the range is not known). What you pass still wins. asset_search describes the one-call product-shot recipe for users who have no model.
+- The preview critic names placeholders: a scene with no light and no world gets a sun and a grey world added automatically, and the critic now says so (auto_light, check) with the fix; an automatic camera is reported as info. Pale, low-contrast images (white on white) get washed_out; under preset='product' a busy background or a product filling under 6% of the frame is flagged; under preset='animation' a scene with nothing animated is flagged. A whitish image that blends into the background no longer scores 100.
+- Pricing wording unified under the card model: the MCP instructions and tool descriptions, the FAQ, the guides, the benchmarks page, llms.txt, the README and the package descriptions say the same thing as the pricing page (100 JPY of free GPU time with no card, 400 JPY more after saving a card that is not charged, then 0.1 JPY per GPU-second). The FAQ answers are built from the server settings instead of hand-written numbers.
+- /start has a "Try the sample first" button (also /start?sample=1): one click renders the service's own sample scene with no file and no payment, then offers the next actions.
+- Failure classification matches OOM as a word, so an error text containing "boom" or "zoom" is no longer reported as out of memory.
+
 ## 0.4.50 (2026-10-12)
 
 - Auto top-up is offered when the credit is about to run out: after a final, if what is left (free credit plus balance) is below 100 JPY or below what that render cost, the reply carries autocharge_offer, at most once a week per key: what is left, what the last render cost, the settings (below 200 JPY, add 2,000 JPY, up to 10,000 JPY a month) and a link to a confirmation page. /v1/me, the billing reply and /start show it while the credit stays low. Keys that can still get the free card bonus are offered that first.

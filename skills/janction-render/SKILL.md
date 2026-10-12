@@ -55,6 +55,18 @@ For a model the user wants seen from all sides, pass `orbit=True`: the preview s
 question in step 6. Lighting: `environment="studio"` (or `sunset`, `overcast`, `night`); `environment="compare"` on a
 preview shows all four in one image.
 
+Purpose presets fill the camera, light, backdrop, frames and output for a purpose; what you pass still wins:
+`preset="product"` (4 studio shots at 0/90/180/270 degrees on a plain backdrop; the final gives 4 PNGs at 1440x1440),
+`preset="turntable"` (one full turn as a 720p MP4 on a plain backdrop), `preset="animation"` (the scene's own camera,
+lights and frame range; the scene is read first when the range is not known). For product shots of something the user
+has no model for: `asset_search("<item>")`, then
+`render_preview(scene_script='import jr_assets; jr_assets.import_model("<id>")', asset_urls=["polyhaven:<id>"], preset="product")`.
+
+A script that does not run is a failed job, not a result: a script that does not parse is refused at once
+(`script_syntax_error` with `line` and `source_line`, no GPU time), and a script that raises fails with
+`SCRIPT_ERROR`, the line and `nothing_rendered`. Fix the line and call again; never present an earlier image as that
+result.
+
 ## Rules
 
 - Do not run `render_final` before a preview of the same scene unless the user explicitly asks to skip it.

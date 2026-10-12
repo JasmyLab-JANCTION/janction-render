@@ -176,6 +176,7 @@ P: dict[str, str] = {
     "listed": "True asks for the page to appear in the public gallery after the operator reviews it.",
     "prompt": "What the user asked you, in their words (shown as 'what the user asked the agent').",
     "topup_yen": "0 = just report the quota / balance; > 0 (minimum 500) = create a Stripe checkout link for that amount in yen.",
+    "preset": "Purpose preset: 'product' (4 studio shots at 0/90/180/270 deg on a plain backdrop; final = 4 PNGs), 'turntable' (360-degree MP4, studio light, plain backdrop), 'animation' (the scene's own camera, lights and frame range), or '' (none). Fills what you do not pass.",
 }
 
 
@@ -338,6 +339,48 @@ def _job_params(environment: str, environment_strength: float, environment_visib
     return out
 
 
+PURPOSE_PRESETS = ("product", "turntable", "animation")
+FINAL_TOOL_DEFAULTS = {"width": 1920, "height": 1080, "samples": 128, "output": "auto"}
+
+
+def _preset_of(preset: str) -> str:
+    p = (preset or "").strip().lower()
+    if p and p not in PURPOSE_PRESETS:
+        raise ValueError("preset must be '', 'product', 'turntable' or 'animation'")
+    return p
+
+
+def _with_preset(params: dict[str, Any], preset: str, kind: str) -> dict[str, Any]:
+    """用途のプリセット（10/12）: 道具の既定値のままの項目は送らず、受付のプリセットの既定（商品写真は 1440x1440 の PNG 4 枚、
+    回転動画は 720p の MP4、アニメーションはシーンのコマ範囲）を効かせる。渡した値が既定と違えばそのまま勝つ。"""
+    if not preset:
+        return params
+    out = dict(params)
+    out["preset"] = preset
+    if kind == "final":
+        for k, dflt in FINAL_TOOL_DEFAULTS.items():
+            if out.get(k) == dflt:
+                out[k] = None
+        if (out.get("frame_end") or 0) <= (out.get("frame_start") or 0):
+            out["frame_end"] = None
+            if preset == "animation":
+                out["frame_start"] = None
+    if preset in ("product", "turntable") and out.get("environment_visible") is True:
+        out.pop("environment_visible", None)
+    return out
+
+
+def _ensure_scene_info(c: Client, sid: str) -> None:
+    """preset='animation' のコマ範囲のために、シーンを一度読んでおく（描かない・GPU なし）。受付が直前の info の結果を使う。"""
+    j = c.submit(sid, kind="info")
+    if j["status"] != "done":
+        j = _wait_unless_gated(c, j, INFO_WAIT_S)
+    if j["status"] != "done":
+        raise ValueError("preset='animation' needs the scene's frame range, but reading the scene did not finish ("
+                         + str((j.get("failure") or {}).get("reason") or j.get("error") or j["status"])
+                         + "); pass frames (preview) or frame_start / frame_end (final) instead")
+
+
 def _attach_upload_notes(obj: dict[str, Any]) -> dict[str, Any]:
     if _LAST_UPLOAD.get("missing_assets"):
         obj["missing_assets"] = _LAST_UPLOAD["missing_assets"]
@@ -472,18 +515,22 @@ def render_preview(
     orbit_distance: Annotated[float, D("orbit_distance", 1.0)] = 1.0,
     engine: Annotated[str, D("engine", "")] = "",
     transparent: Annotated[bool, D("transparent", False)] = False,
+    preset: Annotated[str, D("preset", "")] = "",
 ) -> list[Any]:
     """Render a fast, cheap preview of a Blender scene on a JANCTION GPU and show the image. (full description on the tool)."""
     c = _client()
     try:
-        frame_list = parse_frames(frames) if (frames or not orbit) else None
+        preset = _preset_of(preset)
+        frame_list = parse_frames(frames) if (frames or not (orbit or preset)) else None
         sid = _resolve_scene(c, scene_path, scene_id, scene_script, assets, scene_url=scene_url)
-        j = c.submit(sid, kind="preview", frames=frame_list, camera=camera or None,
-                     cameras=(list(cameras) if cameras else None),
-                     width=width, height=height, samples=samples, transparent=(True if transparent else None),
-                     **_job_params(environment, environment_strength, environment_visible, blender, engine=engine),
-                     **({"orbit": True, "orbit_frames": orbit_frames, "orbit_elevation": orbit_elevation,
-                         "orbit_target": orbit_target, "orbit_distance": orbit_distance} if orbit else {}))
+        if preset == "animation" and frame_list is None:
+            _ensure_scene_info(c, sid)
+        params = dict(frames=frame_list, camera=camera or None, cameras=(list(cameras) if cameras else None),
+                      width=width, height=height, samples=samples, transparent=(True if transparent else None),
+                      **_job_params(environment, environment_strength, environment_visible, blender, engine=engine),
+                      **({"orbit": True, "orbit_frames": orbit_frames, "orbit_elevation": orbit_elevation,
+                          "orbit_target": orbit_target, "orbit_distance": orbit_distance} if orbit else {}))
+        j = c.submit(sid, kind="preview", **_with_preset(params, preset, "preview"))
         _log(f"preview job {j['job_id']} submitted frames={frame_list}")
         j = _wait_unless_gated(c, j, PREVIEW_WAIT_S)
     except ClientError as exc:
@@ -567,7 +614,8 @@ def render_estimate(scene_id: Annotated[str, D("scene_id", "")] = "",
                     width: Annotated[int, D("width", 1920)] = 1920,
                     height: Annotated[int, D("height", 1080)] = 1080,
                     samples: Annotated[int, D("samples", 128)] = 128,
-                    cameras: Annotated[Optional[list[str]], D("cameras", None)] = None) -> str:
+                    cameras: Annotated[Optional[list[str]], D("cameras", None)] = None,
+                    preset: Annotated[str, D("preset", "")] = "") -> str:
     """Estimate how long a render will take BEFORE starting it (no GPU time used): GPU seconds, queue wait,
     wall-clock time as a human-readable string ('about 3 minutes'), and whether it fits the free time left and
     the size limits. kind is 'final' (frame_start..frame_end at width x height, samples) or 'preview' (frames
@@ -576,15 +624,19 @@ def render_estimate(scene_id: Annotated[str, D("scene_id", "")] = "",
     or quota is uncertain, the job is longer than about 24 frames or above 720p, or the user asked how long it takes."""
     c = _client()
     try:
+        preset = _preset_of(preset)
         params: dict[str, Any] = {"kind": kind, "width": width, "height": height, "samples": samples}
         if kind == "preview":
-            params["frames"] = parse_frames(frames)
+            params["frames"] = parse_frames(frames) if (frames or not preset) else None
         else:
             params.update({"frame_start": frame_start, "frame_end": frame_end})
         if cameras:
             params["cameras"] = list(cameras)
             if kind != "preview":
                 params.pop("frame_end", None)
+        if preset == "animation" and scene_id and (params.get("frames") is None if kind == "preview" else frame_end <= frame_start):
+            _ensure_scene_info(c, scene_id)
+        params = {k: v for k, v in _with_preset(params, preset, kind).items() if v is not None}
         est = c.estimate(scene_id or None, **params)
     except (ClientError, ValueError) as exc:
         return _j(_fail(exc))
@@ -655,11 +707,15 @@ def render_final(
     notify_url: Annotated[str, D("notify_url", "")] = "",
     max_yen: Annotated[int, D("max_yen", -1)] = -1,
     idempotency_key: Annotated[str, D("idempotency_key", "")] = "",
+    preset: Annotated[str, D("preset", "")] = "",
 ) -> str:
     """Render the final frames (or a video) of a Blender scene on JANCTION GPUs. (full description on the tool)."""
     c = _client()
     try:
+        preset = _preset_of(preset)
         sid = _resolve_scene(c, scene_path, scene_id, scene_script, assets, scene_url=scene_url)
+        if preset == "animation" and frame_end <= frame_start:
+            _ensure_scene_info(c, sid)
         extra: dict[str, Any] = {}
         if orbit:
             extra.update({"orbit": True, "orbit_frames": orbit_frames, "orbit_elevation": orbit_elevation,
@@ -669,11 +725,12 @@ def render_final(
         if cameras:
             extra["cameras"] = list(cameras)
             frame_end = None  # type: ignore[assignment]  # カメラごとに 1 枚（frame_start のコマ）
-        j = c.submit(sid, kind="final", frame_start=frame_start, frame_end=frame_end,
-                     width=width, height=height, samples=samples, fps=fps, output=output,
-                     camera=camera or None, transparent=(True if transparent else None), notify_url=notify_url or None,
-                     max_yen=(max_yen if max_yen >= 0 else None), idempotency_key=idempotency_key or None,
-                     **_job_params(environment, environment_strength, environment_visible, blender, engine=engine), **extra)
+        params = dict(frame_start=frame_start, frame_end=frame_end,
+                      width=width, height=height, samples=samples, fps=fps, output=output,
+                      camera=camera or None, transparent=(True if transparent else None), notify_url=notify_url or None,
+                      max_yen=(max_yen if max_yen >= 0 else None), idempotency_key=idempotency_key or None,
+                      **_job_params(environment, environment_strength, environment_visible, blender, engine=engine), **extra)
+        j = c.submit(sid, kind="final", **_with_preset(params, preset, "final"))
     except ClientError as exc:
         block = _payment_block(exc) or _quota_block(exc)
         return _j(block if block else _fail(exc))

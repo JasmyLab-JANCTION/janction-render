@@ -32,9 +32,12 @@ FREE_MAX_SIZE = "1920x1080"
 RETENTION_HOURS = 24
 YEN_PER_GPU_SECOND = 0.1      # 無料枠を超えた分の単価（10/8 から有料。billing.yen_per_gpu_second の既定値）
 # ようこそクレジット（docs/46、JR_FREE_MODEL=welcome）。billing の既定値と同じ（tests/test_tooldocs.py が突き合わせる）
-WELCOME_YEN = 500
+WELCOME_YEN = 500                 # network の形: 新しい鍵に 500 円分
 WELCOME_DAYS = 14
 FREE_PREVIEW_MINUTES_PER_DAY = 2
+# カードの形（JR_WELCOME_MODEL=card、docs/56 の 9。本番は 2026-10-12 から）: カードなしで 100 円分、請求なしのカード登録で 400 円分
+WELCOME_CARDLESS_YEN = 100
+WELCOME_CARD_YEN = 400
 
 
 def free_model() -> str:
@@ -42,6 +45,14 @@ def free_model() -> str:
     読めず、既定を使う。10/8 夜に受付をようこそクレジットへ切り替えたので、0.4.25 から既定は welcome。"""
     m = (os.environ.get("JR_FREE_MODEL") or "welcome").strip().lower()
     return m if m in ("daily", "welcome") else "welcome"
+
+
+def welcome_model() -> str:
+    """ようこそクレジットの形（billing.welcome_model と同じ名前）。受付は JR_WELCOME_MODEL を読む。stdio は受付の設定を読めないので、
+    本番が 2026-10-12 に切り替えたカードの形を既定にする（料金ページ・FAQ・道具の説明が同じ数字を言うため。10/12 の実検証で
+    料金ページは 100 円、道具の説明は 500 円と食い違っていた）。"""
+    m = (os.environ.get("JR_WELCOME_MODEL") or "card").strip().lower()
+    return m if m in ("network", "card") else "card"
 
 
 def enabled(flavor: str) -> bool:
@@ -60,14 +71,23 @@ def _assets_param(flavor: str) -> str:
 
 # ------------------------------------------------------------------ 指示文
 
-_WHEN = ("WHEN TO USE: the user asks to render, preview, animate or turntable a Blender scene (a .blend, a bpy script you "
-         "write, or a glTF/GLB/FBX/USD/OBJ file), or wants product shots or a 360-degree product video, and the machine has "
-         "no NVIDIA GPU or rendering locally is slow.")
-_DONT = ("DO NOT USE: to edit a scene open in the user's Blender (a local Blender MCP does that); for one still image on a "
-         "machine with its own NVIDIA GPU (rendering locally is faster); for non-Blender video or general GPU compute.")
-_FIRST = f"FIRST CALL: render_preview(scene_url='{SAMPLE_URL}', environment='compare') checks the connection in a few seconds."
+_WHEN = ("WHEN TO USE: the user wants to render, preview, animate or turntable a Blender scene (a .blend, a bpy script you "
+         "write, or a glTF/GLB/FBX/USD/OBJ file), or product shots / a 360-degree product video, and has no NVIDIA GPU or "
+         "local rendering is slow.")
+_DONT = ("DO NOT USE: to edit a scene open in the user's Blender (a local Blender MCP does that); for one still on a machine "
+         "with its own NVIDIA GPU (local is faster); for non-Blender video or other GPU work.")
+_FIRST = f"FIRST CALL: render_preview(scene_url='{SAMPLE_URL}', environment='compare') checks the connection."
 def _free_offer(short: bool = False) -> str:
-    """無料の形の 1 句（道具の説明で使う。short=True は指示文の LIMITS 用で、指示文を 1800 字に収める）。"""
+    """無料の形の 1 句（道具の説明で使う。short=True は指示文の LIMITS 用で、指示文を 1800 字に収める）。
+    数字は料金ページ・FAQ・facts と同じ出所（billing の既定値）で、形（card / network）も同じ env を読む。"""
+    if free_model() == "welcome" and welcome_model() == "card":
+        if short:
+            return (f"free: {WELCOME_CARDLESS_YEN} JPY of GPU time per new key (no card) + {WELCOME_CARD_YEN} JPY after saving a "
+                    f"card (not charged), then {YEN_PER_GPU_SECOND} JPY per GPU-second")
+        return (f"each new key gets {WELCOME_CARDLESS_YEN} JPY of GPU time free with no card ({WELCOME_DAYS} days) and "
+                f"{WELCOME_CARD_YEN} JPY more once the user saves a card on a page that charges nothing (once per card); after that, "
+                f"previews are free up to {FREE_PREVIEW_MINUTES_PER_DAY} GPU-minutes a day and finals cost {YEN_PER_GPU_SECOND} JPY "
+                "per GPU-second (prepaid)")
     if free_model() == "welcome" and short:
         return f"free up to {WELCOME_YEN} JPY per new key ({WELCOME_DAYS} days), then {YEN_PER_GPU_SECOND} JPY per GPU-second"
     if free_model() == "welcome":
@@ -79,8 +99,23 @@ def _free_offer(short: bool = False) -> str:
 
 
 def _limits() -> str:
-    return (f"LIMITS: {_free_offer(short=True)}; up to {FREE_MAX_FRAMES} frames and {FREE_MAX_SIZE} per job; files are deleted "
-            f"{RETENTION_HOURS} hours after last use.")
+    return (f"LIMITS: {_free_offer(short=True)}; {FREE_MAX_FRAMES} frames and {FREE_MAX_SIZE} per job; files kept "
+            f"{RETENTION_HOURS} h.")
+
+
+def _presets(flavor: str) -> str:
+    """用途のプリセット（10/12、ChatGPT の実検証「用途別に背景・カメラ・光を自動で」）。モデルを持たない人の商品写真の手順
+    （asset_search → render_preview(preset='product')）は asset_search の説明に書く（指示文は 1,800 字まで）。"""
+    return ("PRESETS: preset='product' (4 studio shots, plain backdrop) | 'turntable' (360-degree MP4) | 'animation' (scene's "
+            "own frames); no model? asset_search.")
+
+
+def product_recipe(flavor: str) -> str:
+    """モデルを持たない人の商品写真: 素材検索から試し描きまでの 1 手（asset_search の説明と案内に使う）。"""
+    a = _assets_param(flavor)
+    return ("For product shots of something the user has no model for: asset_search('<item>'), then "
+            f"render_preview(scene_script='import jr_assets; jr_assets.import_model(\"<id>\")', {a}=['polyhaven:<id>'], "
+            "preset='product') gives 4 studio shots on a plain backdrop.")
 
 
 def _free_left() -> str:
@@ -89,27 +124,26 @@ def _free_left() -> str:
         return (f"the free GPU time left (the welcome credit, or {FREE_PREVIEW_MINUTES_PER_DAY} preview GPU-minutes a day "
                 "after it)")
     return "today's free quota"
-_SCRIPTS = ("SCRIPTS: Blender 5.0 API; build the scene, camera and frame range only (the service sets resolution, samples "
-            "and the GPU). `import jr_assets; jr_assets.frame_camera()` fits every object in the frame.")
-_MORE = f"Examples with their bpy scripts: {SITE}/examples (pass any as scene_url). More: {SITE}/llms.txt"
+_SCRIPTS = ("SCRIPTS: Blender 5.0 bpy; build only the scene, camera and frame range (the service sets resolution and samples); "
+            "`import jr_assets; jr_assets.frame_camera()` fits every object; a script that raises fails the job (nothing rendered).")
+_MORE = f"Examples: {SITE}/examples; more: {SITE}/llms.txt"
 
 
 def instructions(flavor: str) -> str:
     if flavor == "remote":
         head = "JANCTION Render: Blender rendering on cloud GPUs for AI agents (no local GPU or Blender needed, no sign-up)."
-        flow = ("FLOW: render_preview (an image in seconds plus a critic verdict with fix code; apply the fixes and preview "
-                "again) -> ask the user -> render_estimate when the job is long or the quota is uncertain -> render_final -> "
-                "render_download(job_id, wait_seconds=45) until the links come back. Tell the user eta.human; if it says the "
-                "GPU is lent out, tell the user the wait instead of polling.")
-        return " ".join([head, _WHEN, _DONT, _FIRST, flow, _limits(), _SCRIPTS, _MORE])
-    head = ("JANCTION Render: Blender rendering on cloud GPUs for AI agents, from the terminal (no local GPU or Blender "
-            "needed; a key is created on first use).")
-    local = "LOCAL FILES: pass scene_path (a .blend, a .py or a 3D file); results are saved under ~/janction-render/<job_id>."
-    flow = ("FLOW: render_preview (the image is saved and shown, plus a critic verdict with fix code; apply the fixes and "
-            "preview again) -> ask the user -> render_estimate when the job is long or the quota is uncertain -> render_final "
-            "-> render_status (tell the user eta.human) -> render_download(job_id, only='mp4') when done. If eta says the GPU "
-            "is lent out, tell the user the wait instead of polling.")
-    return " ".join([head, _WHEN, _DONT, _FIRST, local, flow, _limits(), _SCRIPTS, _MORE])
+        flow = ("FLOW: render_preview (image in seconds + critic verdict with fix code; fix and preview again) -> ask the user "
+                "-> render_estimate when the job is long or the quota is uncertain -> render_final -> render_download(job_id, "
+                "wait_seconds=45) until the links come back; tell the user eta.human, and if the GPU is lent out tell them the "
+                "wait, do not poll.")
+        return " ".join([head, _WHEN, _DONT, _FIRST, flow, _presets(flavor), _limits(), _SCRIPTS, _MORE])
+    head = ("JANCTION Render: Blender rendering on cloud GPUs for AI agents, from the terminal (no local GPU or Blender; a key "
+            "is made on first use).")
+    local = "LOCAL FILES: scene_path (a .blend, .py or 3D file); results in ~/janction-render/<job_id>."
+    flow = ("FLOW: render_preview (image saved and shown + critic verdict with fix code; fix and preview again) -> ask the user "
+            "-> render_estimate for long jobs or an uncertain quota -> render_final -> render_status (eta.human to the user) "
+            "-> render_download(job_id, only='mp4'); if the GPU is lent out tell the user the wait, do not poll.")
+    return " ".join([head, _WHEN, _DONT, _FIRST, local, flow, _presets(flavor), _limits(), _SCRIPTS, _MORE])
 
 
 # ------------------------------------------------------------------ 道具の説明
@@ -127,18 +161,19 @@ def descriptions(flavor: str, wait_cap_s: int = 50) -> dict[str, str]:
         "slow on my laptop', 'Blenderでレンダリングして', 'GPUがない', 'ターンテーブル', '商品の360度動画'. Also use it after writing a "
         "bpy script, to see what it builds. Each preview returns a critic verdict (ok / check / fix) with fix code: apply the "
         "fixes and preview again before any final render. It also returns final_estimate (the same scene as a 1080p final) and "
-        "quota_left_today; tell the user both before asking to go on. " + _NOT_HERE + " This service is for CPU-only "
+        "quota_left_today; tell the user both before asking to go on. A script that raises comes back as a failure with the "
+        "line (nothing is rendered). " + _NOT_HERE + " This service is for CPU-only "
         "machines, animations, and scripts with no Blender installed. Limits: up to 1280x720; 1-4 frames tiled in one labeled "
-        "image for the GPU time of one 720p frame. Options are explained on each parameter: environment presets and "
-        f"'compare', orbit (turntable), cameras (several named cameras), engine, transparent, {a} with 'polyhaven:<id>' CC0 "
-        "assets. "
+        "image for the GPU time of one 720p frame. preset='product' | 'turntable' | 'animation' sets camera, light, backdrop and "
+        "frames for that purpose. Other options are explained on each parameter: environment presets and 'compare', orbit "
+        f"(turntable), cameras (several named cameras), engine, transparent, {a} with 'polyhaven:<id>' CC0 assets. "
         + ("Give the scene as scene_script (bpy code as text), scene_url (an https link to a .blend, .py or 3D file) or "
            "scene_id; reuse the returned scene_id in render_final." if remote else
            "Give the scene as scene_path (a local .blend, .py or 3D file), scene_script, scene_url or scene_id; the image is "
            "saved locally and shown."))
     final = (
         "Render the final frames or video of a Blender scene on cloud GPUs, after the user approved a preview: 'render the "
-        "final', 'make the video', 'export the turntable MP4', 'product shots from these cameras'. Call render_estimate first "
+        "final', 'make the video', 'export the turntable MP4'. Call render_estimate first "
         f"when the time or {_free_left()} is uncertain, the job is longer than about 24 frames or above 720p, or the user "
         "asks how long it takes, and tell the user. Long jobs are rendered in chunks and joined into one video. "
         + ("Returns job_id and estimate.human at once (short jobs return the links directly); then call "
@@ -148,9 +183,9 @@ def descriptions(flavor: str, wait_cap_s: int = 50) -> dict[str, str]:
         + _NOT_HERE + " Use the same environment and blender as the approved preview. "
         f"Limits: up to {FREE_MAX_FRAMES} frames and {FREE_MAX_SIZE} per job; {_free_offer()}; ask the user before a render "
         "that the free time does not cover; files are "
-        f"deleted {RETENTION_HOURS} hours after last use. Options are explained on "
-        "each parameter: output (png, exr, mp4, webm, prores, gif, webp), orbit=True for a turntable MP4, cameras for one "
-        f"image per named camera, transparent, engine='eevee', notify_url for one POST when the job finishes, {a} with "
+        f"deleted {RETENTION_HOURS} hours after last use. preset='product' | 'turntable' | 'animation' fills the settings for "
+        "that purpose. Options on each parameter: output (png, exr, mp4, webm, prores, gif, webp), orbit=True (turntable MP4), "
+        f"cameras (one image per named camera), transparent, engine='eevee', notify_url (one POST when done), {a} with "
         "'polyhaven:<id>'. "
         + ("Pass scene_id from render_preview, or scene_script / scene_url for a new scene." if remote else
            "Pass scene_id from render_preview, or scene_path / scene_script / scene_url; files are saved locally."))
@@ -185,13 +220,17 @@ def descriptions(flavor: str, wait_cap_s: int = 50) -> dict[str, str]:
             "'frames', 'sheet' or 'output'. wait_seconds > 0 first waits that long for the job to finish.")
     assets = (
         "Find free CC0 3D models, PBR textures or HDRIs on Poly Haven by words ('wooden chair', 'forest hdri') to furnish a "
-        f"scene without uploading files; no GPU time. Each result has a spec 'polyhaven:<id>' to pass in {a}, its size in "
+        f"scene without uploading files; no GPU time. {product_recipe(flavor)} Each result has a spec 'polyhaven:<id>' to pass in {a}, its size in "
         "metres and the entry file. In the scene script: import jr_assets, then jr_assets.import_model('<id>', location=(x, y, "
         "z), scale=1.0) returns the objects, jr_assets.material('<id>') builds a material and jr_assets.apply(obj, mat) assigns "
         "it, jr_assets.world_hdri('<id>', strength=1.0) lights the world. 'polyhaven:<id>@2k' fetches 2k textures (1k by "
         "default).")
+    billing = (
+        "Check what this key can still render for free and its credit (no GPU time): the free GPU time left and when it "
+        f"expires or resets ({_free_offer()}), the balance in yen, the price per GPU-second, any pending checkout link, and "
+        "card_offer / autocharge_offer when they apply. Relay tell_user to the user in their language when it is present.")
     return {"render_preview": preview, "render_final": final, "scene_info": scene_info, "render_estimate": estimate,
-            "render_status": status, "render_download": download, "asset_search": assets,
+            "render_status": status, "render_download": download, "asset_search": assets, "billing": billing,
             "render_review": review_description(flavor)}
 
 
@@ -246,6 +285,7 @@ def param_docs(flavor: str, wait_cap_s: int = 50) -> dict[str, str]:
         "environment_visible": "False hides the HDRI from the camera (flat grey backdrop, HDRI lighting only).",
         "orbit": "True: turntable; an orbit camera circles the scene once (the scene's own camera is not used). Flat floors and walls are ignored when framing. A preview without frames shows 0/90/180/270 degrees; a final without frame_end renders the whole turn as an MP4. Best for imported models and product videos.",
         "orbit_frames": "Number of frames for one full turn (default 24).",
+        "preset": "Purpose preset: 'product' (4 studio shots at 0/90/180/270 deg on a plain backdrop; the final gives 4 PNGs at 1440x1440), 'turntable' (one full turn as an MP4, studio light, plain backdrop), 'animation' (the scene's own camera, lights and frame range; the scene is read first when the range is unknown), or '' (none). It fills what you do not pass; environment, orbit_frames, width/height and the frames still win when given.",
         "orbit_elevation": "Orbit camera elevation in degrees (default 18).",
         "orbit_target": "Object name or 'x,y,z' to centre the orbit on (default: the scene's main objects).",
         "orbit_distance": "Multiplier for the orbit camera distance (default 1.0).",
