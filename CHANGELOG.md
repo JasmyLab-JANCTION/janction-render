@@ -2,6 +2,20 @@
 
 The live, per-version list is at https://render.janction.jp/changelog (Atom: https://render.janction.jp/changelog.xml). Versions are the PyPI releases of `janction-render`; the hosted service follows the same numbers.
 
+## 0.4.96 (2026-10-14)
+
+Receptionist.
+
+- **Finished videos are read back where ffprobe is missing.** The check added in 0.4.95 now counts the frames and reads the codec and frame rate with ffmpeg alone. In 0.4.95 a host without ffprobe marked correct MP4 finals as failed (not charged).
+
+## 0.4.95 (2026-10-14)
+
+Receptionist and client.
+
+- **Videos are checked before they are called done.** Frame count, frame rate and codec are read back from the finished file, also GIFs, and also where ffprobe is missing (ffmpeg counts the frames). A file that does not match is a failure on our side and is not charged.
+- **/start shows the preflight.** After the scene is read, the page says whether it can render as a final with these settings, and what to check first (the same answer as `POST /v1/scenes/{id}/preflight` and `scene_info`).
+- **Dependencies in one shape.** The preflight lists the assets that were sent, the images packed into the .blend and the files that are missing, each with what to do. The CLI says when it could not look for textures next to a .blend (install `janction-render[blend]`, or pack them).
+
 ## 0.4.94 (2026-10-14)
 
 Receptionist, GPU worker, CLI / local MCP server and Blender add-on 0.1.8 (docs/67 §14).

@@ -455,6 +455,12 @@ class Client:
         missing: list[str] = []
         if p.suffix.lower() == ".blend" and trace_assets:
             items, missing = trace_blend_assets(p)
+            try:
+                import blender_asset_tracer  # type: ignore  # noqa: F401
+            except Exception:  # noqa: BLE001
+                # 素材を集める部品が無いと、.blend の横のテクスチャを黙って送らなかった（10/14、要件 AS-03）
+                out["asset_note"] = ("textures next to the .blend were not looked for: pip install 'janction-render[blend]' to "
+                                     "send them automatically, or pack them into the .blend (File > External Data > Pack Resources)")
         elif companion_kind(p.name) in ("gltf", "obj") and trace_assets:
             # glTF の .bin と画像、OBJ の .mtl とその画像を、ファイルの横から集める
             base = p.parent
