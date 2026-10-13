@@ -96,7 +96,7 @@ def blend_to_mp4_text(scene: str, frames: str, resolution: str, remote: bool) ->
     span = f"frames {fr}" if fr else "the scene's own frame range"
     return (f"Render this Blender animation to an MP4 with JANCTION Render: {scene.strip()}. " + _scene_hint(remote)
             + f"Use {span} at {res}. Start with scene_info (frame range, cameras, missing files), then render_preview with "
-            "four frames spread over the range (frames='1-N' tiles them in one image). One instruction takes up to 1,000 frames "
+            "four frames spread over the range (frames='1-N' tiles them in one image). One instruction takes up to 3,000 frames "
             "(the service runs them as parts of 240 under one job id; 1080p on free time, 4K on prepaid credit): tell me the plan. " + _CONFIRM)
 
 
@@ -151,7 +151,7 @@ def register(mcp: Any, remote: bool = False) -> list[str]:
 
     @mcp.prompt(name="blend_to_mp4", title="Render a Blender animation to MP4",
                 description="An animated .blend to MP4 on cloud GPUs: reads the scene, previews four frames, plans the render "
-                            "(up to 1,000 frames per instruction, run as parts of 240), then renders after you confirm.")
+                            "(up to 3,000 frames per instruction, run as parts of 240), then renders after you confirm.")
     def blend_to_mp4(scene: Annotated[str, Field(description=_SCENE)],
                      frames: Annotated[str, Field(description="Frame range such as 1-120 (empty: the scene's own range)")] = "",
                      resolution: Annotated[str, Field(description="WIDTHxHEIGHT, up to 1920x1080 (default 1920x1080)")] = "1920x1080") -> str:

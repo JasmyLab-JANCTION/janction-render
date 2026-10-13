@@ -30,6 +30,7 @@ FREE_GPU_MINUTES_PER_KEY_PER_DAY = 10
 FREE_MAX_FRAMES = 240
 FREE_MAX_SIZE = "1920x1080"
 RETENTION_HOURS = 24
+PAID_RETENTION_DAYS = 7       # 一度でもチャージした鍵（core.paid_ttl_seconds の既定 168 時間）
 YEN_PER_GPU_SECOND = 0.1      # 無料枠を超えた分の単価（10/8 から有料。billing.yen_per_gpu_second の既定値）
 # ようこそクレジット（docs/46、JR_FREE_MODEL=welcome）。billing の既定値と同じ（tests/test_tooldocs.py が突き合わせる）
 WELCOME_YEN = 500                 # network の形: 新しい鍵に 500 円分
@@ -98,13 +99,13 @@ def _free_offer(short: bool = False) -> str:
             "GPU-second (prepaid)")
 
 
-MAX_FRAMES_PER_INSTRUCTION = 1000      # billing.max_frames_per_instruction の既定値（240 ずつの部分に分けて 1 つの仕事 ID で）
+MAX_FRAMES_PER_INSTRUCTION = 3000      # billing.max_frames_per_instruction の既定値（240 ずつの部分に分けて 1 つの仕事 ID で）
 PAID_MAX_SIZE = "3840x2160"            # 先払いのクレジットでの上限（無料の時間は 1080p まで）
 
 
 def _limits() -> str:
-    return (f"LIMITS: {_free_offer(short=True)}; up to {MAX_FRAMES_PER_INSTRUCTION:,} frames per instruction (parts of {FREE_MAX_FRAMES}), "
-            f"{FREE_MAX_SIZE} free / {PAID_MAX_SIZE} prepaid; kept {RETENTION_HOURS} h.")
+    return (f"LIMITS: {_free_offer(short=True)}; up to {MAX_FRAMES_PER_INSTRUCTION:,} frames per call (parts of {FREE_MAX_FRAMES}), "
+            f"{FREE_MAX_SIZE} free / {PAID_MAX_SIZE} prepaid; kept {RETENTION_HOURS} h ({PAID_RETENTION_DAYS} d if topped up).")
 
 
 def _presets(flavor: str) -> str:
@@ -129,7 +130,7 @@ def _free_left() -> str:
                 "after it)")
     return "today's free quota"
 _SCRIPTS = ("SCRIPTS: Blender 5.0 bpy; build only the scene, camera and frame range (the service sets resolution and samples); "
-            "`import jr_assets; jr_assets.frame_camera()` fits every object; a script that raises fails the job (nothing rendered).")
+            "`import jr_assets; jr_assets.frame_camera()` fits every object; a script that raises renders nothing.")
 _MORE = f"Examples and docs: {SITE}/examples, {SITE}/llms.txt"
 
 
@@ -185,12 +186,12 @@ def descriptions(flavor: str, wait_cap_s: int = 50) -> dict[str, str]:
            "Returns job_id and estimate.human at once; then render_status until done, and render_download(job_id, only='mp4') "
            "for the video. ")
         + _NOT_HERE + " Use the same environment and blender as the approved preview. "
-        f"Limits: up to {FREE_MAX_FRAMES} frames and {FREE_MAX_SIZE} per job; {_free_offer()}; ask the user before a render "
-        "that the free time does not cover; files are "
-        f"deleted {RETENTION_HOURS} hours after last use. preset='product' | 'turntable' | 'animation' fills the settings for "
-        "that purpose. Options on each parameter: output (png, exr, mp4, webm, prores, gif, webp), orbit=True (turntable MP4), "
-        f"cameras (one image per named camera), transparent, engine='eevee', notify_url (one POST when done), {a} with "
-        "'polyhaven:<id>'. "
+        # 10/13: ここが「240 コマ・1080p まで」のままで、AI が長いアニメや 4K を断っていた（受付は 3,000 コマ・先払いは 4K）
+        f"Limits: up to {MAX_FRAMES_PER_INSTRUCTION:,} frames per call (over {FREE_MAX_FRAMES} runs as parts under one job id); "
+        f"{FREE_MAX_SIZE} on free time, {PAID_MAX_SIZE} with prepaid credit; {_free_offer()}; ask before a render the "
+        f"free time does not cover; files are deleted {RETENTION_HOURS} h after last use ({PAID_RETENTION_DAYS} days once topped "
+        "up). preset='product' | 'turntable' | 'animation' fills the settings for that purpose. Options per parameter: "
+        f"output (png, exr, mp4, webm, prores, gif, webp), orbit, cameras, transparent, engine, notify_url, {a} ('polyhaven:<id>'). "
         + ("Pass scene_id from render_preview, or scene_script / scene_url for a new scene." if remote else
            "Pass scene_id from render_preview, or scene_path / scene_script / scene_url; files are saved locally."))
     scene_info = (
@@ -212,7 +213,8 @@ def descriptions(flavor: str, wait_cap_s: int = 50) -> dict[str, str]:
            "call render_download once status is done."))
     if remote:
         download = (
-            "Get the download links of a job (no key needed, valid about 24 hours) and show them to the user; in a terminal, "
+            "Get the download links of a job (no key needed, valid about 24 hours; call again for fresh links while the files are "
+            f"kept, {RETENTION_HOURS} h after last use or {PAID_RETENTION_DAYS} days for keys that have topped up) and show them to the user; in a terminal, "
             "fetch them with curl -o. A finished preview also comes back as an inline image. wait_seconds > 0 first waits for "
             f"the job (the service waits at most {wait_cap_s} s per call; call again while it is still running). only picks "
             "the files: 'output' (default: the MP4 or the preview sheet, plus the first frames), 'mp4', 'sheet', 'frames' or "

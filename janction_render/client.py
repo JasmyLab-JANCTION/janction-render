@@ -28,6 +28,8 @@ ARCHIVE_MIN_FILES = 8   # これ以上の数のファイルは zip で 1 回で�
 # 届かず HTML の 413 になるので、送る前に断ってリンク（scene_url / asset_urls）で渡すよう言う。素材は 100 MB ずつに分けて送る
 # （10/12）。手元や自前の受付には掛けない。JANCTION_RENDER_MAX_UPLOAD_MB で変えられる（0 で見ない）
 EDGE_UPLOAD_MB = 100
+# この大きさを超えるシーンは分けて送る（10/13）。Cloudflare の 100 MB が 10^8 バイトなら 95.4 MiB から先は 1 回では通らない
+RESUMABLE_ABOVE = 64 * 1024 * 1024
 
 
 def select_artifacts(artifacts: list[dict[str, Any]], only: Optional[str] = None) -> list[dict[str, Any]]:
@@ -428,13 +430,18 @@ class Client:
             out = None
         if out is None:
             cap = self.upload_cap_bytes()
-            if cap and p.stat().st_size > cap:
-                raise self._too_large(f"the scene file {p.name}", p.stat().st_size, cap, "scene_url")
-            with p.open("rb") as fh:
-                r = self.s.post(f"{self.server}/v1/files", headers=self._headers(),
-                                files={"file": (p.name, fh, "application/octet-stream")}, timeout=1800)
-            self._raise(r)
-            out = r.json()
+            if cap and p.stat().st_size > min(cap, RESUMABLE_ABOVE):
+                # 1 回で送れる大きさ（Cloudflare の 100 MB）に近い・超える: 分けて送る（/v1/uploads、10/13）。受付が古ければ前のとおり断る
+                done = self.upload_resumable(p, digest)
+                if done is None:
+                    raise self._too_large(f"the scene file {p.name}", p.stat().st_size, cap, "scene_url")
+                out = done.get("scene") or done
+            else:
+                with p.open("rb") as fh:
+                    r = self.s.post(f"{self.server}/v1/files", headers=self._headers(),
+                                    files={"file": (p.name, fh, "application/octet-stream")}, timeout=1800)
+                self._raise(r)
+                out = r.json()
         items: list[tuple[str, Path]] = []
         missing: list[str] = []
         if p.suffix.lower() == ".blend" and trace_assets:
@@ -484,6 +491,113 @@ class Client:
             out = self.upload_assets(out["scene_id"], todo)
         out["missing_assets"] = missing
         return out
+
+    # ---- 分けて送る（10/13、docs/67。最大 5 GiB の .blend）----------------------------------------
+
+    _RESUME_FILE = Path.home() / ".janction-render-uploads.json"
+
+    def _resume_get(self, ident: str) -> Optional[str]:
+        try:
+            return json.loads(self._RESUME_FILE.read_text(encoding="utf-8")).get(ident)
+        except (OSError, ValueError, AttributeError):
+            return None
+
+    def _resume_set(self, ident: str, url: Optional[str]) -> None:
+        try:
+            data = json.loads(self._RESUME_FILE.read_text(encoding="utf-8")) if self._RESUME_FILE.exists() else {}
+            if not isinstance(data, dict):
+                data = {}
+        except (OSError, ValueError):
+            data = {}
+        if url:
+            data[ident] = url
+        else:
+            data.pop(ident, None)
+        try:
+            self._RESUME_FILE.write_text(json.dumps(data), encoding="utf-8")
+        except OSError:
+            pass
+
+    def upload_resumable(self, path: str | Path, digest: str = "",
+                         progress: Optional[Callable[[int, int], None]] = None, part_bytes: int = 0) -> Optional[dict[str, Any]]:
+        """100 MB を超えるファイルを部分に分けて送る（POST /v1/uploads → PATCH、tus 1.0）。返り値は受付の状態（scene_id・scene）。
+        通信が切れたら位置を聞き直して続きから送る。途中で止めても、同じコマンドをもう一度打てば続きから（~/.janction-render-uploads.json）。
+        受付が分けて送る道を持っていなければ None。"""
+        import base64
+
+        p = Path(path)
+        size = p.stat().st_size
+        digest = digest or sha256_of(p)
+        ident = f"{self.server}|{digest}|{size}"
+        tus = {"Tus-Resumable": "1.0.0"}
+        url, off = self._resume_get(ident), 0
+        if url:
+            try:
+                h = self.s.head(url, headers={**self._headers(), **tus}, timeout=30)
+                if h.status_code == 200 and int(h.headers.get("Upload-Length") or -1) == size:
+                    off = int(h.headers.get("Upload-Offset") or 0)
+                else:
+                    url = None
+            except (ClientError, ValueError):
+                url = None
+        part = part_bytes
+        if not url:
+            meta = (f"filename {base64.b64encode(p.name.encode('utf-8')).decode()},"
+                    f"sha256 {base64.b64encode(digest.encode()).decode()}")
+            r = self.s.post(f"{self.server}/v1/uploads", timeout=60,
+                            headers={**self._headers(), **tus, "Upload-Length": str(size), "Upload-Metadata": meta})
+            if r.status_code in (404, 405):
+                return None
+            self._raise(r)
+            url = f"{self.server}{r.headers['Location']}"
+            part = part or int(r.json().get("part_bytes") or 0)
+            self._resume_set(ident, url)
+        part = part or 32 * 1024 * 1024
+        tries = 0
+        if progress:
+            progress(off, size)
+        with p.open("rb") as fh:
+            while True:
+                fh.seek(off)
+                data = fh.read(part)
+                try:
+                    r = self.s.patch(url, data=data, timeout=600, headers={
+                        **self._headers(), **tus, "Upload-Offset": str(off), "Content-Type": "application/offset+octet-stream"})
+                except ClientError:
+                    r = None                       # つながらない・切れた: 待って位置を聞き直す
+                if r is not None and r.status_code == 200:
+                    self._resume_set(ident, None)
+                    if progress:
+                        progress(size, size)
+                    return r.json()
+                if r is not None and r.status_code == 204:
+                    off, tries = int(r.headers.get("Upload-Offset") or off), 0
+                    if progress:
+                        progress(off, size)
+                    continue
+                if r is not None and r.status_code == 409 and r.headers.get("Upload-Offset") is not None:
+                    off = int(r.headers["Upload-Offset"])
+                    continue
+                if r is not None and r.status_code < 500 and r.status_code not in (408, 409, 429) or                         r is not None and r.status_code == 507:
+                    if r.status_code == 404:
+                        self._resume_set(ident, None)
+                    self._raise(r)
+                tries += 1
+                if tries > 8:
+                    raise ClientError(0, "upload_interrupted",
+                                      f"the upload of {p.name} kept failing at {off} of {size} bytes; run the same command again "
+                                      "to continue from there", extra={"retryable": True, "offset": off})
+                time.sleep(min(30.0, 2.0 ** tries))
+                try:
+                    h = self.s.head(url, headers={**self._headers(), **tus}, timeout=30)
+                    if h.status_code == 200:
+                        off = int(h.headers.get("Upload-Offset") or off)
+                    elif h.status_code == 404:
+                        self._resume_set(ident, None)
+                        self._raise(h)
+                except ClientError as exc:
+                    if exc.status:
+                        raise
 
     def upload_cap_bytes(self) -> int:
         """1 回の送信の上限（バイト）。0 は見ない（手元・自前の受付）。"""

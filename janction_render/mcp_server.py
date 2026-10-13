@@ -658,7 +658,13 @@ def render_final(
                       camera=camera or None, transparent=(True if transparent else None), notify_url=notify_url or None,
                       max_yen=(max_yen if max_yen >= 0 else None), idempotency_key=idempotency_key or None,
                       **_job_params(environment, environment_strength, environment_visible, blender, engine=engine), **extra)
-        j = c.submit(sid, kind="final", **_with_preset(params, preset, "final"))
+        params = _with_preset(params, preset, "final")
+        if not params.get("idempotency_key"):
+            # 時間切れのあとの呼び直しで 2 本描かない（10/13、mcp_common.auto_idempotency_key）
+            params["idempotency_key"] = mcp_common.auto_idempotency_key(
+                "render_final", {"scene_id": scene_id, "scene_path": mcp_common.file_stamp(scene_path), "scene_url": scene_url,
+                                 "scene_script": mcp_common.digest(scene_script), "assets": assets, **params})
+        j = c.submit(sid, kind="final", **params)
     except ClientError as exc:
         block = _payment_block(exc) or _quota_block(exc)
         return _j(block if block else _fail(exc))

@@ -2,6 +2,43 @@
 
 The live, per-version list is at https://render.janction.jp/changelog (Atom: https://render.janction.jp/changelog.xml). Versions are the PyPI releases of `janction-render`; the hosted service follows the same numbers.
 
+## 0.4.87 (2026-10-13)
+
+Receptionist only.
+
+- **Large-scene test (docs/67 P2).** While `JR_UPLOADS=test`, the keys in `JR_UPLOADS_KEYS` get the card / prepaid tier (`.blend` up to `JR_RESUMABLE_MAX_MB`, 5 GiB) and a daily total of `JR_UPLOADS_TEST_MB_PER_DAY` (50 GiB), so the 1 / 3 / 5 GB scenes and their retries can be sent with the operator key. Other keys and the limits for users do not change; `JR_UPLOADS=on` or `off` ends it.
+
+## 0.4.86 (2026-10-13)
+
+Receptionist; no worker change.
+
+- **3,000 frames per instruction.** One final can now be up to 3,000 frames (about two minutes at 24 fps; a one-minute animation is 1,440 frames), still rendered as parts of 240 under one job id and joined into one video. The whole job's price is held before it starts, so a final that the credit does not cover does not begin. `JR_MAX_FRAMES_PER_INSTRUCTION` sets it.
+- **Resent render_final with a script or link.** The automatic idempotency key of the MCP `render_final` is made from the arguments the agent sent, so a resend with the same `scene_script` or `scene_url` returns the first job too (0.4.85 keyed it on the uploaded scene, which is new on every call, and rendered twice).
+
+## 0.4.85 (2026-10-13)
+
+Receptionist; no worker change.
+
+- **Finals over 240 frames from Claude.ai and ChatGPT.** The remote MCP `render_final` now runs long finals as parts under one job id, like `POST /v1/jobs` (it refused anything over 240 frames). When every part is done, the parts' videos are joined into one file (`output`), and the progress page works for the whole job.
+- **Limits stated as they are.** Tool descriptions, `/facts.json` (`final_render_limits`) and estimates say up to 1,000 frames per call, 1920x1080 on free time and 3840x2160 with prepaid credit. A key that has topped up gets 4K even while its free time covers the job.
+- **Retention stated as it is.** Files are kept 24 hours after last use, 7 days for keys that have topped up; download links last 24 hours and asking again gives fresh ones while the files are kept.
+- **Not charged for our retries.** When an attempt fails and is retried (a busy shared GPU, a version switch) and the job then succeeds, only the successful attempt is charged. A worker that could not hand back its result, or a busy shared GPU, counts as our failure.
+- **No double renders on resend.** The MCP `render_final` (remote and local) makes an idempotency key from its arguments when none is given, so the same call repeated within two minutes (an agent retrying after a timeout) returns the first job. Pass a new `idempotency_key` to render twice on purpose. The HTTP API is unchanged.
+- **Split finals report honestly.** A failed part no longer marks the whole job failed while other parts are still rendering; parts not yet queued resume after a restart.
+- **Stuck finishing.** A job whose frames were all rendered but whose video assembly was interrupted by a restart is finished by the sweeper.
+- **Larger scripts over MCP.** The remote MCP endpoint takes requests up to 3 MB, so a `scene_script` up to the 2 MB script limit goes through; anything larger gets a JSON-RPC error that points to /upload.
+- **/upload scripts.** A script someone put on /upload that is not a render script is refused with the reason; it no longer counts against the AI app's key.
+
+## 0.4.84 (2026-10-13)
+
+Receptionist, GPU worker, CLI / local MCP server and Blender add-on 0.1.6 (docs/67). The new paths for large scenes are behind switches that are off by default.
+
+- **Resumable uploads (off until `JR_UPLOADS=on`).** `POST /v1/uploads` takes a file in parts (tus 1.0: `HEAD` for the offset, `PATCH` parts of up to 96 MB, under Cloudflare's 100 MB per request) and resumes after a dropped connection, a closed browser tab or a receptionist swap; the same file picked again (same name, size and sha256 or browser timestamp) continues where it stopped. `.blend` files up to 5 GiB for keys with a registered card or prepaid credit, 1 GiB otherwise; one upload at a time per key; daily totals stay 5 GB for keys without a card, 10 GiB with one, 1 GiB per network without a key. `JR_UPLOADS=test` opens it only to the keys in `JR_UPLOADS_KEYS`. While it is off, `/upload` and `/start` stay as they were and the clients fall back to single uploads.
+- **Clients.** The CLI, the local MCP server and the Blender add-on 0.1.6 send scenes over 64 MiB in parts when the service offers it, and continue an interrupted upload when run again.
+- **GPU worker (off until set).** `JR_INPUT_CACHE=auto` keeps a scene of 256 MB or more on the machine between frame chunks; `JR_SCENE_MOUNT=1` shows it to the render container read-only instead of copying it in; `JR_MAX_SCENE_MB` makes a worker skip larger scenes. Always on: the scene goes into the container from a file instead of memory, chunk timeouts add `JR_LOAD_S_PER_GB` seconds per GB above 256 MB, and the worker reports the copy and load seconds.
+- **Fixes.** The `.blend` check reads the first bytes instead of the whole file (the receptionist has 2 GB of memory); a `/upload` link adopted by a key is hard-linked instead of copied; multipart temp files go to the data disk instead of the 256 MB in-memory `/tmp`; the 1 MB body cap applies again to the JSON routes under `/v1/files`; a local path as `scene_url` points to `/upload`; a batch retry that lands while the batch is finishing is no longer lost.
+- **MCP.** The instructions tell the agent to send the user to `/upload` for a local file. `upload_link` / `upload_status` stay hidden until `JR_UPLOAD_TOOLS=1`.
+
 ## 0.4.83 (2026-10-13)
 
 Local MCP server (stdio) tool descriptions; receptionist unchanged apart from the version.

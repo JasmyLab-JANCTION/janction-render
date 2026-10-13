@@ -39,7 +39,7 @@ Clients that speak Streamable HTTP with OAuth (Claude.ai, ChatGPT, Codex, Cursor
 
 ## What the tools do
 
-`render_preview` (an image in seconds plus a critic verdict), `render_estimate`, `render_final` (frames or MP4, up to 1,000 frames per instruction run as parts of 240 under one job id; 1080p on free time, 4K on prepaid credit), `render_status`, `render_download`, `scene_info`, `asset_search` (CC0 models, textures and HDRIs from Poly Haven), `billing`, `render_share`. `preset='product' | 'turntable' | 'animation'` fills the camera, light, backdrop, frames and output for that purpose.
+`render_preview` (an image in seconds plus a critic verdict), `render_estimate`, `render_final` (frames or MP4, up to 3,000 frames per instruction run as parts of 240 under one job id; 1080p on free time, 4K on prepaid credit), `render_status`, `render_download`, `scene_info`, `asset_search` (CC0 models, textures and HDRIs from Poly Haven), `billing`, `render_share`. `preset='product' | 'turntable' | 'animation'` fills the camera, light, backdrop, frames and output for that purpose.
 
 Scenes are a `.blend`, a bpy script (Blender 5.0 API) or a 3D file (glTF/GLB, FBX, USD, OBJ, STL, PLY, Alembic). Files are deleted 24 hours after last use and never used for training.
 

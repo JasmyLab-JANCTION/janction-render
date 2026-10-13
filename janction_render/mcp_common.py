@@ -8,6 +8,7 @@
 受付の server/jobs.py もプリセットの名前はここから取る。"""
 from __future__ import annotations
 
+import os
 from typing import Any, Optional
 
 PURPOSE_PRESETS = ("product", "turntable", "animation")
@@ -89,8 +90,10 @@ def estimate_next(est: dict[str, Any]) -> str:
     q = est.get("quota") or {}
     cost = est.get("cost") or {}
     if q and q.get("fits_size") is False:
-        return (f"too big for one job: at most {q.get('max_frames_per_job')} frames per job part (1920x1080 on free time, 3840x2160 "
-                "on prepaid credit); the service splits longer instructions into parts under one job id, or lower the size")
+        most = q.get("max_frames_per_instruction") or q.get("max_frames_per_job")
+        return (f"too big: at most {most} frames per render_final call (longer than {q.get('max_frames_per_job')} frames runs as "
+                "parts under one job id) and 1920x1080 on free time, 3840x2160 for keys with prepaid credit; split the frame range "
+                "into several calls or lower the size")
     if q and not q.get("fits_today", True) and q.get("mode") == "free_allowance":
         # 有料モード: 無料枠を超えた分は残高から（10/8）。額と残高を言ってから
         return (f"this goes past the free GPU time left: about {cost.get('estimated_yen')} JPY would be charged from credit "
@@ -223,3 +226,34 @@ def docs(flavor: str) -> dict[str, str]:
     f = "remote" if flavor == "remote" else "stdio"
     return {"ENV_DOC": _ENV_DOC[f] + _POLYHAVEN_DOC[f], "POLYHAVEN_DOC": _POLYHAVEN_DOC[f], "ORBIT_DOC": _ORBIT_DOC,
             "CAMERAS_DOC": _CAMERAS_DOC, "OUTPUT_DOC": _OUTPUT_DOC[f], "TRANSPARENT_DOC": _TRANSPARENT_DOC, "ENGINE_DOC": _ENGINE_DOC}
+
+
+def auto_idempotency_key(tool: str, body: dict[str, Any], now: Optional[float] = None, window_s: int = 120) -> str:
+    """render_final にキーが無いときの自動の Idempotency-Key（10/13）。MCP の呼び出しが時間切れになって AI が同じ
+    render_final を呼び直すと、同じ仕事が 2 本描かれて 2 回引かれていた。同じ中身・同じ 2 分の枠なら同じキーになり、
+    受付は最初の仕事を返す。中身が 1 つでも違えば別のキー（＝別の仕事）。"""
+    import hashlib
+    import json as _json
+    import time as _time
+
+    t = _time.time() if now is None else now
+    blob = _json.dumps({"tool": tool, "body": body}, sort_keys=True, separators=(",", ":"), default=str)
+    return f"auto:{int(t // window_s)}:" + hashlib.sha256(blob.encode()).hexdigest()[:32]
+
+
+def digest(text: str) -> str:
+    """長い引数（scene_script）をキーに入れるための短い要約。"""
+    import hashlib
+
+    return hashlib.sha256((text or "").encode("utf-8", "replace")).hexdigest()[:24] if text else ""
+
+
+def file_stamp(path: str) -> str:
+    """手元のファイルの「同じもの」の目印（パス・大きさ・更新時刻）。中身を読まずに済ませる。"""
+    if not path:
+        return ""
+    try:
+        st = os.stat(os.path.expanduser(path))
+        return f"{os.path.abspath(os.path.expanduser(path))}:{st.st_size}:{int(st.st_mtime)}"
+    except OSError:
+        return path

@@ -5,9 +5,11 @@ API as ``janction_render/client.py`` in the main repository with the standard
 library alone. The ``urlopen`` callable is injectable so tests can fake the
 network. Python 3.11 compatible; no Blender imports here.
 """
+import base64
 import hashlib
 import json
 import socket
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -15,7 +17,7 @@ import uuid
 from pathlib import Path
 from typing import Any, Callable, Iterable, Optional, Sequence
 
-VERSION = "0.1.5"
+VERSION = "0.1.6"
 USER_AGENT = f"janction-render-blender/{VERSION}"
 CLIENT_NAME = f"blender {VERSION}"
 DEFAULT_SERVER = "https://render.janction.jp"
@@ -29,8 +31,13 @@ ASSET_BATCH_BYTES = 256 * 1024 * 1024
 # textures go in parts under the limit (2026-10-12). A self-hosted server has no such limit.
 EDGE_UPLOAD_BYTES = 100 * 1024 * 1024
 MULTIPART_ROOM = 1024 * 1024
+# Scenes above this go in parts (2026-10-13): the edge's 100 MB may be 10^8 bytes, so one request stops short of 100 MiB.
+RESUMABLE_ABOVE = 64 * 1024 * 1024
 
 Asset = tuple[str, str]   # (relative name as the scene references it, absolute path on disk)
+
+# Uploads in parts that have not finished, by (server, sha256, size): pressing Render again continues them.
+_RESUME: dict[tuple[str, str, int], str] = {}
 
 
 class JRError(Exception):
@@ -312,15 +319,14 @@ class Client:
             scene = None
         if scene is None:
             cap = self.upload_cap()
-            if cap and p.stat().st_size > cap - MULTIPART_ROOM:
-                raise JRError("too_large",
-                              f"The file is {p.stat().st_size / 1048576:.0f} MB and one upload to {self.server} is limited to "
-                              f"{cap // 1048576} MB. Unpack packed textures (File > External Data > Unpack Resources) so they "
-                              "are sent separately, or make the scene lighter (fewer subdivisions, smaller caches)", status=413)
-            tell(f"Uploading {p.name} ({p.stat().st_size // 1024} KB)")
-            body = MultipartBody()
-            body.add_file("file", p.name, p)
-            scene = self._json("POST", "/v1/files", body=body, timeout=1800)
+            if cap and p.stat().st_size > min(cap - MULTIPART_ROOM, RESUMABLE_ABOVE):
+                # Over the edge's 100 MB per request: send it in parts (POST /v1/uploads, tus 1.0; up to 5 GB, 2026-10-13).
+                scene = self.upload_resumable(p, tell)
+            else:
+                tell(f"Uploading {p.name} ({p.stat().st_size // 1024} KB)")
+                body = MultipartBody()
+                body.add_file("file", p.name, p)
+                scene = self._json("POST", "/v1/files", body=body, timeout=1800)
         else:
             tell(f"{p.name} is already on the server")
         have = {str(a.get("name")): int(a.get("size") or -1) for a in scene.get("assets") or []}
@@ -344,6 +350,114 @@ class Client:
                 sent += [name for name, _ in batch]
         scene["assets_sent"] = sent
         return scene
+
+    # ---- large scenes in parts (POST /v1/uploads, tus 1.0) ----------------------
+
+    def _tus(self, method: str, url: str, extra: dict[str, str], data: Optional[bytes] = None,
+             timeout: float = 120.0) -> tuple[int, Any, bytes]:
+        """(status, headers, body) of one resumable-upload call. HTTP errors come back as a status; no answer is JRError."""
+        headers = {"User-Agent": USER_AGENT, "X-Client": CLIENT_NAME, "Accept": "application/json",
+                   "Tus-Resumable": "1.0.0", **extra}
+        if self.api_key:
+            headers["X-API-Key"] = self.api_key
+        req = urllib.request.Request(url if url.startswith("http") else self.server + url, data=data, method=method,
+                                     headers=headers)
+        try:
+            resp = self._urlopen(req, timeout=timeout)
+            try:
+                raw = resp.read() if method != "HEAD" else b""
+            finally:
+                close = getattr(resp, "close", None)
+                if close:
+                    close()
+            return int(getattr(resp, "status", 200) or 200), resp.headers, raw
+        except urllib.error.HTTPError as exc:
+            try:
+                raw = exc.read()
+            except Exception:  # noqa: BLE001
+                raw = b""
+            return int(exc.code), exc.headers, raw
+        except urllib.error.URLError as exc:
+            raise JRError("network", f"cannot reach {self._host()}: {exc.reason}") from None
+        except (socket.timeout, TimeoutError):
+            raise JRError("timeout", f"{self._host()} did not answer in time") from None
+        except OSError as exc:
+            raise JRError("network", f"cannot reach {self._host()}: {exc}") from None
+
+    def upload_resumable(self, p: Path, tell: Callable[[str], None], part_bytes: int = 0,
+                         sleep: Callable[[float], None] = time.sleep) -> dict[str, Any]:
+        """Send a scene over 100 MB in parts. A dropped connection is retried from where the server stopped
+        (HEAD); pressing Render again in the same Blender session continues the same upload. Returns the scene view."""
+        size = p.stat().st_size
+        digest = sha256_of(p)
+        ident = (self.server, digest, size)
+        url, off = _RESUME.get(ident), 0
+        if url:
+            try:
+                st, hd, _ = self._tus("HEAD", url, {}, timeout=30)
+                if st == 200 and int(hd.get("Upload-Length") or -1) == size:
+                    off = int(hd.get("Upload-Offset") or 0)
+                else:
+                    url = None
+            except JRError:
+                url = None
+        part = part_bytes
+        if not url:
+            meta = (f"filename {base64.b64encode(p.name.encode('utf-8')).decode()},"
+                    f"sha256 {base64.b64encode(digest.encode()).decode()}")
+            st, hd, raw = self._tus("POST", "/v1/uploads", {"Upload-Length": str(size), "Upload-Metadata": meta}, data=b"",
+                                    timeout=60)
+            if st in (404, 405):
+                raise JRError("too_large",
+                              f"The file is {size / 1048576:.0f} MB and this server takes one upload of at most "
+                              f"{EDGE_UPLOAD_BYTES // 1048576} MB. Unpack packed textures (File > External Data > Unpack Resources) "
+                              "so they are sent separately, or make the scene lighter", status=413)
+            if st != 201:
+                raise error_from_body(st, raw)
+            url = self.server + str(hd.get("Location"))
+            try:
+                part = part or int(json.loads(raw.decode("utf-8")).get("part_bytes") or 0)
+            except ValueError:
+                part = part or 0
+            _RESUME[ident] = url
+        part = part or 32 * 1024 * 1024
+        tries = 0
+        with p.open("rb") as fh:
+            while True:
+                tell(f"Uploading {p.name}: {100 * off // max(1, size)}% ({off // 1048576} of {size // 1048576} MB)")
+                fh.seek(off)
+                data = fh.read(part)
+                try:
+                    st, hd, raw = self._tus("PATCH", url, {"Upload-Offset": str(off),
+                                                           "Content-Type": "application/offset+octet-stream"},
+                                            data=data, timeout=600)
+                except JRError:
+                    st, hd, raw = 0, {}, b""
+                if st == 200:
+                    _RESUME.pop(ident, None)
+                    out = json.loads(raw.decode("utf-8"))
+                    return out.get("scene") or out
+                if st == 204:
+                    off, tries = int(hd.get("Upload-Offset") or off), 0
+                    continue
+                if st == 409 and hd.get("Upload-Offset") is not None:
+                    off = int(hd.get("Upload-Offset"))
+                    continue
+                if st and (st < 500 and st not in (408, 409, 429) or st == 507):
+                    if st == 404:
+                        _RESUME.pop(ident, None)
+                    raise error_from_body(st, raw)
+                tries += 1
+                if tries > 8:
+                    raise JRError("network", f"The upload of {p.name} kept failing at {off // 1048576} MB. "
+                                             "Press Render again to continue from there.")
+                sleep(min(30.0, 2.0 ** tries))
+                try:
+                    st, hd, _ = self._tus("HEAD", url, {}, timeout=30)
+                    if st == 200:
+                        off = int(hd.get("Upload-Offset") or off)
+                except JRError:
+                    pass
 
     def upload_cap(self) -> int:
         """Bytes one upload may carry: the edge limit for render.janction.jp, 0 (no check) elsewhere."""
