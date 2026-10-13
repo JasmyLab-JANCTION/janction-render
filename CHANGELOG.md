@@ -20,7 +20,6 @@ Receptionist only.
 - **`POST /v1/scenes/{id}/preflight`.** Before any GPU time: `ready`, `warning` or `blocked` for the settings you intend to render with, each check with what to do (missing files, no camera, engine, frames outside the scene, frames or resolution over the limit, the job too long, payment needed, spending cap). `strict: true` turns missing files into `blocked`. `scene_info` over MCP carries the same answer. Nothing is rendered or charged.
 - **Pay, and the render starts.** A render that got 402 is kept for an hour (`resume.order_id`); when the top-up or the free card credit lands, it starts by itself with the same idempotency key, so sending it again returns that job instead of a second render. Follow it with `GET /v1/jobs/{order_id}` or `render_status`.
 - **Revoked keys.** Signed download links stop working once the key that made them is revoked.
-- **Sandbox.** A part rendered without the second isolation layer (the runtime did not start) is reported to the operators.
 
 ## 0.4.92 (2026-10-14)
 
