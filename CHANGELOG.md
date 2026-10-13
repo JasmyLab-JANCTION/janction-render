@@ -2,6 +2,13 @@
 
 The live, per-version list is at https://render.janction.jp/changelog (Atom: https://render.janction.jp/changelog.xml). Versions are the PyPI releases of `janction-render`; the hosted service follows the same numbers.
 
+## 0.4.88 (2026-10-13)
+
+Receptionist and client.
+
+- **Long finals from the terminal.** `janction-render render ... --frames 1-1440 --output mp4 --wait` gets the joined video: a long final's whole video carries a download URL, the archive endpoint takes the long final's job id, and `only='mp4'` picks the one joined video instead of every part's.
+- **Frames of a long final are frames.** Part frames (`part-01_frame_0001.png`, ...) count as frames for `only='frames'`, the MCP reply (the first three are listed, not hundreds) and the progress page.
+
 ## 0.4.87 (2026-10-13)
 
 Receptionist only.

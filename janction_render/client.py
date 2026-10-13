@@ -32,20 +32,27 @@ EDGE_UPLOAD_MB = 100
 RESUMABLE_ABOVE = 64 * 1024 * 1024
 
 
+_FRAME_NAME_RE = re.compile(r"^(part-\d+_)?frame_")
+
+
 def select_artifacts(artifacts: list[dict[str, Any]], only: Optional[str] = None) -> list[dict[str, Any]]:
     """成果物の絞り込み: all / mp4（output.mp4 だけ）/ frames（PNG のコマだけ）/ sheet（4 コマ並べだけ）/ output（mp4 か sheet）。"""
     o = (only or "all").strip().lower()
     if o in ("", "all"):
         return list(artifacts)
     if o in ("mp4", "video"):
-        return [a for a in artifacts if a["name"].endswith((".mp4", ".webm", ".mov"))]
+        videos = [a for a in artifacts if a["name"].endswith((".mp4", ".webm", ".mov"))]
+        # 部分に分けた仕上げ（b_…）は、部分ごとの動画（part-01_output.mp4 …）とつないだ 1 本（output.mp4）が並ぶ。1 本を返す
+        whole = [a for a in videos if a["name"] in ("output.mp4", "output.webm", "output.mov")]
+        return whole or videos
     if o == "frames":
-        return [a for a in artifacts if a["name"].startswith("frame_")]
+        # 部分に分けた仕上げのコマは part-01_frame_0001.png の名前（10/13）
+        return [a for a in artifacts if _FRAME_NAME_RE.match(a["name"])]
     if o == "sheet":
         return [a for a in artifacts if a["name"] == "sheet.png"]
     if o == "output":
         picked = [a for a in artifacts if a["name"] in ("output.mp4", "output.webm", "output.mov", "sheet.png")]
-        return picked or [a for a in artifacts if a["name"].startswith("frame_")][:1]
+        return picked or [a for a in artifacts if _FRAME_NAME_RE.match(a["name"])][:1]
     raise ValueError("only must be one of: " + ", ".join(ONLY_CHOICES))
 
 
