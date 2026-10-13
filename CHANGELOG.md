@@ -2,6 +2,18 @@
 
 The live, per-version list is at https://render.janction.jp/changelog (Atom: https://render.janction.jp/changelog.xml). Versions are the PyPI releases of `janction-render`; the hosted service follows the same numbers.
 
+## 0.4.78 (2026-10-13)
+
+Receptionist pages; no worker change.
+
+- **Product Video line from the live catalogue.** The one-line description on /products, /pricing, llms.txt and facts.json now groups the public Video catalogue by kind (product video, 360-degree video, four product images, store listing pack) with the production fee and the typical total for each length, so the page follows the catalogue when prices change.
+
+## 0.4.77 (2026-10-13)
+
+Receptionist pages; no worker change.
+
+- **The card condition on every page that names the maximum.** Pages that say "a welcome credit of up to 500 JPY" now carry the condition at least once on the same page (100 JPY with no card, 400 JPY more after registering a card, which is not charged). /products, /compare and their Japanese versions showed only the maximum. `pages.welcome_terms` adds the clause when a page lacks it, and a paid-mode test over every public page keeps it that way (docs/66).
+
 ## 0.4.76 (2026-10-13)
 
 Receptionist; no worker change. Everything here is hidden until the Product Video service opens (`JR_VIDEO_PUBLIC`, `JR_VIDEO_TOOLS`).
