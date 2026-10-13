@@ -2,6 +2,22 @@
 
 The live, per-version list is at https://render.janction.jp/changelog (Atom: https://render.janction.jp/changelog.xml). Versions are the PyPI releases of `janction-render`; the hosted service follows the same numbers.
 
+## 0.4.81 (2026-10-13)
+
+Receptionist; no worker change.
+
+- **Switchable Product Video entry.** `JR_VIDEO_ENTRY_PATH` (default `/`) points the result-screen button and the `/v1/outcomes` note at the Video service's browser order page (`/start`) once that is deployed, without a release here.
+- **CI.** The paid-retention test pins the disk guard (the runner has tens of GB free; the 500 GB fallback is by design). The loop-guard meta-test is marked xfail on Linux while the detector difference (anyio 4.15 / starlette 1.8 on the runner) is investigated (docs/66 §7).
+
+## 0.4.80 (2026-10-13)
+
+Receptionist; no worker change.
+
+- **Three problems, three guides.** The top page and /pricing link /free-blender-cloud-rendering, /render-blender-without-gpu and /blender-cloud-rendering right under the first buttons (docs/64 §11: these pages were only reachable from the list of 25 guides, and Google had crawled but not indexed most of them).
+- **/start re-checks after Stripe.** When the payment panel is open and the tab comes back, the balance and the quote are fetched again (docs/62 P1-1).
+- **Listing pack tools.** `product_video_listing_pack` / `_submit` / `_status` relay the Video service's store listing pack; gated with the other Product Video tools (`JR_VIDEO_TOOLS`).
+- **Staging gate.** `tools/stage_zip.py` builds the deploy zip only from a clean, pushed HEAD whose CI run succeeded (`--allow-red --reason` for a recorded exception) and copies it to the GPU box.
+
 ## 0.4.79 (2026-10-13)
 
 Receptionist; no worker change.
