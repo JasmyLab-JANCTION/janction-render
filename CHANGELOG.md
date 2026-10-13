@@ -2,6 +2,14 @@
 
 The live, per-version list is at https://render.janction.jp/changelog (Atom: https://render.janction.jp/changelog.xml). Versions are the PyPI releases of `janction-render`; the hosted service follows the same numbers.
 
+## 0.4.70 (2026-10-13)
+
+Receptionist and the daily IndexNow job; no worker change.
+
+- **Update dates follow the wording.** The footer date, the sitemap `lastmod` and the structured data's `dateModified` are never older than the last change to the price and free-credit wording (`billing.public_terms_date`: the pricing version or the day the card-based welcome credit started, whichever is newer). 103 of 153 sitemap URLs had kept 2026-10-08 although their wording changed on 2026-10-12. `/changelog` now carries the date of the newest release. The pricing version recorded on jobs and in the ledger is unchanged.
+- **IndexNow for every changed page.** `tools/indexnow_daily.py` remembers the `lastmod` it last sent for each URL (`data/indexnow_sent.json`) and sends every URL whose `lastmod` changed, instead of only URLs dated today. The first run sends every URL once.
+- **Older descriptions.** /facts, facts.json (`pricing.superseded`) and llms.txt (English and Japanese) say that the free beta, 10 free GPU-minutes per key per day from 2026-09-30 to 2026-10-08, has ended, and that articles, directory listings and search snippets from that period are out of date.
+
 ## 0.4.69 (2026-10-13)
 
 GPU workers (deployed first, at 13:30 JST) and the receptionist.
