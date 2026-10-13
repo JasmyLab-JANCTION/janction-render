@@ -7,3 +7,4 @@ render_out/
 dist/
 build/
 npm/node_modules/
+tests/_diag/

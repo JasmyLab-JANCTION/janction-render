@@ -2,6 +2,12 @@
 
 The live, per-version list is at https://render.janction.jp/changelog (Atom: https://render.janction.jp/changelog.xml). Versions are the PyPI releases of `janction-render`; the hosted service follows the same numbers.
 
+## 0.4.82 (2026-10-13)
+
+Receptionist; no worker change.
+
+- **/upload takes files over 1 MB.** `POST /v1/drops` was still under the 1 MB body cap meant for JSON requests, so every file over 1 MB got HTTP 413 although the page states 100 MB. The route keeps its own cap (`JR_MAX_UPLOAD_MB`, and Cloudflare's 100 MB in front).
+
 ## 0.4.81 (2026-10-13)
 
 Receptionist; no worker change.

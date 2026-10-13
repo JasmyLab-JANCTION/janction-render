@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "janction-render",
-  "version": "0.4.81",
+  "version": "0.4.82",
   "description": "Render Blender scenes and 3D models (GLB, FBX, USD, OBJ, STL) on cloud GPUs from your AI app: product shots, 360-degree turntables, animations and stills, with a preview and a critic first. No local GPU or Blender; free to start. The remote MCP connector plus a workflow skill.",
   "author": {
     "name": "JasmyLab Inc.",
