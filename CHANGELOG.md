@@ -2,6 +2,15 @@
 
 The live, per-version list is at https://render.janction.jp/changelog (Atom: https://render.janction.jp/changelog.xml). Versions are the PyPI releases of `janction-render`; the hosted service follows the same numbers.
 
+## 0.4.90 (2026-10-14)
+
+Receptionist only.
+
+- **A canceled render counts only what finished.** Seconds a worker reports for a part it was stopping after a cancel no longer count against the free time or the credit.
+- **Body size without a declared length.** Requests that stream their body without a length are held to the same size limit as any other.
+- **Asset size.** An asset over the size limit is refused with what to do: lower the texture resolution, compress it, or pack it into the .blend.
+- **Resumable uploads (groundwork, still closed).** The writer lease on an upload is short and renewed while a part streams, so a receptionist restart does not hold an upload for half an hour.
+
 ## 0.4.89 (2026-10-13)
 
 Receptionist and client.
