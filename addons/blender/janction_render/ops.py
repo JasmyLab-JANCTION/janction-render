@@ -19,7 +19,11 @@ from . import state
 from .client import Client, JRError
 from .prefs import get_prefs, make_client
 
-FREE_MAX_FRAMES = 240
+# 1 回の指示の上限（受付が 240 コマずつに分けて 1 本の動画にする）と、先払いのクレジットでの画素の上限。無料の分の 1080p は
+# 受付が鍵ごとに判定して断る（10/14: ここで 240 コマ・1080p に黙って切り詰めていて、有料の 4K と長いアニメが出せなかった）
+MAX_FRAMES_PER_INSTRUCTION = 3000
+MAX_PIXELS = 3840 * 2160
+FREE_MAX_FRAMES = MAX_FRAMES_PER_INSTRUCTION      # 互換（古い名前）
 FREE_MAX_PIXELS = 1920 * 1080
 PREVIEW_SAMPLES_MAX = 32
 FINAL_SAMPLES_MAX = 128
@@ -54,8 +58,8 @@ def payment_text(extra: dict) -> str:
     return "Past the free GPU time: top up credit to render this"
 
 
-def fit_pixels(width: int, height: int, max_pixels: int = FREE_MAX_PIXELS) -> tuple[int, int]:
-    """Shrink (keeping the aspect) until width*height fits the per-job pixel cap (1080p)."""
+def fit_pixels(width: int, height: int, max_pixels: int = MAX_PIXELS) -> tuple[int, int]:
+    """Shrink (keeping the aspect) until width*height fits the pixel cap (4K; 1080p on free time is checked by the service)."""
     if width * height <= max_pixels:
         return width, height
     scale = (max_pixels / float(width * height)) ** 0.5
@@ -168,12 +172,14 @@ def final_body(context, prefs, settings) -> tuple[dict[str, Any], list[str]]:
     fs, fe = int(scene.frame_start), int(scene.frame_end)
     if fe < fs:
         fe = fs
-    if fe - fs + 1 > FREE_MAX_FRAMES:
-        fe = fs + FREE_MAX_FRAMES - 1
-        notes.append(f"A job renders at most {FREE_MAX_FRAMES} frames; rendering {fs}-{fe}")
+    if fe - fs + 1 > MAX_FRAMES_PER_INSTRUCTION:
+        fe = fs + MAX_FRAMES_PER_INSTRUCTION - 1
+        notes.append(f"One render takes at most {MAX_FRAMES_PER_INSTRUCTION} frames; rendering {fs}-{fe}")
     w, h = fit_pixels(body["width"], body["height"])
     if (w, h) != (body["width"], body["height"]):
-        notes.append(f"Resolution reduced to {w}x{h} (1080p cap per job)")
+        notes.append(f"Resolution reduced to {w}x{h} (4K cap per render)")
+    elif w * h > FREE_MAX_PIXELS:
+        notes.append("Above 1920x1080 needs prepaid credit (free time renders up to 1080p)")
         body["width"], body["height"] = w, h
     output = str(settings.output)
     if fe == fs and output == "mp4":

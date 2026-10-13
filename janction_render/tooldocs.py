@@ -99,7 +99,19 @@ def _free_offer(short: bool = False) -> str:
             "GPU-second (prepaid)")
 
 
-MAX_FRAMES_PER_INSTRUCTION = 3000      # billing.max_frames_per_instruction の既定値（240 ずつの部分に分けて 1 つの仕事 ID で）
+def _env_int_doc(name: str, default: int) -> int:
+    try:
+        v = int((os.environ.get(name) or "").strip() or default)
+    except ValueError:
+        return default
+    return v if v > 0 else default
+
+
+# 受付と同じ env から読む（10/14、要件 IF-01: 手書きの定数だと env を変えた本番と食い違う）。stdio は既定値になる
+FREE_MAX_FRAMES = _env_int_doc("JR_FREE_MAX_FRAMES", 240)
+MAX_FRAMES_PER_INSTRUCTION = max(FREE_MAX_FRAMES, _env_int_doc("JR_MAX_FRAMES_PER_INSTRUCTION", 3000))
+RETENTION_HOURS = _env_int_doc("JR_TTL_HOURS", 24)
+PAID_RETENTION_DAYS = round(_env_int_doc("JR_PAID_TTL_HOURS", 168) / 24)
 PAID_MAX_SIZE = "3840x2160"            # 先払いのクレジットでの上限（無料の時間は 1080p まで）
 
 

@@ -17,7 +17,7 @@ import uuid
 from pathlib import Path
 from typing import Any, Callable, Iterable, Optional, Sequence
 
-VERSION = "0.1.6"
+VERSION = "0.1.8"
 USER_AGENT = f"janction-render-blender/{VERSION}"
 CLIENT_NAME = f"blender {VERSION}"
 DEFAULT_SERVER = "https://render.janction.jp"
@@ -37,7 +37,7 @@ RESUMABLE_ABOVE = 64 * 1024 * 1024
 Asset = tuple[str, str]   # (relative name as the scene references it, absolute path on disk)
 
 # Uploads in parts that have not finished, by (server, sha256, size): pressing Render again continues them.
-_RESUME: dict[tuple[str, str, int], str] = {}
+_RESUME: dict[tuple[str, str, int, str, str], str] = {}
 
 
 class JRError(Exception):
@@ -337,6 +337,18 @@ class Client:
             scene_id = str(scene["scene_id"])
             cap = self.upload_cap()
             limit = min(ASSET_BATCH_BYTES, cap - MULTIPART_ROOM) if cap else ASSET_BATCH_BYTES
+            # Large textures go in parts into the scene (2026-10-14, UP-07): up to 5 GB each and 15 GB per scene for keys
+            # with a registered card or prepaid credit. A server without resumable uploads gets the old answer below.
+            for name, abs_path in [(n, a) for n, a in todo if Path(a).stat().st_size > min(limit, RESUMABLE_ABOVE)]:
+                try:
+                    out = self.upload_resumable(Path(abs_path), tell, scene_id=scene_id, asset=name)
+                except JRError as exc:
+                    if exc.code != "too_large" or "this server takes one upload" not in exc.message:
+                        raise
+                    break
+                scene = out or scene
+                sent.append(name)
+            todo = [(n, a) for n, a in todo if n not in sent]
             for name, abs_path in todo:
                 n = Path(abs_path).stat().st_size
                 if n > limit:
@@ -385,12 +397,12 @@ class Client:
             raise JRError("network", f"cannot reach {self._host()}: {exc}") from None
 
     def upload_resumable(self, p: Path, tell: Callable[[str], None], part_bytes: int = 0,
-                         sleep: Callable[[float], None] = time.sleep) -> dict[str, Any]:
+                         sleep: Callable[[float], None] = time.sleep, scene_id: str = "", asset: str = "") -> dict[str, Any]:
         """Send a scene over 100 MB in parts. A dropped connection is retried from where the server stopped
         (HEAD); pressing Render again in the same Blender session continues the same upload. Returns the scene view."""
         size = p.stat().st_size
         digest = sha256_of(p)
-        ident = (self.server, digest, size)
+        ident = (self.server, digest, size, scene_id, asset)
         url, off = _RESUME.get(ident), 0
         if url:
             try:
@@ -405,6 +417,9 @@ class Client:
         if not url:
             meta = (f"filename {base64.b64encode(p.name.encode('utf-8')).decode()},"
                     f"sha256 {base64.b64encode(digest.encode()).decode()}")
+            if asset:
+                meta += (f",scene_id {base64.b64encode(scene_id.encode()).decode()},"
+                         f"asset {base64.b64encode(asset.encode('utf-8')).decode()}")
             st, hd, raw = self._tus("POST", "/v1/uploads", {"Upload-Length": str(size), "Upload-Metadata": meta}, data=b"",
                                     timeout=60)
             if st in (404, 405):
@@ -427,12 +442,16 @@ class Client:
                 tell(f"Uploading {p.name}: {100 * off // max(1, size)}% ({off // 1048576} of {size // 1048576} MB)")
                 fh.seek(off)
                 data = fh.read(part)
+                part_sum = "sha256 " + base64.b64encode(hashlib.sha256(data).digest()).decode()
                 try:
                     st, hd, raw = self._tus("PATCH", url, {"Upload-Offset": str(off),
-                                                           "Content-Type": "application/offset+octet-stream"},
+                                                           "Content-Type": "application/offset+octet-stream",
+                                                           "Upload-Checksum": part_sum},
                                             data=data, timeout=600)
                 except JRError:
                     st, hd, raw = 0, {}, b""
+                if st == 460:
+                    st = 0                                      # the part arrived damaged: send it again from the same offset
                 if st == 200:
                     _RESUME.pop(ident, None)
                     out = json.loads(raw.decode("utf-8"))

@@ -2,6 +2,44 @@
 
 The live, per-version list is at https://render.janction.jp/changelog (Atom: https://render.janction.jp/changelog.xml). Versions are the PyPI releases of `janction-render`; the hosted service follows the same numbers.
 
+## 0.4.94 (2026-10-14)
+
+Receptionist, GPU worker, CLI / local MCP server and Blender add-on 0.1.8 (docs/67 §14).
+
+- **Projects with large textures (still behind `JR_UPLOADS`).** Files a `.blend` refers to (textures, caches) can be sent in parts into the scene, each with the same per-part checks and resume as the scene itself: up to 5 GiB each and 15 GiB or 500 files per scene for keys with a registered card or prepaid credit (no change for other keys). `POST /v1/files/{id}/manifest` takes the list you have and returns which files are still missing. The CLI and the Blender add-on 0.1.8 send large files this way by themselves.
+- **GPU workers.** Large textures are fetched once per machine and kept like large scenes, so the parts of one render do not fetch them again.
+- **Exact limits.** A split upload one byte over the limit is refused when it is created.
+- **/start and /upload.** After a resume, the time left is measured from where the page picked up (it said a few seconds at 92%); a re-sent file that the service already had shows the name it was sent with.
+- **Operators.** An alert when free space, minus what uploads in progress still need, falls under 200 GB, or when an upload was refused for space.
+
+## 0.4.93 (2026-10-14)
+
+Receptionist only.
+
+- **`GET /v1/capabilities`.** What the service takes right now: frames per call and per part, free-time and prepaid resolution, input formats and sizes, outputs, engines, Blender versions, presets and retention; with a key, also that key's own limits (whether 4K is open, how long its results are kept). `render_info` carries the same limits, and a test checks that the MCP tool texts, facts.json and the OpenAPI say the same numbers.
+- **`POST /v1/scenes/{id}/preflight`.** Before any GPU time: `ready`, `warning` or `blocked` for the settings you intend to render with, each check with what to do (missing files, no camera, engine, frames outside the scene, frames or resolution over the limit, the job too long, payment needed, spending cap). `strict: true` turns missing files into `blocked`. `scene_info` over MCP carries the same answer. Nothing is rendered or charged.
+- **Pay, and the render starts.** A render that got 402 is kept for an hour (`resume.order_id`); when the top-up or the free card credit lands, it starts by itself with the same idempotency key, so sending it again returns that job instead of a second render. Follow it with `GET /v1/jobs/{order_id}` or `render_status`.
+- **Revoked keys.** Signed download links stop working once the key that made them is revoked.
+- **Sandbox.** A part rendered without the second isolation layer (the runtime did not start) is reported to the operators.
+
+## 0.4.92 (2026-10-14)
+
+Receptionist and Blender add-on 0.1.8.
+
+- **Blender add-on 0.1.8: long and 4K renders.** The add-on no longer cuts a render to 240 frames and 1920x1080. It sends up to 3,000 frames (the service renders them as parts of 240 and joins one video) and up to 3840x2160; the service decides 4K by the key (prepaid credit). The files of a long render can be fetched with the key by the names the job lists.
+- **Before you press.** Estimates and `GET /v1/me` say how long results are kept (24 hours after last use, 7 days for keys that have topped up) and how long download links last. A final on a scene whose image files were found missing says so when it is accepted (`missing_assets`), with how to cancel and fix.
+- **Errors.** Every error carries `message` (same as `detail`), and the front door's 413 and 400 now have the same shape as the rest (`code`, `retryable`, `recommended_action`, `request_id`). A failed render says what was charged (`failure.charged_yen`). A failure nobody has classified is treated as ours: not charged, no free time used.
+- **No double orders from the browser.** /start sends an idempotency key with the render, so a double click or a page that comes back does not render twice.
+- **Housekeeping.** Access logs no longer carry signed link tokens; two requests reading a long render at the same moment no longer join the video twice; the daily ledger check flags any charge for a failure on our side; tool descriptions read their limits from the same settings as the service.
+
+## 0.4.91 (2026-10-14)
+
+Receptionist, GPU worker, CLI / local MCP server and Blender add-on 0.1.7 (docs/67 §12-13).
+
+- **Over the limit, say how to send more.** A 413 for a `.blend` over a key's cap carries `upgrade` (5 GiB with a registered card, which is free; a signed link the user can open) and `recommended_action: ASK_USER`; `/start` shows a button for it. Keys without a card stay at 1 GiB per file (decision of 2026-10-14).
+- **Resumable uploads (still behind `JR_UPLOADS`).** `Upload-Checksum: sha256 <base64>` per part (tus checksum; a damaged part gets 460 and is sent again from the same offset), used by the browser, the CLI and the add-on; `GET /v1/uploads/limits` adds `today_left_bytes`, `retention_hours` and `upload_charge`; `/start` shows the time left; a key that sends the same content again gets its earlier scene back instead of a second copy; 507 carries `Retry-After`; the writer lease is 90 s and renewed while a part streams; expired uploads are counted in events.
+- **GPU worker.** A chunk taken back after a worker restart clears its work dir on the same machine (a cached large scene failed with SameFileError there); a large input is fetched once per machine; the load allowance is 15 s per GB above 256 MB (measured: the first frame starts 4 s after the container for 5 GB).
+
 ## 0.4.90 (2026-10-14)
 
 Receptionist only.

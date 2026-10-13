@@ -6,6 +6,7 @@
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import os
@@ -527,7 +528,8 @@ class Client:
             pass
 
     def upload_resumable(self, path: str | Path, digest: str = "",
-                         progress: Optional[Callable[[int, int], None]] = None, part_bytes: int = 0) -> Optional[dict[str, Any]]:
+                         progress: Optional[Callable[[int, int], None]] = None, part_bytes: int = 0,
+                         scene_id: str = "", asset: str = "") -> Optional[dict[str, Any]]:
         """100 MB を超えるファイルを部分に分けて送る（POST /v1/uploads → PATCH、tus 1.0）。返り値は受付の状態（scene_id・scene）。
         通信が切れたら位置を聞き直して続きから送る。途中で止めても、同じコマンドをもう一度打てば続きから（~/.janction-render-uploads.json）。
         受付が分けて送る道を持っていなければ None。"""
@@ -536,7 +538,7 @@ class Client:
         p = Path(path)
         size = p.stat().st_size
         digest = digest or sha256_of(p)
-        ident = f"{self.server}|{digest}|{size}"
+        ident = f"{self.server}|{digest}|{size}" + (f"|{scene_id}|{asset}" if asset else "")
         tus = {"Tus-Resumable": "1.0.0"}
         url, off = self._resume_get(ident), 0
         if url:
@@ -552,6 +554,10 @@ class Client:
         if not url:
             meta = (f"filename {base64.b64encode(p.name.encode('utf-8')).decode()},"
                     f"sha256 {base64.b64encode(digest.encode()).decode()}")
+            if asset:
+                # 素材（UP-07）: 足す先のシーンと、シーンからの相対の場所
+                meta += (f",scene_id {base64.b64encode(scene_id.encode()).decode()},"
+                         f"asset {base64.b64encode(asset.encode('utf-8')).decode()}")
             r = self.s.post(f"{self.server}/v1/uploads", timeout=60,
                             headers={**self._headers(), **tus, "Upload-Length": str(size), "Upload-Metadata": meta})
             if r.status_code in (404, 405):
@@ -568,9 +574,11 @@ class Client:
             while True:
                 fh.seek(off)
                 data = fh.read(part)
+                part_sum = "sha256 " + base64.b64encode(hashlib.sha256(data).digest()).decode()
                 try:
                     r = self.s.patch(url, data=data, timeout=600, headers={
-                        **self._headers(), **tus, "Upload-Offset": str(off), "Content-Type": "application/offset+octet-stream"})
+                        **self._headers(), **tus, "Upload-Offset": str(off), "Content-Type": "application/offset+octet-stream",
+                        "Upload-Checksum": part_sum})
                 except ClientError:
                     r = None                       # つながらない・切れた: 待って位置を聞き直す
                 if r is not None and r.status_code == 200:
@@ -586,6 +594,8 @@ class Client:
                 if r is not None and r.status_code == 409 and r.headers.get("Upload-Offset") is not None:
                     off = int(r.headers["Upload-Offset"])
                     continue
+                if r is not None and r.status_code == 460:
+                    r = None                       # 部分が途中で化けた: 同じ位置から送り直す（回数に数える）
                 if r is not None and r.status_code < 500 and r.status_code not in (408, 409, 429) or                         r is not None and r.status_code == 507:
                     if r.status_code == 404:
                         self._resume_set(ident, None)
@@ -632,6 +642,20 @@ class Client:
         if not cap:
             return self._post_assets(scene_id, items)
         room = cap - 1024 * 1024           # multipart の見出しのぶんを空ける
+        # 大きい素材（64 MiB を超える）は 1 つずつ分けて送る（UP-07、10/14。カード登録・前払いの鍵は 1 つ 5 GiB・合計 15 GiB まで）。
+        # 受付が分けて送る道を開けていなければ、前のとおり 1 回で送る（100 MB を超えるものは断る）
+        big = [(n, p) for n, p in items if Path(p).stat().st_size > min(room, RESUMABLE_ABOVE)]
+        out: dict[str, Any] = {}
+        sent_big: set[str] = set()
+        for name, path in big:
+            done = self.upload_resumable(path, scene_id=scene_id, asset=str(name).replace("\\", "/"))
+            if done is None:
+                break
+            out = done.get("scene") or out
+            sent_big.add(name)
+        items = [(n, p) for n, p in items if n not in sent_big]
+        if not items:
+            return out
         batches: list[list[tuple[str, str | Path]]] = [[]]
         used = 0
         for name, path in items:

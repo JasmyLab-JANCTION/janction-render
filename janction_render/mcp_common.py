@@ -112,7 +112,8 @@ def scene_info_reply(j: dict[str, Any], assets_param: str) -> dict[str, Any]:
     info = dict(j.get("info") or {})
     info["scene_id"] = j.get("scene_id")
     if info.get("engine") and info["engine"] != "CYCLES":
-        info["engine_note"] = "JANCTION renders with CYCLES; the scene's engine setting is not used"
+        # 10/14（要件 AS-08）: 「Cycles でしか描かない」と言っていたが engine='eevee' も受ける
+        info["engine_note"] = "JANCTION renders with Cycles unless you pass engine='eevee'; the scene's engine setting is not used"
     if j.get("warnings"):
         info["blender_warnings"] = j["warnings"]
     if info.get("missing_files"):
