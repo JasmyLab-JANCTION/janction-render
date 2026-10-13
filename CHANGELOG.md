@@ -2,6 +2,12 @@
 
 The live, per-version list is at https://render.janction.jp/changelog (Atom: https://render.janction.jp/changelog.xml). Versions are the PyPI releases of `janction-render`; the hosted service follows the same numbers.
 
+## 0.4.72 (2026-10-13)
+
+GPU workers.
+
+- **Scripts can write next to themselves.** A job's working folder (where the scene file is placed and Blender starts) is now writable by the render process, so a script written for a local Blender that creates an output folder or writes a file there no longer fails with a permission error. The scene file and assets you sent stay as they are, and the service still sets the output path, resolution and samples.
+
 ## 0.4.71 (2026-10-13)
 
 Receptionist and the daily reports; no worker change.
