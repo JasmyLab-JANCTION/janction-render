@@ -2,6 +2,12 @@
 
 The live, per-version list is at https://render.janction.jp/changelog (Atom: https://render.janction.jp/changelog.xml). Versions are the PyPI releases of `janction-render`; the hosted service follows the same numbers.
 
+## 0.4.75 (2026-10-13)
+
+Receptionist (/start and the preview critic); no worker change.
+
+- **First-time run-through fixes.** Walking through /start as a new user with their own .blend (docs/64 §7): the wait line said "about about 5 seconds"; a key kept in the browser that the server no longer knew produced "unknown or revoked key… POST /v1/keys" (now the page drops it and makes a fresh key); the preview's notes listed "cut by the frame edge" twice (the critic now says each sentence once).
+
 ## 0.4.74 (2026-10-13)
 
 Receptionist pages and the morning report; no worker change.
