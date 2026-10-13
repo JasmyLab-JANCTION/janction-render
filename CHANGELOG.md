@@ -2,6 +2,14 @@
 
 The live, per-version list is at https://render.janction.jp/changelog (Atom: https://render.janction.jp/changelog.xml). Versions are the PyPI releases of `janction-render`; the hosted service follows the same numbers.
 
+## 0.4.89 (2026-10-13)
+
+Receptionist and client.
+
+- **Did the user get the result?** The scorecard and the daily report count finals whose files were actually fetched (per job, a split final counted once) and keys that went from a first action to a received result, and list by client the finals that were never fetched. A finished job is not the same as a delivered result.
+- **The same link twice.** A key that sends the same `scene_url` again within an hour gets the scene it already sent instead of a second download (a call cut off at the edge used to fetch the whole file again).
+- **Clearer refusals.** An /upload link given as an asset says to pass it as `scene_url`; the CLI no longer suggests `asset_urls` for an asset over 128 MB, which a link cannot carry either; a job that waited in the queue until the retention window ended says so instead of a bare not-found.
+
 ## 0.4.88 (2026-10-13)
 
 Receptionist and client.

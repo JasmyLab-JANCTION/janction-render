@@ -32,6 +32,7 @@ EDGE_UPLOAD_MB = 100
 RESUMABLE_ABOVE = 64 * 1024 * 1024
 
 
+ASSET_LINK_MAX_BYTES = 128 * 1024 * 1024   # 受付の素材 1 つの上限（JR_MAX_ASSET_MB の既定値。リンクで渡しても同じ）
 _FRAME_NAME_RE = re.compile(r"^(part-\d+_)?frame_")
 
 
@@ -636,6 +637,13 @@ class Client:
         for name, path in items:
             n = Path(path).stat().st_size
             if n > room:
+                if n > ASSET_LINK_MAX_BYTES:
+                    # リンクで渡しても 1 つ 128 MB まで（受付の JR_MAX_ASSET_MB）。通らない送り方を勧めない（10/13 監査）
+                    raise ClientError(413, "too_large",
+                                      f"asset {name} is {n / 1048576:.0f} MB; an asset can be at most "
+                                      f"{ASSET_LINK_MAX_BYTES // 1048576} MB, uploaded or by link. Make it smaller "
+                                      "(lower texture resolution, or compress it) or pack it into the .blend",
+                                      extra={"code": "INVALID_INPUT", "retryable": False, "recommended_action": "FIX_INPUT"})
                 raise self._too_large(f"asset {name}", n, cap, "asset_urls")
             if batches[-1] and used + n > room:
                 batches.append([])
