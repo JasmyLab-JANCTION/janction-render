@@ -233,9 +233,40 @@ def descriptions(flavor: str, wait_cap_s: int = 50) -> dict[str, str]:
         "Check what this key can still render for free and its credit (no GPU time): the free GPU time left and when it "
         f"expires or resets ({_free_offer()}), the balance in yen, the price per GPU-second, any pending checkout link, and "
         "card_offer / autocharge_offer when they apply. Relay tell_user to the user in their language when it is present.")
+    # 取り消し・共有・取り下げ・接続の確認（10/13: Glama の自動評価で render_cancel C・render_unshare B。副作用・権限・戻せるか・
+    # 何が残るかが書かれていなかった。実装は routes_jobs.cancel_for・routes_shares.unshare_for・shares.remove）
+    cancel = (
+        "Stop a queued or running render job of this key (a j_... job, or a b_... job split into parts, which stops every part). "
+        "Effects: queued frames are dropped; frames already rendered are charged and stay downloadable until the job expires; "
+        "the rest of the GPU time held for the job is returned to the key at once. It cannot be undone or resumed: to render "
+        "again, call render_final again (a new job). A job that is already done, failed or canceled is returned unchanged, and "
+        "a job whose frames are all rendered and is being assembled into the video cannot be stopped (nothing more is charged). "
+        "Only the key that started the job can stop it; any other job_id returns not_found. Ask the user before cancelling a "
+        "render they asked for.")
+    share = (
+        "Publish a finished render as a public web page anyone with the link can open (for X, Discord or a client): the image "
+        "or video, the render settings, an optional title and note, the user's request in their words (prompt), and the bpy "
+        "script only if include_script=True. The page keeps its own copy of the result after the job's files expire, until "
+        "render_unshare. listed=True only asks to appear in the public gallery; the operator reviews it first. Public: ask the "
+        "user before sharing and return the url to them. Only the key that rendered the job can share it.")
+    unshare = (
+        "Take down the public share page of a job made with render_share. Effects: the page URL stops working, its copy of the "
+        "image or video, the shared script and the shown request are deleted, and the page leaves the public gallery. This "
+        "cannot be undone: sharing again makes a new page with a new URL. The job's own files are not touched (they expire on "
+        "their usual schedule). Only the key that shared the job can take the page down; a job without a share page returns "
+        "not_found.")
+    info = (
+        "Check the connection and the service before rendering (read-only, no GPU time, no charge): the server URL, whether GPU "
+        "workers are online, the queue length and expected wait, and this key's usage. Use it before the first render or when "
+        "renders seem stuck, and to decide whether to route a render here: workers_available > 0 means a preview comes back in seconds; gated means the GPU is lent out and "
+        "gate says how long the wait usually is. "
+        + ("It runs as the connected account (OAuth or the API key in the connector). " if remote else
+           "It uses the API key in JANCTION_RENDER_API_KEY or ~/.janction-render.json (a free key is made on first use). ")
+        + "Every call is rate-limited per key; a 429 response carries retry_after_s, wait that long.")
     return {"render_preview": preview, "render_final": final, "scene_info": scene_info, "render_estimate": estimate,
             "render_status": status, "render_download": download, "asset_search": assets, "billing": billing,
-            "render_review": review_description(flavor)}
+            "render_review": review_description(flavor), "render_cancel": cancel, "render_share": share,
+            "render_unshare": unshare, "render_info": info}
 
 
 def review_description(flavor: str) -> str:
@@ -303,7 +334,7 @@ def param_docs(flavor: str, wait_cap_s: int = 50) -> dict[str, str]:
         "output": "'auto' (mp4 for a frame range, png for one frame) | 'png' | 'exr' (16-bit linear frames for compositing) | 'mp4' (H.264) | 'webm' (VP9) | 'prores' (Apple ProRes 422 HQ .mov, for editing) | 'gif' | 'webp' (animated, at most 960 px wide; good for chat and web).",
         "notify_url": "Optional https URL that receives one JSON POST when the final render finishes (job.done / job.failed, with download links), so nobody has to poll.",
         "kind": "'final' (frame_start..frame_end at width x height, samples) or 'preview' (frames like '1-24').",
-        "job_id": "The job_id returned by render_preview or render_final (looks like j_...).",
+        "job_id": "The job_id returned by render_preview or render_final (j_...; a long final split into parts is b_...). Only this key's jobs.",
         "wait_seconds": (f"Wait for the job to finish before returning the links (0 = do not wait). The service waits at most {wait_cap_s} s per call; call again while the job is still running."
                          if remote else "Wait up to this many seconds for the job to finish before downloading (0 = do not wait)."),
         "only": "'all' (every frame plus output.mp4 / sheet.png) | 'mp4' | 'frames' | 'sheet' | 'output' (the MP4 or the sheet only).",

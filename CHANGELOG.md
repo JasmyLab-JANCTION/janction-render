@@ -2,6 +2,13 @@
 
 The live, per-version list is at https://render.janction.jp/changelog (Atom: https://render.janction.jp/changelog.xml). Versions are the PyPI releases of `janction-render`; the hosted service follows the same numbers.
 
+## 0.4.83 (2026-10-13)
+
+Local MCP server (stdio) tool descriptions; receptionist unchanged apart from the version.
+
+- **Destructive tools say what they do.** `render_cancel`: queued frames are dropped, rendered frames are charged and stay downloadable, the rest of the held GPU time comes back, it cannot be resumed, only the starting key may cancel, a job being assembled cannot be stopped. `render_unshare`: the page URL stops working, its copy, script and shown request are deleted, it cannot be undone (sharing again gives a new URL), the job's own files are untouched. `render_share` and `render_info` (read-only, no charge, rate-limited with `retry_after_s`) likewise. `job_id` mentions split finals (`b_...`). Prompted by Glama's automatic tool grades (render_cancel C, render_unshare B, inspected 2026-10-02).
+- The remote MCP keeps its reviewed descriptions until the directory reviews finish (`JR_TOOLDOCS=new` switches them).
+
 ## 0.4.82 (2026-10-13)
 
 Receptionist; no worker change.
