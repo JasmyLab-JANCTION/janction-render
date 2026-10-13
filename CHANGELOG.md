@@ -2,6 +2,12 @@
 
 The live, per-version list is at https://render.janction.jp/changelog (Atom: https://render.janction.jp/changelog.xml). Versions are the PyPI releases of `janction-render`; the hosted service follows the same numbers.
 
+## 0.4.76 (2026-10-13)
+
+Receptionist; no worker change. Everything here is hidden until the Product Video service opens (`JR_VIDEO_PUBLIC`, `JR_VIDEO_TOOLS`).
+
+- **Product Video as a feature of JANCTION Render.** One line on /products, /pricing, llms.txt and facts.json (prices read from the Video catalogue: GPU at 0.1 JPY per GPU-second plus a production fee; a plain turntable or stills stay cheaper through /v1/outcomes). A "Make a product video from this 3D" link on /start and in `GET /v1/jobs/{id}` (`product_video`) when the input is a 3D file or the job is a turntable or product shots. Four relay tools for the remote MCP (`product_video_quote` / `_submit` / `_status` / `_revise`) that hand the caller's key or token to the Video service unchanged and send the stored 3D file across so the user does not upload it twice. The morning report counts Product Video captures as revenue (docs/65).
+
 ## 0.4.75 (2026-10-13)
 
 Receptionist (/start and the preview critic); no worker change.
