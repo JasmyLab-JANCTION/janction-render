@@ -260,7 +260,9 @@ class ClientError(RuntimeError):
         for k in ("tell_user", "this_job_yen", "renders_per_topup"):   # 人間に伝える 1 文と、成果物の単位の値段（0.4.39）
             if self.extra.get(k) is not None:
                 out[k] = self.extra[k]
-        for k in ("welcome", "first_topup_bonus"):      # ようこそクレジット（docs/46）の受付なら付いてくる
+        # ようこそクレジット（docs/46）の受付なら付いてくる。card_offer はカード登録（0 円）で無料の GPU 時間が足される鍵の案内、
+        # topup_options はチャージの選択肢（docs/62 P0-1: REST の 402 と同じものを AI に渡す）
+        for k in ("welcome", "first_topup_bonus", "card_offer", "topup_options", "topup_credit_yen"):
             if self.extra.get(k):
                 out[k] = self.extra[k]
         if self.extra.get("accepts"):

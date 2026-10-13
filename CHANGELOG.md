@@ -2,6 +2,14 @@
 
 The live, per-version list is at https://render.janction.jp/changelog (Atom: https://render.janction.jp/changelog.xml). Versions are the PyPI releases of `janction-render`; the hosted service follows the same numbers.
 
+## 0.4.71 (2026-10-13)
+
+Receptionist and the daily reports; no worker change.
+
+- **The card option reaches agents.** When a key's free GPU time is used up and saving a card (no payment) would add free time, `402 payment_required` on both MCP servers now carries `card_offer` (with a `link` the user can open) and `tell_user` names the card option before the top-up; `how` and `next` do the same. Until now only the REST reply carried `card_offer`, so agents on Claude.ai, ChatGPT and the CLI offered only the paid top-up (docs/62).
+- **Card first on the amount chooser.** The page a 500 JPY top-up link opens (`/b/…`) shows "Register a card" first for eligible keys; `card_offer.link` opens a one-button page that leads to Stripe's card-saving page.
+- **Measurement.** `card_offer_shown` (once per key per 6 h), `topup_page_opened` / `topup_page_chosen`, and `via` on `checkout_created` (402 / api / chooser). The daily summary splits checkout pages into "opened by a person", "attached to a 402" and "0 JPY card registration"; the morning welcome line adds keys that got a 402, saw the offer and opened the card page; `tools/journey.py` follows the card path per key.
+
 ## 0.4.70 (2026-10-13)
 
 Receptionist and the daily IndexNow job; no worker change.
