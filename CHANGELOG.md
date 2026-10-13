@@ -2,6 +2,14 @@
 
 The live, per-version list is at https://render.janction.jp/changelog (Atom: https://render.janction.jp/changelog.xml). Versions are the PyPI releases of `janction-render`; the hosted service follows the same numbers.
 
+## 0.4.79 (2026-10-13)
+
+Receptionist; no worker change.
+
+- **Condition in the same sentence.** The first "up to 500 JPY" / 「最大 500 円分」 on every page carries the card condition inside that sentence (AI answers quote excerpts, not whole pages).
+- **One rule for Render vs Product Video.** /products, llms.txt, facts.json and the `/v1/outcomes` replies say the same thing: raw renders you finish yourself (your own .blend or bpy scene, transparent stills, a plain turntable MP4, EXR, many frames) are JANCTION Render at GPU cost; a finished piece you publish as is (captions, ending, backdrop colour, looping 360, four shop images with a listing, revisions without re-rendering, projects, batches, the listing pack) is Product Video at GPU cost plus a production fee. The Video side shows the same rule (docs/65).
+- **CI.** `tools/incident.py` referenced an undefined `_data_dir`, which failed the fatal ruff check on every push since 0.4.62; fixed.
+
 ## 0.4.78 (2026-10-13)
 
 Receptionist pages; no worker change.

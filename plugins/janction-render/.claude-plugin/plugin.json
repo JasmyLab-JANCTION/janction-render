@@ -1,7 +1,7 @@
 {
   "name": "janction-render",
   "displayName": "JANCTION Render",
-  "version": "0.4.78",
+  "version": "0.4.79",
   "description": "Render Blender scenes and 3D models (GLB, FBX, USD, OBJ, STL) on cloud GPUs from your AI app: product shots, 360-degree turntables, animations and stills, with a preview and a critic first. No local GPU or Blender; free to start. The remote MCP connector plus a workflow skill.",
   "author": {
     "name": "JasmyLab Inc.",
