@@ -2,6 +2,13 @@
 
 The live, per-version list is at https://render.janction.jp/changelog (Atom: https://render.janction.jp/changelog.xml). Versions are the PyPI releases of `janction-render`; the hosted service follows the same numbers.
 
+## 0.4.69 (2026-10-13)
+
+GPU workers (deployed first, at 13:30 JST) and the receptionist.
+
+- **Compare and multi-camera previews render again.** From 0.4.63 (2026-10-12 17:50 JST) a line added to the preview's Blender expression lost its quotes in the shell and raised `NameError: name 'script' is not defined`. The rest of the expression did not run: previews with `environment='compare'` and with `cameras=[...]` failed with "compare rendered 0 of 4 presets", and other previews carried the NameError as a warning and came back with a verdict that had not checked the scene. A new test splits the generated command the way bash does and checks the expression for every input kind.
+- **What the service is, on the status and changelog pages.** One paragraph near the top of /status and /changelog (English and Japanese): the one-line definition, the MCP URL, /start to try it in a browser, the free credit and the price, from the same source as the pricing page.
+
 ## 0.4.68 (2026-10-13)
 
 Receptionist only; no worker change.
