@@ -2,6 +2,14 @@
 
 The live, per-version list is at https://render.janction.jp/changelog (Atom: https://render.janction.jp/changelog.xml). Versions are the PyPI releases of `janction-render`; the hosted service follows the same numbers.
 
+## 0.4.74 (2026-10-13)
+
+Receptionist pages and the morning report; no worker change.
+
+- **Browser first in the free page's answer.** The opening of /free-blender-cloud-rendering (EN/JA) no longer says an MCP client or the CLI is needed: nothing to install, open /start, try the sample or your own file; MCP and the CLI are the other ways in (docs/64 FREE-01).
+- **Japanese wording.** "使えますです" in the sentence about a second key on the same network is fixed (a replacement rule kept the sentence's own です).
+- **Measurement for free users.** The morning report shows keys that rendered their own input (not the sample), keys that only saw the sample, and keys that got only the network's remaining welcome credit (shared Wi-Fi); `tools/gsc_import.py` groups a Search Console CSV export by search intent (free / no_gpu / cloud / upload / slow / free_farm / brand / agent) and names the receiving page (docs/64 FREE-02, FREE-04, FREE-08).
+
 ## 0.4.73 (2026-10-13)
 
 Receptionist pages only; no worker change.
