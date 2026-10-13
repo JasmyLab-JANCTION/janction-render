@@ -2,6 +2,13 @@
 
 The live, per-version list is at https://render.janction.jp/changelog (Atom: https://render.janction.jp/changelog.xml). Versions are the PyPI releases of `janction-render`; the hosted service follows the same numbers.
 
+## 0.4.73 (2026-10-13)
+
+Receptionist pages only; no worker change.
+
+- **The free page starts in the browser.** "How do I start for free?" now begins with /start ("Try the sample first": no file, no payment), then your own file; connecting an AI client through MCP and the terminal come after. Until now step 1 was the MCP connection (docs/63 UX-02).
+- **One way of saying the frame limit.** Every page says: up to 1,000 frames per instruction, rendered as parts of 240 under one job id, 1080p on free time and 4K on prepaid credit. About thirty places (comparison tables, FAQs, facts, llms.txt) still said "240 frames and 1080p per job"; a test now scans the public pages for the old wording (docs/63 DATA-01).
+
 ## 0.4.72 (2026-10-13)
 
 GPU workers.
