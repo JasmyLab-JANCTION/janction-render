@@ -76,8 +76,8 @@ Keep 3D files in a repository? Add a button that lets anyone render them from th
   errors with the fix, spending caps per key, safe retries with `Idempotency-Key`.
 - **3D files and turntables.** glTF / GLB, FBX, USD, OBJ, STL, PLY, Alembic are imported into an empty scene with a camera and
   HDRI lighting; `orbit=True` makes a turntable. Fixed-price outcomes: `POST /v1/outcomes/turntable` and `/product-shot`.
-- **Honest limits.** a 100 JPY welcome credit for a new key with no card (14 days; one per network every 30 days) and 400 JPY more after saving a card that is not charged, then 0.1 JPY per GPU-second (previews free up to 2 GPU-minutes a day), finals up to 3,000 frames per instruction as parts of 240 (1080p on free time, up to 4K on prepaid credit), one GPU shared with another
-  workload (jobs can wait; the ETA says so). Inputs and results are deleted 24 hours after last use (7 days for keys that have topped up) and never used for training.
+- **Honest limits.** a 100 JPY welcome credit for a new key with no card (14 days; one per network every 30 days) and 400 JPY more after saving a card that is not charged, then 0.1 JPY per GPU-second (previews free up to 2 GPU-minutes a day), finals up to 3,000 frames per instruction as parts of 240 (1080p on free time, up to 4K on prepaid credit), on JANCTION's own GPUs
+  (NVIDIA RTX PRO 6000 Blackwell); when they are busy jobs wait in a queue and the ETA says so. Inputs and results are deleted 24 hours after last use (7 days for keys that have topped up) and never used for training.
 - **Not Render.com.** Same word, different product.
 
 ## Quick start
