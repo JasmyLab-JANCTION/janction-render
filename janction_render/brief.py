@@ -343,6 +343,8 @@ def brief(j: dict[str, Any]) -> dict[str, Any]:
     }
     if j.get("eta"):
         out["eta"] = eta_brief(j["eta"])
+    if j.get("credit_hint"):
+        out["credit_hint"] = j["credit_hint"]["text"]      # 最初の試し描きの直後の 1 行（無料の残り・カード登録の分、10/14）
     if j.get("estimate"):
         out["estimate"] = estimate_brief(j["estimate"])
     if j.get("error"):
@@ -364,7 +366,9 @@ def brief(j: dict[str, Any]) -> dict[str, Any]:
         # 試し描きの批評（10/8）: verdict（ok / check / fix）と、問題ごとの直し方。数字の明細は REST の仕事の状態にある
         c = j["critic"]
         out["critic"] = {"verdict": c.get("verdict"), "score": c.get("score"), "summary": c.get("summary"),
-                         "issues": [{k: i.get(k) for k in ("code", "severity", "message", "fix")} for i in (c.get("issues") or [])][:6]}
+                         # fix_params（道具の引数で直る分）・fix_code（台本に足す行）は 10/14 UX-07 から。無い問題は欄ごと省く
+                         "issues": [{k: i[k] for k in ("code", "severity", "message", "fix", "fix_params", "fix_code") if k in i}
+                                    for i in (c.get("issues") or [])][:6]}
     if j.get("cost"):
         c = j["cost"]
         out["cost"] = ("free" if c["free"] else

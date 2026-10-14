@@ -2,6 +2,22 @@
 
 The live, per-version list is at https://render.janction.jp/changelog (Atom: https://render.janction.jp/changelog.xml). Versions are the PyPI releases of `janction-render`; the hosted service follows the same numbers.
 
+## 0.4.107 (2026-10-14)
+
+Receptionist, GPU workers and MCP.
+
+- A render that runs out of memory on a smaller GPU worker is drawn again on a worker with a bigger render box (64 GB); the lost time is not charged.
+- Each key can keep up to 20 GB of scene files at a time (JR_STORAGE_MB_PER_KEY); past it, an upload answers 507 storage_quota with how to free space (reuse a scene, wait for expiry, or erase).
+- A compressed .blend that unpacks to more than 16 GB, unpacks over 100 times its size, or is damaged is refused at upload.
+- After a key is revoked, its jobs' watch pages show nothing.
+- render_status without a job id lists your recent jobs, so an agent in a new chat can find them; render_info includes a plain-words diagnosis (connection, key, credit, GPUs, last error).
+- Webhooks carry event_id and schema_version 2 and are sent again with backoff when the receiver does not answer.
+- Limits are listed in one shape (value, unit, applies_to, alternative) in /v1/capabilities, facts.json and openapi.json.
+- Too-large answers point to the upload page; preview checks carry fix_params and fix_code next to the fix text.
+- Uploads are checked off the main loop, so a large compressed .blend does not slow other requests.
+- The first successful preview says how much free GPU time is left and, if available, that saving a card adds 400 JPY (nothing charged).
+- Reading a scene that times out is not counted against free time; the same scene is not read twice at once, and a scene that timed out is not read again until it changes. The message says the scene took too long to build and points to heavy settings such as high subdivision levels.
+
 ## 0.4.106 (2026-10-14)
 
 Receptionist and client.

@@ -28,7 +28,6 @@ TOOL_ORDER = ("render_preview", "render_final", "render_review", "render_downloa
 # 上限（billing の既定値と同じ。tests/test_tooldocs.py が突き合わせる。stdio は手元で動くので受付の設定を読めない）
 FREE_GPU_MINUTES_PER_KEY_PER_DAY = 10
 FREE_MAX_FRAMES = 240
-FREE_MAX_SIZE = "1920x1080"
 RETENTION_HOURS = 24
 PAID_RETENTION_DAYS = 7       # 一度でもチャージした鍵（core.paid_ttl_seconds の既定 168 時間）
 YEN_PER_GPU_SECOND = 0.1      # 無料枠を超えた分の単価（10/8 から有料。billing.yen_per_gpu_second の既定値）
@@ -112,7 +111,21 @@ FREE_MAX_FRAMES = _env_int_doc("JR_FREE_MAX_FRAMES", 240)
 MAX_FRAMES_PER_INSTRUCTION = max(FREE_MAX_FRAMES, _env_int_doc("JR_MAX_FRAMES_PER_INSTRUCTION", 3000))
 RETENTION_HOURS = _env_int_doc("JR_TTL_HOURS", 24)
 PAID_RETENTION_DAYS = round(_env_int_doc("JR_PAID_TTL_HOURS", 168) / 24)
-PAID_MAX_SIZE = "3840x2160"            # 先払いのクレジットでの上限（無料の時間は 1080p まで）
+
+
+def _wh(pixels: int) -> str:
+    """画素数を 16:9 の幅x高さで（server/capabilities._wh と同じ式。tests/test_capabilities.py が突き合わせる）。"""
+    w = int(round((pixels * 16 / 9) ** 0.5))
+    return f"{w}x{int(round(w * 9 / 16))}"
+
+
+# 解像度の上限も受付と同じ env から（10/14、要件 AIO-01: 手書きの 1920x1080 / 3840x2160 だと JR_*_MAX_PIXELS を変えた本番と食い違う）
+_FREE_PX = _env_int_doc("JR_FREE_MAX_PIXELS", 1920 * 1080)
+FREE_MAX_SIZE = _wh(_FREE_PX)
+PAID_MAX_SIZE = _wh(max(_FREE_PX, _env_int_doc("JR_PAID_MAX_PIXELS", 3840 * 2160)))   # 先払いのクレジットでの上限
+PREVIEW_MAX_SIZE = "1280x720"          # 試し描きの上限（server/capabilities.PREVIEW_MAX と同じ）
+PREVIEW_FRAMES_MAX = 4
+UPLOAD_LINK_HOURS = _env_int_doc("JR_DROP_TTL_HOURS", 12)
 
 
 def _limits() -> str:
@@ -180,7 +193,7 @@ def descriptions(flavor: str, wait_cap_s: int = 50) -> dict[str, str]:
         "fixes and preview again before any final render. It also returns final_estimate (the same scene as a 1080p final) and "
         "quota_left_today; tell the user both before asking to go on. A script that raises comes back as a failure with the "
         "line (nothing is rendered). " + _NOT_HERE + " This service is for CPU-only "
-        "machines, animations, and scripts with no Blender installed. Limits: up to 1280x720; 1-4 frames tiled in one labeled "
+        f"machines, animations, and scripts with no Blender installed. Limits: up to {PREVIEW_MAX_SIZE}; 1-{PREVIEW_FRAMES_MAX} frames tiled in one labeled "
         "image for the GPU time of one 720p frame. preset='product' | 'turntable' | 'animation' sets camera, light, backdrop and "
         "frames for that purpose. Other options are explained on each parameter: environment presets and 'compare', orbit "
         f"(turntable), cameras (several named cameras), engine, transparent, {a} with 'polyhaven:<id>' CC0 assets. "
@@ -222,7 +235,10 @@ def descriptions(flavor: str, wait_cap_s: int = 50) -> dict[str, str]:
         "queue wait), files ready, Blender warnings, and the error with the log tail if it failed. Use it to report progress "
         "to the user; "
         + ("render_download(job_id, wait_seconds=45) waits and returns the links in one call." if remote else
-           "call render_download once status is done."))
+           "call render_download once status is done.")
+        # 10/14 IF-05: 新しい会話・つなぎ直しで前の仕事に戻る道
+        + " Without job_id it lists this key's recent jobs and the scene_ids still kept, to pick up earlier work in a new "
+          "conversation.")
     if remote:
         download = (
             "Get the download links of a job (no key needed, valid about 24 hours; call again for fresh links while the files are "
@@ -276,7 +292,10 @@ def descriptions(flavor: str, wait_cap_s: int = 50) -> dict[str, str]:
         "gate says how long the wait usually is. "
         + ("It runs as the connected account (OAuth or the API key in the connector). " if remote else
            "It uses the API key in JANCTION_RENDER_API_KEY or ~/.janction-render.json (a free key is made on first use). ")
-        + "Every call is rate-limited per key; a 429 response carries retry_after_s, wait that long.")
+        + "Every call is rate-limited per key; a 429 response carries retry_after_s, wait that long. "
+        # 10/14 IF-10: 端末の無い人の診断
+        "diagnose.tell_user says in plain words whether the connection, the key, the free credit and the GPUs are fine and "
+        "what the last failed render said; relay it when the user asks why something does not work.")
     return {"render_preview": preview, "render_final": final, "scene_info": scene_info, "render_estimate": estimate,
             "render_status": status, "render_download": download, "asset_search": assets, "billing": billing,
             "render_review": review_description(flavor), "render_cancel": cancel, "render_share": share,
@@ -317,15 +336,15 @@ def param_docs(flavor: str, wait_cap_s: int = 50) -> dict[str, str]:
         "scene_path": "Local path to the scene: a .blend file, a bpy .py script, or a 3D file (.glb/.gltf/.fbx/.usd/.obj/.stl/.ply/.abc, imported into an empty scene). Uploaded once; reuse the returned scene_id afterwards.",
         "scene_id": "scene_id returned by an earlier call (reuses the uploaded scene without sending it again).",
         "scene_script": "The scene as bpy Python code (text). No file and no local Blender needed; the service runs it in Blender 5.0." + _script_notes(flavor),
-        "scene_url": f"https link to a .blend, a .py script or a 3D file (.glb/.gltf/.fbx/.usd/.obj/.stl/.ply/.abc); the service fetches it (e.g. the sample {SAMPLE_URL}, or a 12-hour /upload link). A .gltf or .obj also brings its .bin / .mtl / textures from the same folder.",
+        "scene_url": f"https link to a .blend, a .py script or a 3D file (.glb/.gltf/.fbx/.usd/.obj/.stl/.ply/.abc); the service fetches it (e.g. the sample {SAMPLE_URL}, or a {UPLOAD_LINK_HOURS}-hour /upload link). A .gltf or .obj also brings its .bin / .mtl / textures from the same folder.",
         "asset_urls": "Extra files sent with the scene: https links (textures, glTF .bin) or 'polyhaven:<id>' CC0 assets from asset_search ('polyhaven:<id>@2k' for 2k textures). A .blend finds them through relative paths (same folder); a script through os.environ['JR_ASSETS_DIR'] or the jr_assets helpers.",
         "assets": "Extra files sent with the scene: local paths (textures, glTF .bin), https links, or 'polyhaven:<id>' CC0 assets from asset_search. A .blend finds them through relative paths (same folder); a script through os.environ['JR_ASSETS_DIR'] or the jr_assets helpers.",
         "blender": "Blender version: '' (5.0, default) or '5.2' when the worker has it.",
-        "frames": "Preview frames: '' = frame 1; '12' = one frame; '1,8,16,24' or '1-24' = up to 4 frames tiled in one labeled image (to judge camera motion and animation; same GPU time as one 720p frame).",
+        "frames": f"Preview frames: '' = frame 1; '12' = one frame; '1,8,16,24' or '1-24' = up to {PREVIEW_FRAMES_MAX} frames tiled in one labeled image (to judge camera motion and animation; same GPU time as one 720p frame).",
         "camera": "Name of the camera object to render from (default: the scene's active camera, or an automatic camera if there is none). Ignored with orbit=True; not combinable with cameras.",
         "cameras": "Several camera object names (up to 8) rendered from the same frame in one job: the preview tiles them in one labeled sheet, the final returns one PNG/EXR per camera (camera_files maps names to files). For product shots from fixed angles. Not combinable with orbit, environment='compare' or camera.",
-        "width": "Output width in pixels (previews are capped at 1280x720 keeping the aspect ratio; a final frame can have at most 1920x1080 pixels on free time, 3840x2160 on prepaid credit).",
-        "height": "Output height in pixels (previews are capped at 1280x720 keeping the aspect ratio; a final frame can have at most 1920x1080 pixels on free time, 3840x2160 on prepaid credit).",
+        "width": f"Output width in pixels (previews are capped at {PREVIEW_MAX_SIZE} keeping the aspect ratio; a final frame can have at most {FREE_MAX_SIZE} pixels on free time, {PAID_MAX_SIZE} on prepaid credit).",
+        "height": f"Output height in pixels (previews are capped at {PREVIEW_MAX_SIZE} keeping the aspect ratio; a final frame can have at most {FREE_MAX_SIZE} pixels on free time, {PAID_MAX_SIZE} on prepaid credit).",
         "samples": "Cycles samples per pixel (preview: up to 32, default 16; final: default 128).",
         "out_dir": "Local folder to save the files in (default ~/janction-render/<job_id>).",
         "environment": "Lighting preset: '' (the scene's own world), 'studio', 'sunset', 'overcast' or 'night' (bundled HDRIs; a good first render for scenes without lighting work), or 'compare' (preview only: all four in one labeled 2x2 image, to pick one).",
@@ -348,7 +367,7 @@ def param_docs(flavor: str, wait_cap_s: int = 50) -> dict[str, str]:
         "output": "'auto' (mp4 for a frame range, png for one frame) | 'png' | 'exr' (16-bit linear frames for compositing) | 'mp4' (H.264) | 'webm' (VP9) | 'prores' (Apple ProRes 422 HQ .mov, for editing) | 'gif' | 'webp' (animated, at most 960 px wide; good for chat and web).",
         "notify_url": "Optional https URL that receives one JSON POST when the final render finishes (job.done / job.failed, with download links), so nobody has to poll.",
         "kind": "'final' (frame_start..frame_end at width x height, samples) or 'preview' (frames like '1-24').",
-        "job_id": "The job_id returned by render_preview or render_final (j_...; a long final split into parts is b_...). Only this key's jobs.",
+        "job_id": "The job_id returned by render_preview or render_final (j_...; a long final split into parts is b_...). Only this key's jobs; in render_status, leave it empty to list them.",
         "wait_seconds": (f"Wait for the job to finish before returning the links (0 = do not wait). The service waits at most {wait_cap_s} s per call; call again while the job is still running."
                          if remote else "Wait up to this many seconds for the job to finish before downloading (0 = do not wait)."),
         "only": "'all' (every frame plus output.mp4 / sheet.png) | 'mp4' | 'frames' | 'sheet' | 'output' (the MP4 or the sheet only).",

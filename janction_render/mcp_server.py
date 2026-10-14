@@ -226,9 +226,21 @@ def _fail(exc: Exception) -> dict[str, Any]:
     out: dict[str, Any] = {"ok": False, "error": str(exc)}
     if isinstance(exc, ClientError):
         out.update(exc.agent_fields())
+        # 10/14 IF-03: 大きさで断られたら、ブラウザの /upload（分けて送る・途中から再開）を代わりの道として足す
+        mcp_common.add_upload_hint(out, _server_url(), exc.error, exc.status)
+        if exc.status == 404 and exc.error == "not_found":
+            # 10/14 IF-05: 覚えていない job_id には一覧の道を
+            out.setdefault("next", "render_status() with no job_id lists this key's recent jobs")
     else:   # この PC の上の入力（ファイルが無い・形が違う）
         out.update({"code": "INVALID_INPUT", "retryable": False, "recommended_action": "FIX_INPUT"})
     return out
+
+
+def _server_url() -> str:
+    try:
+        return _client().server
+    except Exception:  # noqa: BLE001
+        return ""
 
 
 def _payment_block(exc: ClientError) -> Optional[dict[str, Any]]:
@@ -693,11 +705,24 @@ def render_final(
 
 
 @mcp.tool(annotations=_ann(READ, "Render status and ETA"), meta=_ui_meta())
-def render_status(job_id: Annotated[str, Field(description=P["job_id"])]) -> str:
+def render_status(job_id: Annotated[str, Field(description=P["job_id"])] = "") -> str:
     """Check a JANCTION render job: status (queued/running/done/failed/canceled), frames done,
     how many chunks are queued ahead, the ETA (eta.human = remaining time including queue wait),
     artifacts ready, Blender warnings, and the error plus log tail if it failed. Use render_download
-    once status is done."""
+    once status is done. Without job_id it lists this key's recent jobs and the scene_ids still kept
+    (to pick up earlier work in a new conversation)."""
+    if not (job_id or "").strip():
+        # 10/14 IF-05: 新しい会話で前の仕事に戻る。受付の summary（分けた仕上げを b_… の 1 行に）を使い、古い受付なら全部の形を縮める
+        c = _client()
+        try:
+            r = c.s.get(f"{c.server}/v1/jobs", params={"limit": 10, "summary": 1}, headers=c._headers(), timeout=30)
+            c._raise(r)
+            out = r.json()
+        except ClientError as exc:
+            return _j(_fail(exc))
+        out["jobs"] = [mcp_common.recent_job_row(v) for v in out.get("jobs") or []][:10]
+        out["next"] = mcp_common.recent_jobs_next(out)
+        return _j(out)
     try:
         j = _client().job(job_id)
     except ClientError as exc:
@@ -814,8 +839,30 @@ def render_info() -> str:
         health = c.health()
         me = c.me()
     except (ClientError, Exception) as exc:  # noqa: BLE001
-        return _j({**_fail(exc), "server": c.server})
-    return _j({"ok": True, "server": c.server, "workers": health["workers"], "queue": health["queue"],
+        # 10/14 IF-10: 失敗しても、どこで止まったか（受付に届かない／鍵が効かない）を言葉で返す
+        errs: dict[str, str] = {}
+        h = None
+        try:
+            h = c.health()
+        except Exception as e2:  # noqa: BLE001
+            errs["health"] = str(e2)[:200]
+        if h is not None:
+            errs["me"] = str(exc)[:200]
+        return _j({**_fail(exc), "server": c.server,
+                   "diagnose": mcp_common.diagnose(h, None, None, connection=f"local MCP to {c.server}", errors=errs)})
+    # 10/14 IF-10: 端末を見ない人にも伝わる診断（つながり・鍵・無料分・GPU・この鍵の最後の失敗）
+    last_failed = None
+    try:
+        r = c.s.get(f"{c.server}/v1/jobs", params={"limit": 5, "summary": 1}, headers=c._headers(), timeout=30)
+        if r.status_code == 200:
+            rows = [mcp_common.recent_job_row(v) for v in r.json().get("jobs") or []]
+            ended = [x for x in rows if x.get("status") in ("done", "failed")]
+            if ended and ended[0].get("status") == "failed":
+                last_failed = ended[0]
+    except Exception:  # noqa: BLE001 — 一覧が取れなくても診断は出す
+        pass
+    diag = mcp_common.diagnose(health, me, last_failed, connection=f"local MCP to {c.server}")
+    return _j({"ok": True, "server": c.server, "diagnose": diag, "workers": health["workers"], "queue": health["queue"],
                "features": health.get("features"),
                "key": me, "downloads_go_to": str(_out_root()),
                "first_call": f"render_preview(scene_url='{SAMPLE_URL}', environment='compare') confirms the connection in a few seconds",

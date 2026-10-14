@@ -168,6 +168,117 @@ def billing_reply(me: dict[str, Any], synced: Optional[dict[str, Any]] = None) -
     return out
 
 
+# ------------------------------------------------------------------ 前の仕事に戻る（10/14、要件 IF-05）
+
+def recent_job_row(v: dict[str, Any]) -> dict[str, Any]:
+    """GET /v1/jobs の 1 件（全部の形でも summary の形でも）→ 一覧の 1 行。古い受付（summary を知らない）にも使う。"""
+    if "progress" not in v:
+        return v
+    from .brief import iso
+    row: dict[str, Any] = {"job_id": v.get("job_id"), "kind": v.get("kind"), "status": v.get("status"),
+                           "frames": f"{v.get('frame_start')}-{v.get('frame_end')}", "scene_id": v.get("scene_id"),
+                           "created_at": iso(v.get("created_at")) if isinstance(v.get("created_at"), (int, float)) else v.get("created_at"),
+                           "files_kept_until": iso(v.get("expires_at")) if isinstance(v.get("expires_at"), (int, float)) else v.get("expires_at")}
+    if v.get("status") == "failed" and v.get("error"):
+        row["error"] = str(v["error"])[:160]
+    return row
+
+
+def recent_jobs_next(out: dict[str, Any]) -> str:
+    """render_status（job_id なし）の next。"""
+    jobs = out.get("jobs") or []
+    if not jobs:
+        return ("no jobs for this key yet (a reconnected app or a new key starts empty: jobs belong to the API key that made them); "
+                "start with render_preview")
+    live = [j for j in jobs if j.get("status") in ("queued", "running")]
+    if live:
+        return (f"tell the user which jobs are still running ({', '.join(str(j['job_id']) for j in live[:3])}); "
+                "render_download(job_id, wait_seconds=45) waits for one and returns its files")
+    return ("show the user these jobs in short; render_download(job_id) gets the files of a done job while they are kept, and a "
+            "scene_id from scene_ids_still_kept can be rendered again without sending the scene")
+
+
+# ------------------------------------------------------------------ 大きいファイル（10/14、要件 IF-03）
+
+def upload_page_hint(server: str, use_as: str = "scene_url") -> str:
+    """大きすぎる・届かないファイルの代わりの道: /upload のページ（ブラウザで分けて送る、途中から再開）→ 出たリンクを scene_url に。
+    use_as はリンクの渡し先（CLI はファイルの代わりにリンクを引数に）。"""
+    base = (server or "https://render.janction.jp").rstrip("/")
+    return (f"open {base}/upload in a browser and drop the file there (it is sent in parts and resumes after a drop; textures "
+            f"can go with it), then pass the link the page shows as {use_as}")
+
+
+def add_upload_hint(out: dict[str, Any], server: str, error: str = "", status: int = 0) -> dict[str, Any]:
+    """大きさで断られた（413・too_large）返事に /upload の案内を足す。それ以外は触らない。"""
+    if not (error == "too_large" or status == 413):
+        return out
+    hint = upload_page_hint(server)
+    out["upload_page"] = f"{(server or 'https://render.janction.jp').rstrip('/')}/upload"
+    fix = str(out.get("possible_fix") or "")
+    out["possible_fix"] = (fix + "; or " if fix else "") + hint
+    return out
+
+
+# ------------------------------------------------------------------ チャットだけの人の診断（10/14、要件 IF-10）
+
+def diagnose(health: Optional[dict[str, Any]], me: Optional[dict[str, Any]], last_failed: Optional[dict[str, Any]] = None,
+             connection: str = "", errors: Optional[dict[str, str]] = None) -> dict[str, Any]:
+    """render_info の diagnose: つながり・鍵・無料分と残高・GPU・この鍵の最後の失敗を、端末の無い人に伝える言葉で。
+    checks は [{check, ok, say}]、tell_user はそのまま利用者に言える 1 段落（英語。AI が利用者の言葉に直す）。"""
+    errors = errors or {}
+    checks: list[dict[str, Any]] = []
+
+    def add(name: str, ok: bool, say: str) -> None:
+        checks.append({"check": name, "ok": ok, "say": say})
+
+    if health is None:
+        add("connection", False, "the render service did not answer: " + (errors.get("health") or "unknown error")
+            + "; try again in a minute, and check https://render.janction.jp/status")
+    else:
+        add("connection", True, "connected to the render service" + (f" ({connection})" if connection else ""))
+    if me is None and health is None and not errors.get("me"):
+        add("key", False, "the API key could not be checked because the service did not answer")
+    elif me is None:
+        add("key", False, "the API key did not work: " + (errors.get("me") or "unknown error")
+            + "; reconnect the app (a new key starts with free GPU time) or check the key in the app's settings")
+    else:
+        add("key", True, f"the API key works (starts with {me.get('prefix') or '?'}; {me.get('jobs', 0)} jobs so far)")
+        try:
+            br = billing_reply(me)
+        except (KeyError, TypeError, ValueError):     # 古い受付の /v1/me の形: 残高だけで言う
+            br = {}
+        if br.get("mode") == "welcome_credit":
+            credit = str(br.get("summary") or "")
+            ok = bool((br.get("welcome") or {}).get("in_welcome")) or float(me.get("balance_yen") or 0) > 0
+        elif br.get("mode") in ("free_allowance", "free_beta"):
+            left = int(br.get("gpu_seconds_left_today") or 0)
+            credit = f"{left // 60} free GPU-minutes left today" + (f"; balance {me.get('balance_yen')} JPY" if "balance_yen" in br else "")
+            ok = left > 0 or float(me.get("balance_yen") or 0) > 0
+        else:
+            credit = f"balance {me.get('balance_yen')} JPY"
+            ok = float(me.get("balance_yen") or 0) > 0 or int(me.get("free_previews_left") or 0) > 0
+        add("credit", ok, credit + ("" if ok else "; previews may still be free, a final needs a top-up (billing tool)"))
+    if health is not None:
+        q = health.get("queue") or {}
+        ready = int(q.get("workers_available") or 0)
+        if ready > 0:
+            wait = q.get("wait_seconds")
+            add("gpus", True, f"{ready} GPU worker(s) ready" + (f", about {int(wait)} s of queue ahead" if wait else ", no queue"))
+        elif int(q.get("workers_gated") or 0) > 0:
+            add("gpus", False, (q.get("note") or "the GPU is lent out right now") + "; renders wait in the queue and start by themselves")
+        else:
+            add("gpus", False, "no GPU worker is online right now; renders wait in the queue and start when one returns")
+    if last_failed:
+        add("last_error", False, f"the last failed job ({last_failed.get('job_id')}, {last_failed.get('kind')}) said: "
+            + str(last_failed.get("error") or "no reason recorded")[:200])
+    elif me is not None:
+        add("last_error", True, "the last render of this key did not fail")
+    bad = [c for c in checks if not c["ok"]]
+    tell = ("Everything looks fine: " if not bad else "Found " + str(len(bad)) + " thing(s) to look at: ") + \
+        " ".join(c["say"][0].upper() + c["say"][1:] + "." for c in (bad or checks))
+    return {"ok": not bad, "checks": checks, "tell_user": tell}
+
+
 # ------------------------------------------------------------------ 引数の説明（道具の description の末尾に足す）
 
 _ENGINE_DOC = (" engine: '' or 'cycles' (path tracing, the default) | 'eevee' (Blender's real-time rasterizer: about half the "

@@ -646,6 +646,10 @@ def main(argv: list[str] | None = None) -> int:
             print(_j(pay))
             return 3
         print(f"error: {exc}", file=sys.stderr)
+        if exc.status == 413 or exc.error == "too_large":
+            # 10/14 IF-03: 大きすぎるファイルの代わりの道（ブラウザで分けて送る /upload → 出たリンクを --url / scene_url に）
+            from .mcp_common import upload_page_hint
+            print(f"instead: {upload_page_hint(c.server, 'the scene argument in place of the file')}", file=sys.stderr)
         return 2
     except (FileNotFoundError, ValueError) as exc:
         print(f"error: {exc}", file=sys.stderr)
