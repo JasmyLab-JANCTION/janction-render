@@ -2,6 +2,12 @@
 
 The live, per-version list is at https://render.janction.jp/changelog (Atom: https://render.janction.jp/changelog.xml). Versions are the PyPI releases of `janction-render`; the hosted service follows the same numbers.
 
+## 0.4.105 (2026-10-14)
+
+Receptionist.
+
+- **Many estimates at once no longer slow the service down.** Estimates are computed off the request loop, so twenty agents asking at the same moment do not hold up everyone else's calls.
+
 ## 0.4.104 (2026-10-14)
 
 Receptionist and client.
