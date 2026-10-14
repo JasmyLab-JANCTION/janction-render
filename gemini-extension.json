@@ -1,6 +1,6 @@
 {
   "name": "janction-render",
-  "version": "0.4.96",
+  "version": "0.4.97",
   "description": "JANCTION Render: Blender scenes and 3D models (GLB, FBX, USD, OBJ, STL) rendered on cloud GPUs from the AI: product shots, 360-degree turntables, animations and stills. Preview in seconds with a critic, then the final. No local Blender or GPU. Free: 100 JPY of GPU time per new key with no card, 400 JPY more after saving a card that is not charged, then 0.1 JPY per GPU-second.",
   "mcpServers": {
     "janction-render": {

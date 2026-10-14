@@ -87,9 +87,11 @@ An unsaved file uses a temporary folder; the path is shown in the panel.
 
 - Preview: up to 4 frames, up to 1280x720, up to 32 samples. The scene's
   resolution and samples are used and clamped.
-- Final: up to 240 frames per job and up to 1080p (1920x1080 pixels). Longer
-  ranges are cut at 240 frames and larger resolutions are scaled down; the
-  panel says so. Samples: the scene's Cycles samples capped at 128, or your own
+- Final: up to 3,000 frames per instruction (the service runs it as parts of
+  240 under one job id and joins them into one video), 1080p (1920x1080) on
+  free time and up to 4K (3840x2160) on prepaid credit; the service decides
+  the resolution from the key (add-on 0.1.8 and later send the scene as it is).
+  Live numbers: https://render.janction.jp/v1/pricing. Samples: the scene's Cycles samples capped at 128, or your own
   number when "Scene samples" is off.
 - Engine: Cycles on GPU. The worker opens the file with Blender 5.0 or 5.2.
   The default, "Match this Blender", picks 5.2 when your Blender is 5.1 or

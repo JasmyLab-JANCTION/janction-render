@@ -2,6 +2,14 @@
 
 The live, per-version list is at https://render.janction.jp/changelog (Atom: https://render.janction.jp/changelog.xml). Versions are the PyPI releases of `janction-render`; the hosted service follows the same numbers.
 
+## 0.4.97 (2026-10-14)
+
+Receptionist.
+
+- **A heavy final no longer fails when one part runs out of time.** A part that runs past the per-part time limit is split into smaller parts and queued again, and the job goes on; the time lost is not charged. Only a single frame that still does not fit fails the job.
+- **Parts are sized from the estimate.** A final is cut so that each part is expected to take well under the time limit, so heavy scenes start with smaller parts.
+- **Pricing and limits from one source.** The FAQ and guides no longer say "240 frames per job".
+
 ## 0.4.96 (2026-10-14)
 
 Receptionist.
