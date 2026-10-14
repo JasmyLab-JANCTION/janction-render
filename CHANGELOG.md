@@ -2,6 +2,14 @@
 
 The live, per-version list is at https://render.janction.jp/changelog (Atom: https://render.janction.jp/changelog.xml). Versions are the PyPI releases of `janction-render`; the hosted service follows the same numbers.
 
+## 0.4.106 (2026-10-14)
+
+Receptionist and client.
+
+- **3D files that Blender cannot open are refused at upload, with what to export instead:** an ASCII FBX (Blender reads binary FBX), an STL cut short, an Alembic in the old HDF5 format (Blender reads Ogawa), and a GLB, glTF, PLY or USD file whose header does not match its name. They used to wait for a GPU and fail inside Blender.
+- **Compressed .blend files open with the right Blender version:** gzip files are read for the version they were saved with, and zstd-compressed ones open with the newest Blender available.
+- **Jobs say which stage they are in:** `stage` is `rendering` or `assembling` while a job runs, so a long final that is joining its parts into a video does not look stuck. The MCP status shows it.
+
 ## 0.4.105 (2026-10-14)
 
 Receptionist.

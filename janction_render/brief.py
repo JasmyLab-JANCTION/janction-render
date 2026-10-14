@@ -332,6 +332,7 @@ def brief(j: dict[str, Any]) -> dict[str, Any]:
         "job_id": j["job_id"],
         "kind": j["kind"],
         "status": j["status"],
+        **({"stage": j["stage"]} if j.get("stage") and j.get("stage") != j.get("status") else {}),   # rendering / assembling（10/14）
         "scene_id": j["scene_id"],
         "frames": j["frames"] if j.get("frames") else f"{j['frame_start']}-{j['frame_end']}",
         "progress": f"{p['frames_done']}/{p['frames_total']} frames, {p['chunks_done']}/{p['chunks_total']} chunks",
