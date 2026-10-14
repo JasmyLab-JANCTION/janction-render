@@ -49,12 +49,28 @@ def estimate_brief(e: dict[str, Any] | None) -> dict[str, Any] | None:
 FINAL_W, FINAL_H, FINAL_SPP = 1920, 1080, 128
 
 
+# preset の仕上げ（受付の jobs.PRESET_DEFAULTS の final と同じ。tests/test_preset_next_action_1014.py が一致を見る）
+PRESET_FINALS: dict[str, dict[str, Any]] = {
+    "product": {"what": "4 product shots (PNG, 0/90/180/270 degrees)", "width": 1440, "height": 1440, "samples": 128},
+    "turntable": {"what": "a 360-degree turntable MP4", "width": 1280, "height": 720, "samples": 64},
+}
+
+
 def final_body_after_preview(j: dict[str, Any]) -> dict[str, Any] | None:
     """試し描き（done）の次の一手の見積もりに使う final の本文（10/7）: 同じシーン・同じ設定で、試し描きしたコマ範囲を
     1920x1080・128 サンプルで仕上げたら、という仮定。compare は 1 コマ、cameras は同じカメラ群、orbit は 1 周。"""
     if not j or j.get("kind") != "preview" or not j.get("scene_id"):
         return None
     p = j.get("params") or {}
+    pre = p.get("preset")
+    if pre in PRESET_FINALS:
+        # 10/14: preset='product' の試し描きのあとに preset なしの仕上げを勧めていた（4 枚の PNG ではなく 1080p の 4 コマの回転になる）。
+        # 同じ preset で仕上げる（大きさ・出力は受付が preset から決める）
+        body = {"scene_id": j["scene_id"], "kind": "final", "preset": pre}
+        for k in ("engine", "blender", "transparent"):
+            if p.get(k):
+                body[k] = p[k]
+        return body
     frames = [int(x) for x in (j.get("frames") or []) if isinstance(x, (int, float))]
     body: dict[str, Any] = {"scene_id": j["scene_id"], "kind": "final", "width": FINAL_W, "height": FINAL_H, "samples": FINAL_SPP}
     if p.get("cameras"):
@@ -91,7 +107,10 @@ def followup_after_preview(est: dict[str, Any] | None, body: dict[str, Any] | No
     q = est.get("quota") or {}
     fe = body.get("frame_end") or body.get("frame_start") or 1
     fs = body.get("frame_start") or 1
-    if body.get("cameras"):
+    pf = PRESET_FINALS.get(str(body.get("preset") or ""))
+    if pf:
+        what = pf["what"]
+    elif body.get("cameras"):
         what = f"frame {fs} from {len(body['cameras'])} cameras"
     elif body.get("orbit"):
         what = f"one {body.get('orbit_frames') or 24}-frame turntable"
@@ -100,7 +119,8 @@ def followup_after_preview(est: dict[str, Any] | None, body: dict[str, Any] | No
     else:
         what = f"frame {fs}"
     out: dict[str, Any] = {
-        "final_estimate": {"what": what, "size": f"{body.get('width')}x{body.get('height')}", "samples": body.get("samples"),
+        "final_estimate": {"what": what, "size": f"{(pf or body).get('width')}x{(pf or body).get('height')}",
+                           "samples": (pf or body).get("samples"),
                            "gpu_seconds": est.get("seconds"), "human": est.get("human"),
                            "fits_today": q.get("fits_today"), "gpu_seconds_left_today": q.get("gpu_seconds_left_today")},
     }
@@ -224,7 +244,7 @@ def preview_presentation(j: dict[str, Any], fu: dict[str, Any] | None, image_url
     body = final_body_after_preview(j) or {}
     actions: list[dict[str, Any]] = []
     if fe:
-        args = {k: body[k] for k in ("scene_id", "frame_start", "frame_end", "width", "height", "samples", "camera", "cameras",
+        args = {k: body[k] for k in ("scene_id", "preset", "frame_start", "frame_end", "width", "height", "samples", "camera", "cameras",
                                      "environment", "orbit", "engine", "blender", "transparent") if body.get(k) not in (None, "")}
         actions.append({"do": f"Render the final in full quality ({fe.get('what')}, {fe.get('size')})", "tool": "render_final",
                         "args": args, "time": fe.get("human"), "price": _price_words(fe)})

@@ -40,6 +40,19 @@ ASSET_LINK_MAX_BYTES = 128 * 1024 * 1024   # 受付の素材 1 つの上限（JR
 _FRAME_NAME_RE = re.compile(r"^(part-\d+_)?frame_")
 
 
+PART_SECONDS = 60.0          # 1 つの部分が送り終わるまでの目安（途中の入口が 100 秒あまりで切るので、その内側）
+PART_MIN = 1024 * 1024
+
+
+def _fit_part(part: int, moved: int, seconds: float, cut: bool = False) -> int:
+    """遅い回線では部分を小さくする（10/14）。送れた量と秒から、PART_SECONDS で送り終わる大きさ（256 KiB 単位、1 MiB 以上、今以下）。
+    切れた（cut）か 90 秒を超えたときだけ縮める。速い回線では今の大きさのまま。"""
+    if moved <= 0 or not (cut or seconds > 90):
+        return part
+    fit = int(moved / max(seconds, 0.001) * PART_SECONDS) // (256 * 1024) * (256 * 1024)
+    return max(PART_MIN, min(part, fit))
+
+
 def _have(dest: Path, a: dict[str, Any]) -> bool:
     """dest にもう同じ大きさのファイルがあるか（大きさの分からない古い受付では、無いものとして取り直す）。"""
     n = a.get("size")
@@ -594,6 +607,7 @@ class Client:
                 fh.seek(off)
                 data = fh.read(part)
                 part_sum = "sha256 " + base64.b64encode(hashlib.sha256(data).digest()).decode()
+                sent_from, t_part = off, time.monotonic()
                 try:
                     r = self.s.patch(url, data=data, timeout=600, headers={
                         **self._headers(), **tus, "Upload-Offset": str(off), "Content-Type": "application/offset+octet-stream",
@@ -607,6 +621,7 @@ class Client:
                     return r.json()
                 if r is not None and r.status_code == 204:
                     off, tries = int(r.headers.get("Upload-Offset") or off), 0
+                    part = _fit_part(part, off - sent_from, time.monotonic() - t_part)
                     if progress:
                         progress(off, size)
                     continue
@@ -629,6 +644,13 @@ class Client:
                     h = self.s.head(url, headers={**self._headers(), **tus}, timeout=30)
                     if h.status_code == 200:
                         off = int(h.headers.get("Upload-Offset") or off)
+                        if off > sent_from:
+                            # 切れたが届いた分はある（10/14 本番、2 Mbps: 32 MiB の部分が毎回 130 秒ほどで切られ、届いた分だけ
+                            # 進んでいた）。進んでいる間は失敗に数えず、部分をその速さで 60 秒に収まる大きさにする
+                            tries = 0
+                            part = _fit_part(part, off - sent_from, time.monotonic() - t_part, cut=True)
+                            if progress:
+                                progress(off, size)
                     elif h.status_code == 404:
                         self._resume_set(ident, None)
                         self._raise(h)

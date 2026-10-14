@@ -2,6 +2,28 @@
 
 The live, per-version list is at https://render.janction.jp/changelog (Atom: https://render.janction.jp/changelog.xml). Versions are the PyPI releases of `janction-render`; the hosted service follows the same numbers.
 
+## 0.4.102 (2026-10-14)
+
+Receptionist, client and Blender add-on 0.1.10.
+
+- **Large uploads finish on slow lines.** The CLI, the Blender add-on (0.1.10) and the browser no longer give up after eight cut parts while the upload keeps moving, and they shrink the parts so each finishes in about a minute. At 2 Mbps a 5 GB upload used to stop after about 250 MB. The browser keeps showing the progress after a cut.
+- **A storage error while an upload part is written is answered as retryable** (503 storage_error, the position does not move), and a full disk as 507 insufficient_storage, instead of a 500 that the sender retried eight times.
+- **Saving a card that already used its free credit** now says on the return page that large files (.blend up to 5 GB) are open for this key, and how to pick the same file again on /start.
+
+## 0.4.101 (2026-10-14)
+
+Receptionist.
+
+- **Estimates no longer grow from tiny test renders.** A render too small to measure (for example 160x90 at 2 samples, mostly start-up time) no longer sets the time per frame. The sample on /start was still quoted at about 33 GPU-seconds for a preview and a final past the free time; it renders in about 2.
+
+## 0.4.100 (2026-10-14)
+
+Receptionist and client.
+
+- **Estimates are not inflated by our own tests.** A new scene's estimate no longer takes in the heavy jobs of our endurance tests; a scene with the same content as one measured before (the sample, for one) uses that measurement. The sample on /start showed a 1-frame preview at about 200 GPU-seconds and a final past the free time; it renders in about 2.
+- **A preview counts only previews ahead of it.** Previews go before final parts, so "jobs ahead" no longer counts the final parts in the queue.
+- **After a product or turntable preview, the suggested final uses the same preset** (4 product PNGs or the turntable MP4), not a 1080p orbit.
+
 ## 0.4.99 (2026-10-14)
 
 Receptionist and client.

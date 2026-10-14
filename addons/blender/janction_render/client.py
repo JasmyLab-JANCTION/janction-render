@@ -18,7 +18,7 @@ import uuid
 from pathlib import Path
 from typing import Any, Callable, Iterable, Optional, Sequence
 
-VERSION = "0.1.9"
+VERSION = "0.1.10"
 USER_AGENT = f"janction-render-blender/{VERSION}"
 CLIENT_NAME = f"blender {VERSION}"
 DEFAULT_SERVER = "https://render.janction.jp"
@@ -39,6 +39,19 @@ Asset = tuple[str, str]   # (relative name as the scene references it, absolute 
 
 # Uploads in parts that have not finished, by (server, sha256, size): pressing Render again continues them.
 _RESUME: dict[tuple[str, str, int, str, str], str] = {}
+
+
+PART_SECONDS = 60.0   # one part should finish well inside the edge's limit of about 100 s
+PART_MIN = 1024 * 1024
+
+
+def fit_part(part: int, moved: int, seconds: float, cut: bool = False) -> int:
+    """On a slow line, a part sized so it is sent in PART_SECONDS (256 KiB steps, at least 1 MiB, never larger than now).
+    Only after a cut or a part slower than 90 s; a fast line keeps its size."""
+    if moved <= 0 or not (cut or seconds > 90):
+        return part
+    fit = int(moved / max(seconds, 0.001) * PART_SECONDS) // (256 * 1024) * (256 * 1024)
+    return max(PART_MIN, min(part, fit))
 
 
 class JRError(Exception):
@@ -443,6 +456,7 @@ class Client:
                 tell(f"Uploading {p.name}: {100 * off // max(1, size)}% ({off // 1048576} of {size // 1048576} MB)")
                 fh.seek(off)
                 data = fh.read(part)
+                sent_from, t_part = off, time.monotonic()
                 part_sum = "sha256 " + base64.b64encode(hashlib.sha256(data).digest()).decode()
                 try:
                     st, hd, raw = self._tus("PATCH", url, {"Upload-Offset": str(off),
@@ -459,6 +473,7 @@ class Client:
                     return out.get("scene") or out
                 if st == 204:
                     off, tries = int(hd.get("Upload-Offset") or off), 0
+                    part = fit_part(part, off - sent_from, time.monotonic() - t_part)
                     continue
                 if st == 409 and hd.get("Upload-Offset") is not None:
                     off = int(hd.get("Upload-Offset"))
@@ -476,6 +491,11 @@ class Client:
                     st, hd, _ = self._tus("HEAD", url, {}, timeout=30)
                     if st == 200:
                         off = int(hd.get("Upload-Offset") or off)
+                        if off > sent_from:
+                            # Cut, but part of it arrived (2026-10-14, 2 Mbps: every 32 MB part was cut after about 130 s).
+                            # Progress is not a failure; send smaller parts that finish within PART_SECONDS.
+                            tries = 0
+                            part = fit_part(part, off - sent_from, time.monotonic() - t_part, cut=True)
                 except JRError:
                     pass
 
