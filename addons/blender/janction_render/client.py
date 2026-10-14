@@ -7,6 +7,7 @@ network. Python 3.11 compatible; no Blender imports here.
 """
 import base64
 import hashlib
+import http.client
 import json
 import socket
 import time
@@ -17,7 +18,7 @@ import uuid
 from pathlib import Path
 from typing import Any, Callable, Iterable, Optional, Sequence
 
-VERSION = "0.1.8"
+VERSION = "0.1.9"
 USER_AGENT = f"janction-render-blender/{VERSION}"
 CLIENT_NAME = f"blender {VERSION}"
 DEFAULT_SERVER = "https://render.janction.jp"
@@ -515,7 +516,12 @@ class Client:
         try:
             with part.open("wb") as fh:
                 while True:
-                    chunk = resp.read(CHUNK)
+                    try:
+                        chunk = resp.read(CHUNK)
+                    except (ConnectionError, TimeoutError, socket.timeout, http.client.HTTPException) as exc:
+                        # The connection dropped in the middle of the file (2026-10-14): say so like any other network error,
+                        # so the caller can fetch the file again.
+                        raise JRError("network", f"the download of {name} was cut ({exc.__class__.__name__})") from None
                     if not chunk:
                         break
                     fh.write(chunk)

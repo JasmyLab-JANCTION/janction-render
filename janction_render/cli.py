@@ -66,6 +66,11 @@ def _frames(s: str) -> tuple[int, int]:
         raise argparse.ArgumentTypeError("frames must look like 1-240 or 12")
 
 
+def _say_err(msg: str) -> None:
+    """受け取りの進み具合（10/14: 5 GB の受け取りが 4 分黙っていた）。標準出力は結果の JSON だけにしておく。"""
+    print(msg, file=sys.stderr)
+
+
 def _progress(j: dict[str, Any]) -> None:
     p = j["progress"]
     print(f"  {j['status']}: {p['frames_done']}/{p['frames_total']} frames"
@@ -119,7 +124,7 @@ def cmd_preview(c: Client, args: argparse.Namespace) -> int:
         print(_j({k: j.get(k) for k in ("job_id", "status", "error", "log_tail", "warnings")}))
         return 1
     out = Path(args.out) if args.out else Path("render_out") / j["job_id"]
-    paths = c.download(j["job_id"], out)
+    paths = c.download(j["job_id"], out, on_progress=_say_err)
     print(_j({"job_id": j["job_id"], "scene_id": sid, "frames": frames, "files": [str(p) for p in paths],
               "warnings": j.get("warnings") or [], "gpu_seconds": j["gpu_seconds"], "device": j["device"],
               "expires_at": j["expires_at"]}))
@@ -146,7 +151,7 @@ def cmd_render(c: Client, args: argparse.Namespace) -> int:
         print(_j({k: j.get(k) for k in ("job_id", "status", "error", "log_tail")}))
         return 1
     out = Path(args.out) if args.out else Path("render_out") / j["job_id"]
-    paths = c.download(j["job_id"], out)
+    paths = c.download(j["job_id"], out, on_progress=_say_err)
     print(_j({"job_id": j["job_id"], "scene_id": sid, "files": [str(p) for p in paths],
               "warnings": j.get("warnings") or [], "gpu_seconds": j["gpu_seconds"], "device": j["device"],
               "expires_at": j["expires_at"]}))
@@ -161,7 +166,7 @@ def cmd_status(c: Client, args: argparse.Namespace) -> int:
 def cmd_download(c: Client, args: argparse.Namespace) -> int:
     j = c.wait(args.job, timeout=args.wait, on_progress=_progress) if args.wait else c.job(args.job)
     out = Path(args.out) if args.out else Path("render_out") / args.job
-    paths = c.download(args.job, out)
+    paths = c.download(args.job, out, on_progress=_say_err)
     print(_j({"job_id": args.job, "status": j["status"], "files": [str(p) for p in paths]}))
     return 0 if j["status"] == "done" else 1
 
@@ -383,7 +388,7 @@ def _outcome(c: Client, args: argparse.Namespace, name: str, options: dict[str, 
         print(_j({k: j.get(k) for k in ("job_id", "status", "error", "log_tail")}))
         return 1
     out = Path(args.out) if args.out else Path("render_out") / j["job_id"]
-    paths = c.download(j["job_id"], out, only=only)
+    paths = c.download(j["job_id"], out, only=only, on_progress=_say_err)
     print(_j({"job_id": j["job_id"], "scene_id": sid, "files": [str(p) for p in paths], "gpu_seconds": j["gpu_seconds"],
               "expires_at": j["expires_at"]}))
     return 0
@@ -408,7 +413,7 @@ def cmd_try(c: Client, args: argparse.Namespace) -> int:
         print(_j({k: j.get(k) for k in ("job_id", "status", "error", "log_tail")}))
         return 1
     out = Path(args.out) if args.out else Path("render_out") / j["job_id"]
-    paths = c.download(j["job_id"], out)
+    paths = c.download(j["job_id"], out, on_progress=_say_err)
     print(f"done: {j['gpu_seconds']} GPU seconds on {j.get('device') or 'GPU'} -> " + ", ".join(str(p) for p in paths))
     try:
         me = c.me()
@@ -606,8 +611,15 @@ def main(argv: list[str] | None = None) -> int:
         pay = exc.payment()
         if pay:
             print(f"payment required: {exc.detail}", file=sys.stderr)
-            print(f"open this page in a browser and pay, then run the command again: {pay['checkout_url']}",
-                  file=sys.stderr)
+            order = (pay.get("resume") or {}).get("order_id")
+            if order:
+                # 10/14: 払うと預かった仕事が自動で始まる。送り直すと同じ仕事が返る（2 本は描かない）
+                print(f"open this page in a browser and pay: {pay['checkout_url']}", file=sys.stderr)
+                print(f"the render then starts by itself (nothing to run again); follow it with: janction-render status {order}",
+                      file=sys.stderr)
+            else:
+                print(f"open this page in a browser and pay, then run the command again: {pay['checkout_url']}",
+                      file=sys.stderr)
             print(_j(pay))
             return 3
         print(f"error: {exc}", file=sys.stderr)

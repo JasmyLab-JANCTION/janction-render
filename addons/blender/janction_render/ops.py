@@ -6,6 +6,7 @@ blocking Blender. A ``bpy.app.timers`` tick on the main thread redraws the
 panel and loads the finished preview into an Image Editor.
 """
 import os
+import re
 import tempfile
 import threading
 import time
@@ -85,6 +86,14 @@ def progress_text(job: dict[str, Any]) -> str:
 
 def stamp() -> str:
     return time.strftime("%Y%m%d-%H%M%S")
+
+
+# A final over 240 frames is rendered in parts; its frames come back as part-01_frame_0001.png, part-02_frame_0241.png ...
+# (2026-10-14: only frame_* was picked, so such a render ended with "produced no frames"). They are saved without the
+# part prefix, so the folder holds one frame_0001 ... frame_0400 sequence.
+FRAME_RE = re.compile(r"^(?:part-\d+_)?frame_\d+")
+PART_PREFIX_RE = re.compile(r"^part-\d+_")
+DOWNLOAD_TRIES = 4
 
 
 # ---- bpy helpers ------------------------------------------------------------
@@ -306,7 +315,7 @@ class Runner(threading.Thread):
             dest = self.client.artifact(job_id, "output.mp4", self.out_dir / f"final_{stamp()}.mp4")
             result: Path = dest
         else:
-            frames = [n for n in names if n.startswith("frame_")]
+            frames = [n for n in names if FRAME_RE.match(n)]
             if not frames:
                 state.fail("The render finished but produced no frames")
                 return
@@ -316,10 +325,22 @@ class Runner(threading.Thread):
                     state.update(phase="canceled", message="Canceled while downloading")
                     return
                 state.update(message=f"Downloading {i}/{len(frames)}")
-                self.client.artifact(job_id, n, folder / n)
+                self._fetch(job_id, n, folder / PART_PREFIX_RE.sub("", n))
             result = folder
         state.update(phase="done", result=str(result), message=f"Final render ready{took}",
                      pending_open=str(result) if self.open_when_done else "")
+
+
+    def _fetch(self, job_id: str, name: str, dest: Path) -> None:
+        """One file, fetched again when the connection drops in the middle (a 5 GB render is hundreds of files)."""
+        for attempt in range(DOWNLOAD_TRIES):
+            try:
+                self.client.artifact(job_id, name, dest)
+                return
+            except JRError as exc:
+                if exc.code not in ("network", "timeout") or attempt == DOWNLOAD_TRIES - 1:
+                    raise
+                time.sleep(min(10.0, 2.0 ** attempt))
 
 
 # ---- main-thread timer ----------------------------------------------------------

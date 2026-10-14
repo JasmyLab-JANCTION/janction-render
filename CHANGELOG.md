@@ -2,6 +2,31 @@
 
 The live, per-version list is at https://render.janction.jp/changelog (Atom: https://render.janction.jp/changelog.xml). Versions are the PyPI releases of `janction-render`; the hosted service follows the same numbers.
 
+## 0.4.99 (2026-10-14)
+
+Receptionist and client.
+
+- **Previews stay quick while a heavy final runs.** When every other GPU worker is busy, the last free one keeps room for previews instead of taking a long part of a final.
+- **Heavy long finals fit.** The parts of a long final are sized from the estimate, so a 4K scene at minutes a frame is no longer refused for one part's GPU-hours, and the preflight checks the limit per part.
+- **A render whose parts were all done when the service restarted finishes within minutes** (it could wait up to 50 minutes).
+- **Errors are easier for agents to act on:** 405 and unknown routes carry a code and what to do, MCP errors link to the docs, and a remote MCP call without a scene says how to upload a file from the user's computer (/upload).
+- **Registering a card opens 5 GiB uploads also when that card's free bonus was used on another key** (the bonus itself stays once per card).
+- **The CLI says how a large download is going** (zip n of N, how much so far, fetching again).
+- **Paying one top-up page closes the key's other open top-up pages**, so a payment is not made twice by accident; the same page is reused after a restart.
+
+## 0.4.98 (2026-10-14)
+
+Receptionist and client.
+
+- **After a 402, paying starts the same render; nothing to send again.** The agent gets the kept order (`resume.order_id`) and is told the render starts by itself once the payment arrives; it follows the order with `render_status`. The CLI prints `janction-render status o_...`. The Stripe success page names the job the payment started.
+- **A render is never started twice after paying.** A resend is matched to the kept order by the scene's content, not its id (MCP sends a new scene id each time), so a resend before or after the payment returns the same job and is charged once.
+- **The order waits 24 hours,** as long as the Stripe payment page stays open (it was 1 hour).
+- **A final over 240 frames gets one 402 before it is split,** with the payment link, instead of a 402 per part that never reached the user; after paying it starts as one split job.
+- **Heavy scenes get the time they need.** Each part's time limit follows the estimate (up to 30 minutes), and a single frame that still runs out of time is drawn again once with 30 minutes on keys that have bought credit. Time lost to a part that ran out of time is not charged, also when the job fails.
+- **Frames finished before a part runs out of time are kept.** Only the frames that were not finished are drawn again.
+- **/start answers the first questions before you pick a file:** no sign-up, the first credit with no card, no GPU or Blender needed, the formats it takes, preview in seconds, and the price after the free part.
+- **Large results are easier to fetch.** A job with many files lists zip links of about 1 GiB each; the CLI fetches them in slices and fetches only a cut slice again; the Blender add-on 0.1.9 picks up the frames of a split final.
+
 ## 0.4.97 (2026-10-14)
 
 Receptionist.

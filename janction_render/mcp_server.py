@@ -236,17 +236,20 @@ def _payment_block(exc: ClientError) -> Optional[dict[str, Any]]:
     p = exc.payment()
     if p is None:
         return None
+    # 払ったあとは預かり（resume.order_id）から自動で始まる受付（0.4.98〜）なら、送り直させない（10/14）
+    after = ("after they paid (or registered the card) the render starts by itself: tell them so and follow it with "
+             "render_status(job_id=resume.order_id); do not upload or submit it again (a resend returns the same job)"
+             if p.get("resume") else "after they paid, call billing() to confirm the balance, then submit the same job again")
     if p.get("card_offer"):
         # 0 円のカード登録で無料の GPU 時間が足される鍵には、その道を先に（docs/62 P0-1）。チャージは代わりの道
         p["next"] = ("first tell the user card_offer.tell_user in their own language (registering a card costs nothing and adds free "
-                     "GPU time; they open card_offer.link in a browser), and offer the top-up at checkout_url as the other way; after "
-                     "either is done, call billing() to confirm, then submit the same job again")
+                     "GPU time; they open card_offer.link in a browser), and offer the top-up at checkout_url as the other way; " + after)
         return p
     p["next"] = (("relay tell_user to the user in their own language (what this render costs and what the top-up buys) "
                   "with checkout_url " if p.get("tell_user") else
                   "tell the user the job goes past the free GPU time left and what the top-up costs; show checkout_url ")
-                 + "and ask them to pay in a browser (Stripe; the rest stays as credit); after they paid, call billing() to "
-                 "confirm the balance, then submit the same job again (or render a smaller job that fits the free time)")
+                 + "and ask them to pay in a browser (Stripe; the rest stays as credit); " + after
+                 + " (or render a smaller job that fits the free time)")
     return p
 
 

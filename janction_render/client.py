@@ -25,6 +25,9 @@ CACHE = Path.home() / ".janction-render.json"
 SCENE_SUFFIXES = (".blend", ".py", ".fbx", ".glb", ".gltf", ".obj", ".stl", ".ply", ".usd", ".usda", ".usdc", ".usdz", ".abc")
 ONLY_CHOICES = ("all", "mp4", "frames", "sheet", "output", "video")
 ARCHIVE_MIN_FILES = 8   # これ以上の数のファイルは zip で 1 回で取る（1 枚ずつだと入口の回数制限 429 に当たる、10/9）
+# zip は約 1 GiB ずつの区切りで取る（10/14 受け取り側の 5 GB 試験: 1 本の zip は途中から取り直せず、切れると全部を 1 枚ずつ取り直していた）
+ARCHIVE_PART_BYTES = 1 << 30
+DOWNLOAD_TRIES = 3
 # 公開の受付（render.janction.jp）の前に立つ Cloudflare は、1 回の送信を 100 MB までしか通さない（無料プラン）。超えると受付に
 # 届かず HTML の 413 になるので、送る前に断ってリンク（scene_url / asset_urls）で渡すよう言う。素材は 100 MB ずつに分けて送る
 # （10/12）。手元や自前の受付には掛けない。JANCTION_RENDER_MAX_UPLOAD_MB で変えられる（0 で見ない）
@@ -35,6 +38,15 @@ RESUMABLE_ABOVE = 64 * 1024 * 1024
 
 ASSET_LINK_MAX_BYTES = 128 * 1024 * 1024   # 受付の素材 1 つの上限（JR_MAX_ASSET_MB の既定値。リンクで渡しても同じ）
 _FRAME_NAME_RE = re.compile(r"^(part-\d+_)?frame_")
+
+
+def _have(dest: Path, a: dict[str, Any]) -> bool:
+    """dest にもう同じ大きさのファイルがあるか（大きさの分からない古い受付では、無いものとして取り直す）。"""
+    n = a.get("size")
+    try:
+        return n is not None and dest.is_file() and dest.stat().st_size == int(n)
+    except (OSError, ValueError):
+        return False
 
 
 def select_artifacts(artifacts: list[dict[str, Any]], only: Optional[str] = None) -> list[dict[str, Any]]:
@@ -273,7 +285,8 @@ class ClientError(RuntimeError):
                 out[k] = self.extra[k]
         # ようこそクレジット（docs/46）の受付なら付いてくる。card_offer はカード登録（0 円）で無料の GPU 時間が足される鍵の案内、
         # topup_options はチャージの選択肢（docs/62 P0-1: REST の 402 と同じものを AI に渡す）
-        for k in ("welcome", "first_topup_bonus", "card_offer", "topup_options", "topup_credit_yen"):
+        # resume: 402 で預かった注文（o_…）。払うとその仕事が自動で始まり、render_status(o_…) で追える（10/14）
+        for k in ("welcome", "first_topup_bonus", "card_offer", "topup_options", "topup_credit_yen", "resume"):
             if self.extra.get(k):
                 out[k] = self.extra[k]
         if self.extra.get("accepts"):
@@ -840,8 +853,11 @@ class Client:
                 return j
             time.sleep(interval)
 
-    def download(self, job_id: str, out_dir: str | Path, only: Optional[list[str] | str] = None) -> list[Path]:
-        """成果物を out_dir に落とす。only は名前の一覧か、'mp4' / 'frames' / 'sheet' / 'output' / 'all'。"""
+    def download(self, job_id: str, out_dir: str | Path, only: Optional[list[str] | str] = None,
+                 on_progress: Optional[Callable[[str], None]] = None) -> list[Path]:
+        """成果物を out_dir に落とす。only は名前の一覧か、'mp4' / 'frames' / 'sheet' / 'output' / 'all'。
+        on_progress は進み具合の 1 行（CLI は標準エラーに出す。10/14: 5 GB の受け取りが 4 分黙っていた）。"""
+        self._say = on_progress or (lambda _msg: None)
         j = self.job(job_id)
         out = Path(out_dir)
         out.mkdir(parents=True, exist_ok=True)
@@ -854,40 +870,114 @@ class Client:
             got = self._download_archive(job_id, out, wanted)
             if got is not None:
                 return got
-        for a in wanted:
+            self._say("the zip did not come through; fetching the files one by one")
+        last = time.monotonic()
+        for i, a in enumerate(wanted, 1):
+            dest = out / a["name"]
+            if _have(dest, a):            # 前の回（切れた zip・打ち直し）で届いている
+                paths.append(dest)
+                continue
+            if len(wanted) > 1 and time.monotonic() - last > 10:
+                last = time.monotonic()
+                self._say(f"downloading {i}/{len(wanted)} files")
             # 受付が返す URL は公開 URL の土台で組まれている。自分がつないだ先（SSH トンネルなど）でも
             # 落とせるように、パスだけを取り出して自分の server に付け直す
             parts = urlsplit(a["url"])
             path = parts.path + (f"?{parts.query}" if parts.query else "")
             url = f"{self.server}{path}" if parts.path.startswith("/v1/") else a["url"]
-            with self.s.get(url, headers=self._headers(), stream=True, timeout=600) as r:
-                self._raise(r)
-                dest = out / a["name"]
-                with dest.open("wb") as fh:
-                    for chunk in r.iter_content(1024 * 1024):
-                        fh.write(chunk)
+            self._download_file(url, dest)
             paths.append(dest)
         return paths
 
+    def _download_file(self, url: str, dest: Path) -> None:
+        """1 つのファイルを dest.part に受け取り、切れたら Range で続きから（10/14。受付の FileResponse は Range に答える）。"""
+        part = dest.with_name(dest.name + ".part")
+        for attempt in range(DOWNLOAD_TRIES):
+            have = part.stat().st_size if part.exists() else 0
+            headers = {**self._headers(), **({"Range": f"bytes={have}-"} if have else {})}
+            try:
+                with self.s.get(url, headers=headers, stream=True, timeout=600) as r:
+                    if r.status_code == 416:          # もう全部ある
+                        break
+                    self._raise(r)
+                    with part.open("ab" if r.status_code == 206 else "wb") as fh:
+                        for chunk in r.iter_content(1024 * 1024):
+                            fh.write(chunk)
+                break
+            except requests.RequestException:
+                if attempt == DOWNLOAD_TRIES - 1:
+                    raise
+                time.sleep(2.0 * (attempt + 1))
+        part.replace(dest)
+
     def _download_archive(self, job_id: str, out: Path, wanted: list[dict[str, Any]]) -> Optional[list[Path]]:
-        """まとめて zip（GET /v1/jobs/{id}/archive）で取り、欲しい名前だけを out に出す。受付が古くて口が無い・途中で切れた・
-        中身が足りないときは None（呼び手が 1 枚ずつに戻る）。"""
+        """まとめて zip（GET /v1/jobs/{id}/archive）で取り、欲しい名前だけを out に出す。大きいときは名前の順に約 1 GiB ずつの
+        区切り（first・last）で取り、届いた区切りは残して、切れた区切りだけを取り直す（10/14）。受付が古くて口が無い・取り直しても
+        届かない・中身が足りないときは None（呼び手が 1 枚ずつに戻り、届いているファイルは飛ばす）。"""
+        ordered = sorted(wanted, key=lambda a: a["name"])
+        groups: list[list[dict[str, Any]]] = []
+        size = 0
+        for a in ordered:
+            n = int(a.get("size") or 0)
+            if not groups or (size + n > ARCHIVE_PART_BYTES and groups[-1]):
+                groups.append([])
+                size = 0
+            groups[-1].append(a)
+            size += n
+        total_mb = sum(int(a.get("size") or 0) for a in wanted) / 1048576
+        if len(groups) == 1:
+            self._say(f"downloading {len(wanted)} files in one zip ({total_mb:.0f} MB)")
+            return self._fetch_archive(job_id, out, wanted)
+        self._say(f"downloading {len(wanted)} files ({total_mb / 1024:.1f} GB) in {len(groups)} zips of about 1 GB")
+        paths: list[Path] = []
+        for gi, g in enumerate(groups, 1):
+            if all(_have(out / a["name"], a) for a in g):
+                paths += [out / a["name"] for a in g]
+                continue
+            got: Any = None
+            for attempt in range(DOWNLOAD_TRIES):
+                self._say(f"zip {gi}/{len(groups)} ({len(g)} files, {sum(int(a.get('size') or 0) for a in g) / 1048576:.0f} MB)"
+                          + (f", again (try {attempt + 1})" if attempt else ""))
+                got = self._fetch_archive(job_id, out, g, (g[0]["name"], g[-1]["name"]))
+                if got is not None:
+                    break
+                time.sleep(2.0 * (attempt + 1))
+            if got == "unsliced":         # 区切りを知らない受付: 前のとおり 1 本で
+                return self._fetch_archive(job_id, out, wanted)
+            if got is None:
+                return None
+            paths += got
+        return paths
+
+    def _fetch_archive(self, job_id: str, out: Path, wanted: list[dict[str, Any]],
+                       span: Optional[tuple[str, str]] = None) -> Any:
+        """zip を 1 本取って欲しい名前を out に出す。span（最初と最後の名前）を渡すと、その一続きだけを頼む。
+        区切りを頼んだのに受付が X-Archive-Range を返さなければ "unsliced"。"""
         import shutil
         import tempfile
         import zipfile
+        from urllib.parse import urlencode
 
         names = {a["name"] for a in wanted}
         exts = sorted({Path(n).suffix.lstrip(".").lower() for n in names if Path(n).suffix})
-        url = f"{self.server}/v1/jobs/{job_id}/archive" + (f"?only={','.join(exts)}" if exts else "")
+        q = {**({"only": ",".join(exts)} if exts else {}), **({"first": span[0], "last": span[1]} if span else {})}
+        url = f"{self.server}/v1/jobs/{job_id}/archive" + (f"?{urlencode(q)}" if q else "")
         tmp: Optional[str] = None
         try:
             with self.s.get(url, headers=self._headers(), stream=True, timeout=1800) as r:
                 if r.status_code != 200:
                     return None
+                if span and not r.headers.get("X-Archive-Range"):
+                    return "unsliced"
                 fd, tmp = tempfile.mkstemp(suffix=".zip", dir=out)
+                got_b, last = 0, time.monotonic()
                 with os.fdopen(fd, "wb") as fh:
                     for chunk in r.iter_content(1024 * 1024):
                         fh.write(chunk)
+                        got_b += len(chunk)
+                        if time.monotonic() - last > 15:
+                            last = time.monotonic()
+                            getattr(self, "_say", lambda _m: None)(f"  {got_b // 1048576} MB")
             paths: list[Path] = []
             with zipfile.ZipFile(tmp) as zf:
                 if not names <= set(zf.namelist()):
