@@ -2,6 +2,14 @@
 
 The live, per-version list is at https://render.janction.jp/changelog (Atom: https://render.janction.jp/changelog.xml). Versions are the PyPI releases of `janction-render`; the hosted service follows the same numbers.
 
+## 0.4.114 (2026-10-14)
+
+Site.
+
+- **Three new guides in English and Japanese:** rendering a 3D model made with an AI generator (Meshy, Tripo, Rodin, Hunyuan3D, TRELLIS) into product shots and a turntable; five free ways to render 3D, compared; and Blender on an RTX PRO 6000 (96 GB) paid by the second, with measured times per frame. Related guides link to them.
+- **The pricing page's structured data is complete** (product image, brand, and the current free-credit wording).
+- The comparison with running Blender on your own cloud machine is worded in general terms.
+
 ## 0.4.113 (2026-10-14)
 
 Site.
