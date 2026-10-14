@@ -2,6 +2,20 @@
 
 The live, per-version list is at https://render.janction.jp/changelog (Atom: https://render.janction.jp/changelog.xml). Versions are the PyPI releases of `janction-render`; the hosted service follows the same numbers.
 
+## 0.4.116 (2026-10-14)
+
+Service.
+
+- **Many jobs finishing at the same time no longer make the service pause for a few seconds:** reports from the render machines are recorded without holding up other requests.
+
+## 0.4.115 (2026-10-14)
+
+Receptionist.
+
+- **Scripts written for a local Blender, or for an older Blender, now run as sent.** When a bpy script arrives, JANCTION Render skips the script's own render, image save, .blend save, file export and exit calls (the service renders and saves), skips viewport-only operations, and updates names that Blender 4 and 5 changed: the EEVEE engine name, old Principled BSDF inputs (Specular, Transmission, Clearcoat, Sheen, Emission and others), action.fcurves, removed EEVEE settings, auto smooth, material shadow mode, the output format setting and old color look names. Node names from a Japanese Blender UI are changed to the English names. Line numbers stay the same, and the reply says what was changed.
+- A script pasted together with the text around it in a Markdown code block is taken out of the block and run.
+- The morning report analyses failed jobs by cause.
+
 ## 0.4.114 (2026-10-14)
 
 Site.
