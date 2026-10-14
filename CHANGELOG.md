@@ -2,6 +2,15 @@
 
 The live, per-version list is at https://render.janction.jp/changelog (Atom: https://render.janction.jp/changelog.xml). Versions are the PyPI releases of `janction-render`; the hosted service follows the same numbers.
 
+## 0.4.110 (2026-10-14)
+
+Receptionist.
+
+- **A render stopped at its memory limit says it ran out of system memory (with the box size), not GPU memory,** and that finals get a larger box.
+- **A scene read that runs out of memory says so,** with the memory limit of its render box, like previews and finals.
+- **A scene read is reused only for the same Blender version:** a .blend read with 5.0 before it began opening with its saved version 5.2 no longer keeps answering with 5.0's warnings.
+- **A preview or scene read that runs out of memory is no longer sent again to another GPU worker** (every worker uses the same smaller box for previews); only finals move to a bigger box.
+
 ## 0.4.109 (2026-10-14)
 
 Receptionist and client.
