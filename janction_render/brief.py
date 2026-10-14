@@ -345,6 +345,8 @@ def brief(j: dict[str, Any]) -> dict[str, Any]:
         out["eta"] = eta_brief(j["eta"])
     if j.get("credit_hint"):
         out["credit_hint"] = j["credit_hint"]["text"]      # 最初の試し描きの直後の 1 行（無料の残り・カード登録の分、10/14）
+    if j.get("next_render"):
+        out["next_render"] = j["next_render"]["text"]      # 仕上げをまだ描いていない鍵の次の一手（10/14、docs/73）
     if j.get("estimate"):
         out["estimate"] = estimate_brief(j["estimate"])
     if j.get("error"):

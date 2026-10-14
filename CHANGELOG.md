@@ -2,6 +2,17 @@
 
 The live, per-version list is at https://render.janction.jp/changelog (Atom: https://render.janction.jp/changelog.xml). Versions are the PyPI releases of `janction-render`; the hosted service follows the same numbers.
 
+## 0.4.117 (2026-10-14)
+
+Receptionist. **Free and paid keys (from 2026-10-14):**
+
+- **Free keys send .blend files up to 1 GB; paid keys up to 5 GB, and their files and results are kept for 7 days (normally) instead of 24 hours.** A paid key is one that has paid 500 JPY or more in total: top-ups, auto top-up, monthly plans and USDC count; the free credit, the card-saving credit and bonuses do not. Saving a card alone no longer opens 5 GB for new keys.
+- Keys that could already send 5 GB because a card was saved keep 5 GB. Keys that had paid before keep both 5 GB and 7 days.
+- A .blend over the free limit (and within 5 GB) is answered with what it takes to send it: the current limit, the file size, the paid limit and a top-up link (413 `upload_limit`). On /start the top-up opens in a new tab and the page sends the same file once the payment is confirmed.
+- A full refund or a chargeback makes new use free; data already kept stays until the expiry it had. A partial refund changes nothing.
+- The pricing page compares free and paid keys; `GET /v1/me` reports the key's plan; the result page shows the actual expiry.
+- When server storage runs short, paid keeping can be shortened; the operator is warned before that.
+
 ## 0.4.116 (2026-10-14)
 
 Service.
