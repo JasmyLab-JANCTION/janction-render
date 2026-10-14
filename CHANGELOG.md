@@ -2,6 +2,13 @@
 
 The live, per-version list is at https://render.janction.jp/changelog (Atom: https://render.janction.jp/changelog.xml). Versions are the PyPI releases of `janction-render`; the hosted service follows the same numbers.
 
+## 0.4.112 (2026-10-14)
+
+Receptionist.
+
+- **llms.txt no longer puts the welcome-credit condition inside the top-up bonus:** "the first top-up counts 1.5x (bonus up to 500 JPY)" stands alone; the 100 JPY / 400 JPY condition belongs to the welcome credit.
+- **The Japanese llms.txt states the current frame limit** (up to 3,000 frames per instruction in parts of 240, 1080p on free time and 4K on prepaid credit) instead of "240 frames at 1080p".
+
 ## 0.4.111 (2026-10-14)
 
 Receptionist.
