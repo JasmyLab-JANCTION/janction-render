@@ -2,6 +2,15 @@
 
 The live, per-version list is at https://render.janction.jp/changelog (Atom: https://render.janction.jp/changelog.xml). Versions are the PyPI releases of `janction-render`; the hosted service follows the same numbers.
 
+## 0.4.113 (2026-10-14)
+
+Site.
+
+- **Every page was reviewed in English and Japanese.** Each guide opens with its answer paragraph, the home page opens with a one-paragraph definition, and every page carries structured data with the date it was last updated.
+- **The security page says what is protected and how to report a problem**, and names the responsible person; the legal notice names the responsible person in both languages.
+- **Pages say which Blender version renders each input:** a .blend opens with the version it was saved in (5.0 or 5.2); scripts and 3D files use 5.0 unless blender='5.2' is passed.
+- **llms.txt states the welcome credit, the card-saving credit and the frame limit** in its opening paragraph.
+
 ## 0.4.112 (2026-10-14)
 
 Receptionist.
@@ -45,7 +54,7 @@ GPU workers.
 Receptionist, GPU workers and MCP.
 
 - A render that runs out of memory on a smaller GPU worker is drawn again on a worker with a bigger render box (64 GB); the lost time is not charged.
-- Each key can keep up to 20 GB of scene files at a time (JR_STORAGE_MB_PER_KEY); past it, an upload answers 507 storage_quota with how to free space (reuse a scene, wait for expiry, or erase).
+- Each key can keep up to 20 GB of scene files at a time; past it, an upload answers 507 storage_quota with how to free space (reuse a scene, wait for expiry, or erase).
 - A compressed .blend that unpacks to more than 16 GB, unpacks over 100 times its size, or is damaged is refused at upload.
 - After a key is revoked, its jobs' watch pages show nothing.
 - render_status without a job id lists your recent jobs, so an agent in a new chat can find them; render_info includes a plain-words diagnosis (connection, key, credit, GPUs, last error).
@@ -161,7 +170,7 @@ Receptionist and client.
 
 Receptionist, GPU worker, CLI / local MCP server and Blender add-on 0.1.8 (docs/67 §14).
 
-- **Projects with large textures (still behind `JR_UPLOADS`).** Files a `.blend` refers to (textures, caches) can be sent in parts into the scene, each with the same per-part checks and resume as the scene itself: up to 5 GiB each and 15 GiB or 500 files per scene for keys with a registered card or prepaid credit (no change for other keys). `POST /v1/files/{id}/manifest` takes the list you have and returns which files are still missing. The CLI and the Blender add-on 0.1.8 send large files this way by themselves.
+- **Projects with large textures (still behind a server setting).** Files a `.blend` refers to (textures, caches) can be sent in parts into the scene, each with the same per-part checks and resume as the scene itself: up to 5 GiB each and 15 GiB or 500 files per scene for keys with a registered card or prepaid credit (no change for other keys). `POST /v1/files/{id}/manifest` takes the list you have and returns which files are still missing. The CLI and the Blender add-on 0.1.8 send large files this way by themselves.
 - **GPU workers.** Large textures are fetched once per machine and kept like large scenes, so the parts of one render do not fetch them again.
 - **Exact limits.** A split upload one byte over the limit is refused when it is created.
 - **/start and /upload.** After a resume, the time left is measured from where the page picked up (it said a few seconds at 92%); a re-sent file that the service already had shows the name it was sent with.
@@ -191,7 +200,7 @@ Receptionist and Blender add-on 0.1.8.
 Receptionist, GPU worker, CLI / local MCP server and Blender add-on 0.1.7 (docs/67 §12-13).
 
 - **Over the limit, say how to send more.** A 413 for a `.blend` over a key's cap carries `upgrade` (5 GiB with a registered card, which is free; a signed link the user can open) and `recommended_action: ASK_USER`; `/start` shows a button for it. Keys without a card stay at 1 GiB per file (decision of 2026-10-14).
-- **Resumable uploads (still behind `JR_UPLOADS`).** `Upload-Checksum: sha256 <base64>` per part (tus checksum; a damaged part gets 460 and is sent again from the same offset), used by the browser, the CLI and the add-on; `GET /v1/uploads/limits` adds `today_left_bytes`, `retention_hours` and `upload_charge`; `/start` shows the time left; a key that sends the same content again gets its earlier scene back instead of a second copy; 507 carries `Retry-After`; the writer lease is 90 s and renewed while a part streams; expired uploads are counted in events.
+- **Resumable uploads (still behind a server setting).** `Upload-Checksum: sha256 <base64>` per part (tus checksum; a damaged part gets 460 and is sent again from the same offset), used by the browser, the CLI and the add-on; `GET /v1/uploads/limits` adds `today_left_bytes`, `retention_hours` and `upload_charge`; `/start` shows the time left; a key that sends the same content again gets its earlier scene back instead of a second copy; 507 carries `Retry-After`; the writer lease is 90 s and renewed while a part streams; expired uploads are counted in events.
 - **GPU worker.** A chunk taken back after a worker restart clears its work dir on the same machine (a cached large scene failed with SameFileError there); a large input is fetched once per machine; the load allowance is 15 s per GB above 256 MB (measured: the first frame starts 4 s after the container for 5 GB).
 
 ## 0.4.90 (2026-10-14)
@@ -222,13 +231,13 @@ Receptionist and client.
 
 Receptionist only.
 
-- **Large-scene test (docs/67 P2).** While `JR_UPLOADS=test`, the keys in `JR_UPLOADS_KEYS` get the card / prepaid tier (`.blend` up to `JR_RESUMABLE_MAX_MB`, 5 GiB) and a daily total of `JR_UPLOADS_TEST_MB_PER_DAY` (50 GiB), so the 1 / 3 / 5 GB scenes and their retries can be sent with the operator key. Other keys and the limits for users do not change; `JR_UPLOADS=on` or `off` ends it.
+- **Large-scene test (docs/67 P2).** While a server setting, the keys in a server setting get the card / prepaid tier (`.blend` up to a server setting, 5 GiB) and a daily total of a server setting (50 GiB), so the 1 / 3 / 5 GB scenes and their retries can be sent with the operator key. Other keys and the limits for users do not change; a server setting or `off` ends it.
 
 ## 0.4.86 (2026-10-13)
 
 Receptionist; no worker change.
 
-- **3,000 frames per instruction.** One final can now be up to 3,000 frames (about two minutes at 24 fps; a one-minute animation is 1,440 frames), still rendered as parts of 240 under one job id and joined into one video. The whole job's price is held before it starts, so a final that the credit does not cover does not begin. `JR_MAX_FRAMES_PER_INSTRUCTION` sets it.
+- **3,000 frames per instruction.** One final can now be up to 3,000 frames (about two minutes at 24 fps; a one-minute animation is 1,440 frames), still rendered as parts of 240 under one job id and joined into one video. The whole job's price is held before it starts, so a final that the credit does not cover does not begin. a server setting sets it.
 - **Resent render_final with a script or link.** The automatic idempotency key of the MCP `render_final` is made from the arguments the agent sent, so a resend with the same `scene_script` or `scene_url` returns the first job too (0.4.85 keyed it on the uploaded scene, which is new on every call, and rendered twice).
 
 ## 0.4.85 (2026-10-13)
@@ -249,30 +258,30 @@ Receptionist; no worker change.
 
 Receptionist, GPU worker, CLI / local MCP server and Blender add-on 0.1.6 (docs/67). The new paths for large scenes are behind switches that are off by default.
 
-- **Resumable uploads (off until `JR_UPLOADS=on`).** `POST /v1/uploads` takes a file in parts (tus 1.0: `HEAD` for the offset, `PATCH` parts of up to 96 MB, under Cloudflare's 100 MB per request) and resumes after a dropped connection, a closed browser tab or a receptionist swap; the same file picked again (same name, size and sha256 or browser timestamp) continues where it stopped. `.blend` files up to 5 GiB for keys with a registered card or prepaid credit, 1 GiB otherwise; one upload at a time per key; daily totals stay 5 GB for keys without a card, 10 GiB with one, 1 GiB per network without a key. `JR_UPLOADS=test` opens it only to the keys in `JR_UPLOADS_KEYS`. While it is off, `/upload` and `/start` stay as they were and the clients fall back to single uploads.
+- **Resumable uploads (off until a server setting).** `POST /v1/uploads` takes a file in parts (tus 1.0: `HEAD` for the offset, `PATCH` parts of up to 96 MB, under Cloudflare's 100 MB per request) and resumes after a dropped connection, a closed browser tab or a receptionist swap; the same file picked again (same name, size and sha256 or browser timestamp) continues where it stopped. `.blend` files up to 5 GiB for keys with a registered card or prepaid credit, 1 GiB otherwise; one upload at a time per key; daily totals stay 5 GB for keys without a card, 10 GiB with one, 1 GiB per network without a key. a server setting opens it only to the keys in a server setting. While it is off, `/upload` and `/start` stay as they were and the clients fall back to single uploads.
 - **Clients.** The CLI, the local MCP server and the Blender add-on 0.1.6 send scenes over 64 MiB in parts when the service offers it, and continue an interrupted upload when run again.
-- **GPU worker (off until set).** `JR_INPUT_CACHE=auto` keeps a scene of 256 MB or more on the machine between frame chunks; `JR_SCENE_MOUNT=1` shows it to the render container read-only instead of copying it in; `JR_MAX_SCENE_MB` makes a worker skip larger scenes. Always on: the scene goes into the container from a file instead of memory, chunk timeouts add `JR_LOAD_S_PER_GB` seconds per GB above 256 MB, and the worker reports the copy and load seconds.
+- **GPU worker (off until set).** a server setting keeps a scene of 256 MB or more on the machine between frame chunks; a server setting shows it to the render container read-only instead of copying it in; a server setting makes a worker skip larger scenes. Always on: the scene goes into the container from a file instead of memory, chunk timeouts add a server setting seconds per GB above 256 MB, and the worker reports the copy and load seconds.
 - **Fixes.** The `.blend` check reads the first bytes instead of the whole file (the receptionist has 2 GB of memory); a `/upload` link adopted by a key is hard-linked instead of copied; multipart temp files go to the data disk instead of the 256 MB in-memory `/tmp`; the 1 MB body cap applies again to the JSON routes under `/v1/files`; a local path as `scene_url` points to `/upload`; a batch retry that lands while the batch is finishing is no longer lost.
-- **MCP.** The instructions tell the agent to send the user to `/upload` for a local file. `upload_link` / `upload_status` stay hidden until `JR_UPLOAD_TOOLS=1`.
+- **MCP.** The instructions tell the agent to send the user to `/upload` for a local file. `upload_link` / `upload_status` stay hidden until a server setting.
 
 ## 0.4.83 (2026-10-13)
 
 Local MCP server (stdio) tool descriptions; receptionist unchanged apart from the version.
 
 - **Destructive tools say what they do.** `render_cancel`: queued frames are dropped, rendered frames are charged and stay downloadable, the rest of the held GPU time comes back, it cannot be resumed, only the starting key may cancel, a job being assembled cannot be stopped. `render_unshare`: the page URL stops working, its copy, script and shown request are deleted, it cannot be undone (sharing again gives a new URL), the job's own files are untouched. `render_share` and `render_info` (read-only, no charge, rate-limited with `retry_after_s`) likewise. `job_id` mentions split finals (`b_...`). Prompted by Glama's automatic tool grades (render_cancel C, render_unshare B, inspected 2026-10-02).
-- The remote MCP keeps its reviewed descriptions until the directory reviews finish (`JR_TOOLDOCS=new` switches them).
+- The remote MCP keeps its reviewed descriptions until the directory reviews finish (a server setting switches them).
 
 ## 0.4.82 (2026-10-13)
 
 Receptionist; no worker change.
 
-- **/upload takes files over 1 MB.** `POST /v1/drops` was still under the 1 MB body cap meant for JSON requests, so every file over 1 MB got HTTP 413 although the page states 100 MB. The route keeps its own cap (`JR_MAX_UPLOAD_MB`, and Cloudflare's 100 MB in front).
+- **/upload takes files over 1 MB.** `POST /v1/drops` was still under the 1 MB body cap meant for JSON requests, so every file over 1 MB got HTTP 413 although the page states 100 MB. The route keeps its own cap (a server setting, and Cloudflare's 100 MB in front).
 
 ## 0.4.81 (2026-10-13)
 
 Receptionist; no worker change.
 
-- **Switchable Product Video entry.** `JR_VIDEO_ENTRY_PATH` (default `/`) points the result-screen button and the `/v1/outcomes` note at the Video service's browser order page (`/start`) once that is deployed, without a release here.
+- **Switchable Product Video entry.** a server setting (default `/`) points the result-screen button and the `/v1/outcomes` note at the Video service's browser order page (`/start`) once that is deployed, without a release here.
 - **CI.** The paid-retention test pins the disk guard (the runner has tens of GB free; the 500 GB fallback is by design). The loop-guard meta-test is marked xfail on Linux while the detector difference (anyio 4.15 / starlette 1.8 on the runner) is investigated (docs/66 §7).
 
 ## 0.4.80 (2026-10-13)
@@ -281,7 +290,7 @@ Receptionist; no worker change.
 
 - **Three problems, three guides.** The top page and /pricing link /free-blender-cloud-rendering, /render-blender-without-gpu and /blender-cloud-rendering right under the first buttons (docs/64 §11: these pages were only reachable from the list of 25 guides, and Google had crawled but not indexed most of them).
 - **/start re-checks after Stripe.** When the payment panel is open and the tab comes back, the balance and the quote are fetched again (docs/62 P1-1).
-- **Listing pack tools.** `product_video_listing_pack` / `_submit` / `_status` relay the Video service's store listing pack; gated with the other Product Video tools (`JR_VIDEO_TOOLS`).
+- **Listing pack tools.** `product_video_listing_pack` / `_submit` / `_status` relay the Video service's store listing pack; gated with the other Product Video tools (a server setting).
 - **Staging gate.** `tools/stage_zip.py` builds the deploy zip only from a clean, pushed HEAD whose CI run succeeded (`--allow-red --reason` for a recorded exception) and copies it to the GPU box.
 
 ## 0.4.79 (2026-10-13)
@@ -306,7 +315,7 @@ Receptionist pages; no worker change.
 
 ## 0.4.76 (2026-10-13)
 
-Receptionist; no worker change. Everything here is hidden until the Product Video service opens (`JR_VIDEO_PUBLIC`, `JR_VIDEO_TOOLS`).
+Receptionist; no worker change. Everything here is hidden until the Product Video service opens (a server setting, a server setting).
 
 - **Product Video as a feature of JANCTION Render.** One line on /products, /pricing, llms.txt and facts.json (prices read from the Video catalogue: GPU at 0.1 JPY per GPU-second plus a production fee; a plain turntable or stills stay cheaper through /v1/outcomes). A "Make a product video from this 3D" link on /start and in `GET /v1/jobs/{id}` (`product_video`) when the input is a 3D file or the job is a turntable or product shots. Four relay tools for the remote MCP (`product_video_quote` / `_submit` / `_status` / `_revise`) that hand the caller's key or token to the Video service unchanged and send the stored 3D file across so the user does not upload it twice. The morning report counts Product Video captures as revenue (docs/65).
 
@@ -445,8 +454,8 @@ P0 of the refactoring requirements (docs/60): correctness of results, money, age
 - **`request_id` everywhere.** Every response carries `X-Request-Id` (yours is echoed if you send one); REST and MCP error bodies and the `api_error` / `mcp_tool_error` events carry the same id. Unhandled errors return the common JSON error shape (`internal_error`, `INTERNAL_ERROR`) instead of a bare 500 and are recorded.
 - **Remote MCP errors for bad arguments are `INVALID_INPUT` / `FIX_INPUT`, not retryable internal errors.** `render_final` takes `max_yen` and `idempotency_key` on the remote server too. Job views mark `log_tail` and `warnings` as untrusted output (`untrusted`, `untrusted_note`).
 - **Limits are stated the same way everywhere:** up to 1,000 frames per instruction (run as parts of 240 under one job id), 1920x1080 on free time and 3840x2160 on prepaid credit (tool docs, prompts, skill, guides, npm README).
-- **Retention as published.** Client IPs are cleared from the database after 90 days (`JR_IP_RETENTION_DAYS`); Blender's console tail is deleted with the job; an unshared page drops its script and prompt; share media is cached for 1 hour instead of 24; the privacy page describes what the logs keep.
-- **Security.** `scene_url` / `asset_urls` refuse credentials in the URL; asset downloads stream to disk instead of buffering in memory; glTF null-fixing skips files over `JR_GLTF_FIX_MAX_MB` and survives deeply nested JSON; `.usdz` archives are checked for entry count and compression ratio; webhook (`notify_url`) log lines carry no query or credentials; `JR_SANDBOX_REQUIRED=1` makes the worker fail a job instead of falling back from gVisor to runc.
+- **Retention as published.** Client IPs are cleared from the database after 90 days (a server setting); Blender's console tail is deleted with the job; an unshared page drops its script and prompt; share media is cached for 1 hour instead of 24; the privacy page describes what the logs keep.
+- **Security.** `scene_url` / `asset_urls` refuse credentials in the URL; asset downloads stream to disk instead of buffering in memory; glTF null-fixing skips files over a server setting and survives deeply nested JSON; `.usdz` archives are checked for entry count and compression ratio; webhook (`notify_url`) log lines carry no query or credentials; a server setting makes the worker fail a job instead of falling back from an extra isolation layer to runc.
 - **Operations.** `/v1/health` reports `degraded` and `workers_online`; the watch alerts on receptionist 5xx and on payment failures; the audit chain verifies after old days are pruned (anchor); `server.sh build` keeps the previous image as `:prev` and `server.sh rollback` swaps back to it; pytest and ruff run in CI on every push.
 
 ## 0.4.59 (2026-10-12)
@@ -515,29 +524,29 @@ P0 of the refactoring requirements (docs/60): correctness of results, money, age
 
 ## 0.4.49 (2026-10-12)
 
-- Getting ready to turn on the card model (a new key gets 100 JPY of free GPU time, and saving a card on a Stripe page that charges nothing adds 400 JPY more, once per card): keys made before the switch keep their welcome credit as it was (JR_WELCOME_CARD_SINCE), the card bonus lasts 14 days from when it is added, and it is not limited by the per-network daily cap.
+- Getting ready to turn on the card model (a new key gets 100 JPY of free GPU time, and saving a card on a Stripe page that charges nothing adds 400 JPY more, once per card): keys made before the switch keep their welcome credit as it was, the card bonus lasts 14 days from when it is added, and it is not limited by the per-network daily cap.
 - The page after saving a card says what happened: free GPU time added, or why not (prepaid cards and cards already used do not qualify, and such a card is not kept). If the card cannot be confirmed yet, nothing is charged and the free time is added later by a billing call or the webhook retry.
 - While the card model is on, pages, guides, llms.txt and Markdown describe the welcome credit as up to 500 JPY, with the 100 JPY and 400 JPY split; the changelog keeps its history.
 
 ## 0.4.48 (2026-10-12)
 
-- The public wording follows the welcome model: under JR_WELCOME_MODEL=card, the one-line definition (facts.json, /facts, llms.txt), the pricing sentence, the pricing page, /v1/pricing (welcome_credit.card_bonus) and the JSON-LD offer state the cardless amount and the card bonus; under the default network model every text is unchanged.
+- The public wording follows the welcome model: under a server setting, the one-line definition (facts.json, /facts, llms.txt), the pricing sentence, the pricing page, /v1/pricing (welcome_credit.card_bonus) and the JSON-LD offer state the cardless amount and the card bonus; under the default network model every text is unchanged.
 
 ## 0.4.47 (2026-10-12)
 
-- A second welcome model, off by default (JR_WELCOME_MODEL=card): a new key gets 100 JPY of free GPU time once per network, and saving a card on a Stripe page that charges nothing adds 400 JPY more, once per card (prepaid cards do not qualify). The card is asked for only when the 100 JPY is used up: the 402, /v1/me, the MCP billing reply and /start then carry card_offer with the amount and the fact that nothing is charged. JR_WELCOME_MODEL=network keeps today's 500 JPY per new key. The morning report names the model and the day's new keys, finished renders, paying keys and card registrations, so the two can be compared.
-- The dollar figure names its source (JR_USD_JPY_SOURCE, for example an ECB reference rate) and the date it was checked.
+- A second welcome model, off by default: a new key gets 100 JPY of free GPU time once per network, and saving a card on a Stripe page that charges nothing adds 400 JPY more, once per card (prepaid cards do not qualify). The card is asked for only when the 100 JPY is used up: the 402, /v1/me, the MCP billing reply and /start then carry card_offer with the amount and the fact that nothing is charged. a server setting keeps today's 500 JPY per new key. The morning report names the model and the day's new keys, finished renders, paying keys and card registrations, so the two can be compared.
+- The dollar figure names its source and the date it was checked.
 
 ## 0.4.46 (2026-10-12)
 
-- A final longer than 240 frames is no longer refused: the service splits it into parts of 240 frames under one job id (b_...), and GET /v1/jobs/{id}, DELETE and the MCP render_status / render_download work on that id; each part is charged on its own GPU seconds and comes back as its own file (part-01_output.mp4, ...). One instruction takes up to 1,000 frames (JR_MAX_FRAMES_PER_INSTRUCTION).
-- A dollar figure for reference, when the operator sets JR_USD_JPY and JR_USD_JPY_CHECKED: /v1/me (balance), /v1/estimate (cost), /v1/pricing, the pricing page and the MCP billing reply show the amount in USD next to the yen, marked indicative; charges stay in JPY.
+- A final longer than 240 frames is no longer refused: the service splits it into parts of 240 frames under one job id (b_...), and GET /v1/jobs/{id}, DELETE and the MCP render_status / render_download work on that id; each part is charged on its own GPU seconds and comes back as its own file (part-01_output.mp4, ...). One instruction takes up to 1,000 frames.
+- A dollar figure for reference, when the operator sets a server setting and a server setting: /v1/me (balance), /v1/estimate (cost), /v1/pricing, the pricing page and the MCP billing reply show the amount in USD next to the yen, marked indicative; charges stay in JPY.
 
 ## 0.4.45 (2026-10-12)
 
 - The BlendSwap comparison page is rebuilt on BlendSwap's own page as checked on 2026-10-11 (the price per GPU-hour and the Studio plan, rounding up and the two-credit minimum per job, L40S workers, 250 frames, 500 MB uploads, the bundled Blender versions, no free tier), with what ten previews and one finished scene cost here, and without the blocks it shared with other guides. It also says what we do not claim: no speed comparison between GPUs.
 - The number of GPUs available right now, counted the same way as /v1/health, appears on the comparison page and the pricing page and updates itself when GPUs are added; a GPU on standby, shared with other work, is counted separately.
-- Jobs charged from prepaid credit may render up to 4K (3840x2160); jobs covered by free time stay at 1080p. One job may use at most 10 GPU-hours, checked on the estimate before anything is held (JR_PAID_MAX_PIXELS, JR_MAX_JOB_GPU_SECONDS).
+- Jobs charged from prepaid credit may render up to 4K (3840x2160); jobs covered by free time stay at 1080p. One job may use at most 10 GPU-hours, checked on the estimate before anything is held.
 - tools/indexnow_daily.py sends IndexNow only the URLs whose sitemap date is today, once a day, instead of on every deploy.
 
 ## 0.4.44 (2026-10-12)
@@ -558,11 +567,11 @@ P0 of the refactoring requirements (docs/60): correctness of results, money, age
 
 ## 0.4.42 (2026-10-11)
 
-- A browser page, /start, renders your own file without a connector, a CLI or a key you have to manage: choose a .blend, a 3D file or paste the bpy script an AI wrote; the scene is read first (missing files, cameras, frame range), the quote says whether the free GPU time covers it, the preview runs with max_yen 0 so nothing can be charged, and the result page offers the next step (change the light, four angles, a turntable, the animation as MP4, a high-quality still, the same settings on another file, a public page) with its price or 'no payment' before you press. Reloading returns to the last render. JR_START_PAGE=0 turns the page off without touching MCP, CLI or API.
+- A browser page, /start, renders your own file without a connector, a CLI or a key you have to manage: choose a .blend, a 3D file or paste the bpy script an AI wrote; the scene is read first (missing files, cameras, frame range), the quote says whether the free GPU time covers it, the preview runs with max_yen 0 so nothing can be charged, and the result page offers the next step (change the light, four angles, a turntable, the animation as MP4, a high-quality still, the same settings on another file, a public page) with its price or 'no payment' before you press. Reloading returns to the last render. a server setting turns the page off without touching MCP, CLI or API.
 - The guides open /start in the matching state (a GLB-to-MP4 page starts in turntable mode, an animation page in video mode, an AI page with the paste box), and the client guides carry the route for an AI without a connector: a prompt that makes it write the bpy script, which you paste at /start. The home page leads with 'No high-end GPU? Turn your 3D into images and video' and the two buttons.
 - Estimates carry the breakdown a person decides with: covered_by_free_yen, from_credit_yen, max_charge_yen (the ceiling) and pricing_version; facts.json and /v1/pricing carry the same pricing version.
 - Every scene records where it came from (upload, link, /upload drop, pasted script, or an operator sample) and jobs report input.own. The scorecard and the weekly metrics count 'first success with the user's own input', demo-only keys and repeat use on another day, and split money into credit consumed and free time covered.
-- A daily budget for free GPU time across the service (JR_FREE_DAILY_BUDGET_YEN; off by default): when it is reached, new free jobs wait for the next day with a clear 429 while paid jobs run. Granted welcome credit is not reduced.
+- A daily budget for free GPU time across the service: when it is reached, new free jobs wait for the next day with a clear 429 while paid jobs run. Granted welcome credit is not reduced.
 - POST /v1/ui/events records the browser funnel (landing, input, validation, quote, result, download, top-up) with short labels only; no file names, prompts or keys.
 - The 'Blender is slow' guides start with a chooser: a slow final frame, an animation that never ends, out-of-memory, a slow viewport (fix locally; the cloud does not help there), simulations (not done here) and AI code that will not run each go to the right place. The agent-generated-3D guide lists, per app, how it connects and whether external users have actually rendered from it.
 
@@ -674,7 +683,7 @@ P0 of the refactoring requirements (docs/60): correctness of results, money, age
 - Welcome credit: each new key starts with 500 JPY of free GPU time (5,000 GPU-seconds) for 14 days, covering previews and finals; one full credit per network every 30 days, further keys from the same network get 100 JPY. Keys that already existed get the same 500 JPY for 14 days from the switch. After the welcome credit is used up or expires, previews stay free up to 2 GPU-minutes a day and finals cost 0.1 JPY per GPU-second from prepaid credit; the first top-up during the 14 days counts 1.5x (bonus up to 500 JPY). This replaces the 10 free GPU-minutes a day.
 - Top-ups: from 500 JPY, with a bonus on larger amounts (2,000 JPY gives 2,200 JPY of credit, 5,000 gives 5,750, 10,000 gives 12,000); the first top-up in the welcome period counts 1.5x with the bonus capped at 500 JPY, and the larger of the two bonuses applies. The payment page says how much credit you get, `402 payment_required` lists the options (`topup_options`, `topup_credit_yen`) and `GET /v1/pricing` has them under `topup`. The planned monthly plans (Starter, Pro, Scale) are withdrawn.
 - `billing()` (remote and stdio) returns the welcome balance and expiry and says when it is running out; `402 payment_required` and estimates carry the welcome balance; the stdio package's instructions, the Blender add-on 0.1.3 and the Maya / Houdini / Cinema 4D tools describe the welcome credit.
-- Service: a second isolation layer (gVisor) added to the render sandbox.
+- Service: a second isolation layer (an extra isolation layer) added to the render sandbox.
 - Service: when Blender 5.0's importer fails on an uploaded 3D file and the job did not ask for a Blender version, the same chunk is retried once with Blender 5.2 (`params.blender_auto` says so); if 5.2 fails too, the failure says to re-export the file. Importer crashes are reported as `IMPORTER_ERROR` instead of a script error.
 - Service: a refund made on Stripe (`charge.refunded`) takes the refunded amount back out of the key's credit once, matched to the payment by its PaymentIntent; credit already spent on renders cannot be taken back and is reported to the operator. `tools/stripe_check.py --sync-events` adds the refund event to an existing webhook.
 - Service: `billing()` on the remote MCP checks the key's open checkouts with Stripe and credits paid ones, so a payment counts even when the webhook is late; job results carry `cost.free_gpu_seconds` (the part covered by the free daily time); the payment page tells chat users (Claude, ChatGPT) to go back to their agent; the operator gets a Slack line per credited payment and a billing line in the daily report.
@@ -688,7 +697,7 @@ P0 of the refactoring requirements (docs/60): correctness of results, money, age
 
 ## 0.4.23 (2026-10-08)
 
-- Paid use started on 2026-10-08 (`JR_BILLING_MODE=live`). Each key keeps its free GPU-minutes per day (10, or 20 per network): a job that fits the time left today is free, and a job that goes past it reserves and is charged only for the GPU seconds beyond the free time, at 0.1 JPY per GPU-second from prepaid credit (Stripe Checkout, from 500 JPY). A 402 `payment_required` says how much of the job the free time covers (`free_gpu_seconds_left_today`, `estimated_gpu_seconds`).
+- Paid use started on 2026-10-08 (a server setting). Each key keeps its free GPU-minutes per day (10, or 20 per network): a job that fits the time left today is free, and a job that goes past it reserves and is charged only for the GPU seconds beyond the free time, at 0.1 JPY per GPU-second from prepaid credit (Stripe Checkout, from 500 JPY). A 402 `payment_required` says how much of the job the free time covers (`free_gpu_seconds_left_today`, `estimated_gpu_seconds`).
 - `POST /v1/estimate` and `render_estimate` count today's free time in paid mode: `cost.free`, `cost.estimated_yen` (what will be charged), `cost.billable_gpu_seconds`, `cost.free_gpu_seconds_left_today`, `cost.list_price_yen` (the whole job without the free time) and `quota` with `fits_today`. Before, a job that fit the free time was quoted at its full price with `enough_balance: false`.
 - `billing()` (remote and stdio MCP) returns `mode: free_allowance` with today's free GPU time and the credit; before, paid mode still answered `free_beta` with "no charges". `render_estimate` and the 402 reply tell the agent to state the price and show `checkout_url` before going past the free time.
 - Paid jobs keep the per-job limits (240 frames, 1920x1080 pixels, `400 beta_limit`); before, they applied only in the free beta.
@@ -708,31 +717,31 @@ P0 of the refactoring requirements (docs/60): correctness of results, money, age
 - The preview critic measures blown-out highlights inside the subject, not across the whole frame. A white background is fine: a product or reference shot on white is no longer told to lower its lights (on 2026-10-08 six previews with a white world and the subject at 27% of the frame were all marked `fix: blown_out`, and the agent kept re-rendering). A small subject on a white background gets `check` instead of `fix`. Re-judging the 74 previews still on the service changed only those seven.
 - Artifacts are easier to receive. `GET /v1/jobs/{id}` now gives every artifact a `view_url` (a signed link that opens without a key until the render expires) for API keys too, not only for remote MCP; a keyless request for `/v1/jobs/{id}/artifacts/{name}` answers 401 with that hint; `/v1`, `/api` and `/api/v1` return the API index instead of 404.
 - Opening a signed link (`/dl/...`) now counts as a download in the operator's funnel, so remote MCP users who take their renders through links are no longer counted as never downloading.
-- Estimates match measured render times: samples barely change the time per frame (adaptive sampling and denoising), so a frame now scales with `(samples / 128) ** 0.1` instead of linearly, and the fixed cost per chunk is 2 s instead of 5 s. Replayed on the last 14 days of final renders, the median estimate went from 1.52x to 1.04x the actual GPU time and the share within 0.67x to 1.5x from 35% to 72%. `JR_SAMPLES_EXPONENT` and `JR_SEC_PER_CHUNK_OVERHEAD` restore the old values.
+- Estimates match measured render times: samples barely change the time per frame (adaptive sampling and denoising), so a frame now scales with `(samples / 128) ** 0.1` instead of linearly, and the fixed cost per chunk is 2 s instead of 5 s. Replayed on the last 14 days of final renders, the median estimate went from 1.52x to 1.04x the actual GPU time and the share within 0.67x to 1.5x from 35% to 72%. a server setting and a server setting restore the old values.
 
 ## 0.4.21 (2026-10-08)
 
-- Every preview returns a critic verdict (`ok` / `check` / `fix`), a score and `issues`, each with fix code (a bpy line or a tool setting): too dark, blown out, no light, nothing in view, the camera inside an object, objects cut by the frame edge. The image is measured on the service and the scene is counted in Blender before rendering; when something needs fixing, the `next` hint asks the agent to apply it and preview again before a final render. `JR_CRITIC=0` turns it off on a self-hosted server.
+- Every preview returns a critic verdict (`ok` / `check` / `fix`), a score and `issues`, each with fix code (a bpy line or a tool setting): too dark, blown out, no light, nothing in view, the camera inside an object, objects cut by the frame edge. The image is measured on the service and the scene is counted in Blender before rendering; when something needs fixing, the `next` hint asks the agent to apply it and preview again before a final render. a server setting turns it off on a self-hosted server.
 - `jr_assets.frame_camera(margin=1.1)` in a scene script points the camera at every object and fits them in the frame, keeping its direction.
-- MCP tool texts, version 2: instructions of about 1,600 characters (clients were cutting the old ones at about 2,000) that open with when to use, when not to use and the first call; a description on every tool parameter; `render_preview` listed first; long jobs are described as rendered in chunks, and the per-call wait as 50 s. The stdio server uses them by default; a server switches with `JR_TOOLDOCS=new|old`.
+- MCP tool texts, version 2: instructions of about 1,600 characters (clients were cutting the old ones at about 2,000) that open with when to use, when not to use and the first call; a description on every tool parameter; `render_preview` listed first; long jobs are described as rendered in chunks, and the per-call wait as 50 s. The stdio server uses them by default; a server switches with a server setting.
 - New page: Best render farms for AI agents (2026), `/best-render-farms-for-ai-agents` (English, Japanese, `.md`), with sources and where JANCTION Render is not the right pick.
 - The consent page and `POST /v1/keys` take an optional `found_via` (where the user found the service).
 - `samples/cube_scene.py` keeps every object in frame on all 24 frames (the critic flagged the first-call sample).
 - The product description gained one sentence about the critic (README, site, llms.txt, /facts).
-- GPU lanes for many workers: a worker can declare `JR_LANES=preview|final|spare` or `JR_RESERVED_FOR=<key prefix>`. Previews and scene reads go to the preview lane and never wait behind long finals; finals are taken paid first, then free, then internal, with a per-key fair share (`JR_FREE_PARALLEL_PER_KEY`, default 3); a reserved worker only serves its key. No lane starves: final workers pick up previews that waited `JR_PREVIEW_SPILL_S` (2 s) and preview workers take finals when no final worker is online. Workers without lanes behave exactly as before. `/v1/health` reports `lanes` (workers, busy, queued chunks, oldest wait).
-- Final renders are split across the online final workers (`JR_CHUNK_MIN_S` keeps chunks long enough that Blender's start-up cost does not dominate; `JR_FRAMES_PER_CHUNK` stays the upper bound). Estimates count the workers of the job's lane, and a preview's queue wait no longer includes queued finals.
+- GPU lanes for many workers: a worker can declare a server setting or a server setting prefix>`. Previews and scene reads go to the preview lane and never wait behind long finals; finals are taken paid first, then free, then internal, with a per-key fair share (a server setting, default 3); a reserved worker only serves its key. No lane starves: final workers pick up previews that waited a server setting (2 s) and preview workers take finals when no final worker is online. Workers without lanes behave exactly as before. `/v1/health` reports `lanes` (workers, busy, queued chunks, oldest wait).
+- Final renders are split across the online final workers (a server setting keeps chunks long enough that Blender's start-up cost does not dominate; a server setting stays the upper bound). Estimates count the workers of the job's lane, and a preview's queue wait no longer includes queued finals.
 - Workers on other GPU hosts can connect through the public URL: a chunk's frames can be sent ahead in parts (`POST /v1/worker/chunks/{id}/frames`) to stay under the 100 MB request cap; `deploy/worker-host/` sets up one worker per GPU (Blender 5.0/5.2 images from the Dockerfile, HDRIs, env per GPU, start/stop/watchdog).
 - Batch API: `POST /v1/batches` takes up to 100 items (`scene_url` or `scene_id`, an outcome such as `turntable` or job params, optional `notify_url`) and returns a `batch_id` at once; items are fetched and submitted in the background with per-item errors and an Idempotency-Key; `GET /v1/batches/{id}` shows each item's job status.
 - Scorecard and the morning report: preview queue wait and round trip p50/p95, Blender start-up p50 (from per-stage timings the workers now report), final start wait, chunks per job, which lane served each chunk.
-- Receptionist hardening after the 10/7 stall (a synchronous URL fetch ran on the event loop and the service waited 120 s on itself): URL fetches (`scene_url`, `asset_urls`) now run in their own small thread pool with per-key and global concurrency caps (`429 fetch_busy`; `JR_FETCH_THREADS` 8, `JR_FETCH_PER_KEY` 2) and a total-time deadline per download (`JR_FETCH_DEADLINE_S`, 300 s); job submission and USDC top-ups run off the loop too; the shared thread limiter is raised (`JR_THREAD_TOKENS`, 120) and one key holds at most `JR_MCP_WAITS_PER_KEY` (4) in-call waits at a time; an event-loop watchdog logs `event loop stalled for N s`, records `loop_stall` and reports `loop` in `/v1/health` (tools/watch.py alerts on it). A test forbids blocking network calls inside async routes.
+- Receptionist hardening after the 10/7 stall (a synchronous URL fetch ran on the event loop and the service waited 120 s on itself): URL fetches (`scene_url`, `asset_urls`) now run in their own small thread pool with per-key and global concurrency caps (`429 fetch_busy`; a server setting 8, a server setting 2) and a total-time deadline per download (a server setting, 300 s); job submission and USDC top-ups run off the loop too; the shared thread limiter is raised (a server setting, 120) and one key holds at most a server setting (4) in-call waits at a time; an event-loop watchdog logs `event loop stalled for N s`, records `loop_stall` and reports `loop` in `/v1/health` (tools/watch.py alerts on it). A test forbids blocking network calls inside async routes.
 - The same class, second instance (found 10/8): when the last chunk of a final arrived, the video assembly (ffmpeg for MP4 / WebM / ProRes) and the preview contact sheet ran on the event loop inside the worker's completion call, so a long 1080p final could freeze the receptionist for tens of seconds. Both now run in a thread, as do the GLB-optimization check and its before/after image. The test's forbidden list now also covers the assembly helpers, PIL, subprocess and shutil, and a new test checks `/v1/health` stays fast while a video is assembled.
 - Operator checks follow "never exercise a new path for the first time on production": `tools/guarded_probe.py --local` starts a throwaway receptionist (temporary data, Slack and Stripe off) with `tools/fake_worker.py` (no GPU; returns test images through the real worker API) and runs the check; the same check (same command and script contents) may then run on production for 14 days, watched — `/v1/health` is polled every second and the check is stopped when it turns slow or the event loop stalls. Checks that cannot run locally need `--first-on-prod "<reason>"`. The morning smoke (`tools/aio_daily.py`) sends the sample as a file even with a throwaway `--base`, and revokes the key it created when run through the guard. A check the guard stopped on production is refused there until it passes locally again (no second stop). The test suite now runs every event loop in asyncio debug mode and fails any test that blocks a loop for 0.5 s or more, and the static check also covers the calls flake8-async looks for (urllib, httpx, socket, os.system). Runbook: docs/35 §7; competitor and industry survey: docs/37.
 
 ## 0.4.20 (2026-10-07)
 
 - Feedback in one click: a finished final render carries `feedback_url` (signed, no login, valid 7 days) where the user can say whether the result was what they asked for and leave a line; the same short form sits under every share page; `POST /v1/jobs/{id}/feedback` for API and CLI users. Quotes the user allowed and the operator approved appear at `/reviews.json` and under "What users say" on `/examples` (schema.org Review). No IP addresses are stored.
-- Directory crawlers and health checks (known user agents, no key) now get `initialize`, `tools/list` and `ping` without a key, so listings can read the tool list; `tools/call` still requires a key and real clients still start OAuth from the 401 (`JR_MCP_PUBLIC`, `JR_MCP_PUBLIC_UA`).
-- The remote MCP waits at most 50 s inside one call (was 80 s; `JR_MCP_WAIT_S`), below the tool timeouts of common clients; the hints say `render_download(job_id, wait_seconds=45)`.
+- Directory crawlers and health checks (known user agents, no key) now get `initialize`, `tools/list` and `ping` without a key, so listings can read the tool list; `tools/call` still requires a key and real clients still start OAuth from the 401 (a server setting, a server setting).
+- The remote MCP waits at most 50 s inside one call (was 80 s; a server setting), below the tool timeouts of common clients; the hints say `render_download(job_id, wait_seconds=45)`.
 - Scorecard: a per-client table (keys, previews, finals, final rate, downloads, GPU minutes), the feedback counts and the latest comments, and how many directory probes were answered without a key.
 - 502s fixed at the source: the stateless receptionist no longer advertises or serves `subscriptions/listen` (protocol 2026-07-28; Claude.ai opened it after every initialize and the stream died at once), and an authenticated `GET /mcp` (the standalone SSE stream that Claude Code and mcp-remote try) now gets a clean 405 with `Allow` instead of an aborted response. Both showed up as 502 at the CDN.
 - Tool descriptions start with when a local render is the better choice (a local Blender MCP for editing an open scene; a single still on a machine with its own GPU); the instructions point to `/examples` for ready-made scenes.

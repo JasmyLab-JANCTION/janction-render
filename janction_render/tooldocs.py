@@ -335,7 +335,7 @@ def param_docs(flavor: str, wait_cap_s: int = 50) -> dict[str, str]:
     return {
         "scene_path": "Local path to the scene: a .blend file, a bpy .py script, or a 3D file (.glb/.gltf/.fbx/.usd/.obj/.stl/.ply/.abc, imported into an empty scene). Uploaded once; reuse the returned scene_id afterwards.",
         "scene_id": "scene_id returned by an earlier call (reuses the uploaded scene without sending it again).",
-        "scene_script": "The scene as bpy Python code (text). No file and no local Blender needed; the service runs it in Blender 5.0." + _script_notes(flavor),
+        "scene_script": "The scene as bpy Python code (text). No file and no local Blender needed; the service runs it in Blender 5.0 (5.2 with blender='5.2')." + _script_notes(flavor),
         "scene_url": f"https link to a .blend, a .py script or a 3D file (.glb/.gltf/.fbx/.usd/.obj/.stl/.ply/.abc); the service fetches it (e.g. the sample {SAMPLE_URL}, or a {UPLOAD_LINK_HOURS}-hour /upload link). A .gltf or .obj also brings its .bin / .mtl / textures from the same folder.",
         "asset_urls": "Extra files sent with the scene: https links (textures, glTF .bin) or 'polyhaven:<id>' CC0 assets from asset_search ('polyhaven:<id>@2k' for 2k textures). A .blend finds them through relative paths (same folder); a script through os.environ['JR_ASSETS_DIR'] or the jr_assets helpers.",
         "assets": "Extra files sent with the scene: local paths (textures, glTF .bin), https links, or 'polyhaven:<id>' CC0 assets from asset_search. A .blend finds them through relative paths (same folder); a script through os.environ['JR_ASSETS_DIR'] or the jr_assets helpers.",

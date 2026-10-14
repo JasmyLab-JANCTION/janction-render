@@ -312,13 +312,13 @@ _ENV_DOC = {
                "bundled HDRI (a good first render for scenes without lighting work); 'compare' (render_preview only) renders the "
                "first frame under all four presets in one 2x2 image with labels, so you can pick one; environment_strength scales it (1.0); "
                "environment_visible=False hides the HDRI from the camera (flat grey backdrop, HDRI lighting only). blender: '' "
-               "(5.0) or '5.2'. asset_urls: https links to images or glTF .bin files sent with the scene; a .blend finds them "
+               "(a .blend opens with the version it was saved in, other scenes with 5.0) or '5.0' / '5.2'. asset_urls: https links to images or glTF .bin files sent with the scene; a .blend finds them "
                "through relative paths (same folder), a script through os.environ['JR_ASSETS_DIR']."),
     "stdio": ("environment: '' keeps the scene's own world; 'studio' | 'sunset' | 'overcast' | 'night' replaces it with a "
               "bundled HDRI (good first render for scenes without lighting work); 'compare' (render_preview only) renders the "
               "first frame under all four presets in one 2x2 image with labels, so you can pick one; environment_strength scales it (1.0); "
               "environment_visible=False hides the HDRI from the camera (flat grey backdrop, HDRI lighting only). "
-              "blender: '' (5.0) or '5.2' to render with Blender 5.2 when available. assets: local files (images, glTF "
+              "blender: '' (a .blend opens with the version it was saved in, other scenes with 5.0) or '5.0' / '5.2'. assets: local files (images, glTF "
               ".bin, ...) sent along with the scene; a .blend finds them through relative paths, a script through "
               "os.environ['JR_ASSETS_DIR']."),
 }
