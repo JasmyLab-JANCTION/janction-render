@@ -2,6 +2,13 @@
 
 The live, per-version list is at https://render.janction.jp/changelog (Atom: https://render.janction.jp/changelog.xml). Versions are the PyPI releases of `janction-render`; the hosted service follows the same numbers.
 
+## 0.4.111 (2026-10-14)
+
+Receptionist.
+
+- **Parts of a job that already ended are never left in the queue:** a part that comes back after its job failed or was canceled is dropped instead of retried, and wait estimates count only parts of live jobs (two leftover parts had made the shown wait longer than it was).
+- **The preview check no longer calls a low-key shot "dark":** a well-lit subject on a dark backdrop (a common product look) is left alone; a frame that is dark overall is still flagged.
+
 ## 0.4.110 (2026-10-14)
 
 Receptionist.
