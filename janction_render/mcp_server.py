@@ -75,7 +75,7 @@ mcp = MCPServer(
         "render_status / render_download. Always tell the user the time estimate (estimate.human / eta.human). "
         "Every finished preview also returns final_estimate (how long the same scene takes as a final render) and quota_left_today: say both before asking the user. "
         "cameras=['CamA','CamB',...] renders the same frame from several named cameras in ONE job (preview: tiled in one sheet; final: one PNG per camera, camera_files maps names to files): use it for product shots from fixed angles instead of one job per camera. "
-        "Blender 5.0 with Cycles on GPU (blender='5.2' selects Blender 5.2 when the worker has it); engine='eevee' switches to EEVEE "
+        "Blender 5.0 with Cycles on GPU (a .blend opens with the version it was saved in; blender='5.2' selects Blender 5.2); engine='eevee' switches to EEVEE "
         "(about half the per-frame cost on animations of a few dozen frames or more; each job pays ~7 s of shader compilation, so previews stay on Cycles); output='png'|'exr' returns frames, 'mp4'|'webm'|'prores' a video. Blender 5.0 API notes for scripts: materials always use nodes, so set a color on the Principled BSDF (mat.node_tree.nodes['Principled BSDF'].inputs['Base Color'].default_value = (r, g, b, 1)); mat.diffuse_color only affects the viewport. Animate with obj.keyframe_insert(); obj.animation_data.action.fcurves no longer exists (set bpy.context.preferences.edit.keyframe_new_interpolation_type='LINEAR' before inserting keyframes for constant-speed motion); do not set Material.use_nodes; leave resolution, samples and denoising to the service. Inputs: a .blend, a bpy "
         "script, or a 3D file (FBX, glTF/GLB, USD, OBJ, STL, PLY, Alembic) that is imported into an empty scene; images "
         "and other assets can be sent with the scene (assets=[...]). environment='studio'|'sunset'|'overcast'|'night' "
@@ -115,7 +115,7 @@ P: dict[str, str] = {
     "scene_script": "The scene as bpy Python code (text). No file and no local Blender needed; the service runs it in Blender 5.0.",
     "scene_url": f"https link to a .blend, a .py script or a 3D file; the service fetches it (e.g. the sample {SAMPLE_URL}, or a 12-hour /upload link).",
     "assets": "Extra files sent with the scene: local paths (textures, glTF .bin), 'polyhaven:<id>' CC0 assets, or https URLs.",
-    "blender": "Blender version: '' (5.0, default) or '5.2' when the worker has it.",
+    "blender": "Blender version: '' (default: a .blend opens with the version it was saved in, other scenes with 5.0) or '5.0' / '5.2' to choose.",
     "frames": "Preview frames: '' = frame 1; '12' = one frame; '1,8,16,24' or '1-24' = up to 4 frames tiled in one labeled image.",
     "camera": "Name of the camera object to render from (default: the scene's active camera, or an automatic camera if none).",
     "cameras": "Several camera object names (up to 8) to render the same frame from in one job; the preview tiles them, the final returns one file per camera. Leave empty for the normal single camera.",

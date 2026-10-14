@@ -2,6 +2,21 @@
 
 The live, per-version list is at https://render.janction.jp/changelog (Atom: https://render.janction.jp/changelog.xml). Versions are the PyPI releases of `janction-render`; the hosted service follows the same numbers.
 
+## 0.4.109 (2026-10-14)
+
+Receptionist and client.
+
+- **Script errors are named for what they are.** A Python KeyError from a name that is not there is a script error, not a missing texture; a node looked up by its name in another language (for example a Japanese Blender's "プリンシプルBSDF") says to use the English name; a script that calls sys.exit says so instead of "unknown".
+- **A scene that does not finish being read in time gets the right advice:** lower subdivision only when the script sets high levels; otherwise check for endless loops, sleeps or waiting for input.
+- **A broken link to another .blend is reported** by the preview check (missing_library), and Blender's own bundled assets are no longer listed as missing files.
+- **A .blend opens with the Blender version it was saved with** when no version is given (REST, MCP and CLI, as /start already did); if no worker has that version, it opens with the default and says so first in the warnings.
+
+## 0.4.108 (2026-10-14)
+
+GPU workers.
+
+- Scene reads and previews run in a 16 GB render box and finals in the full 64 GB box; if the GPU server runs short of memory, render boxes are stopped first so the service itself keeps answering.
+
 ## 0.4.107 (2026-10-14)
 
 Receptionist, GPU workers and MCP.
