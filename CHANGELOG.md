@@ -2,6 +2,24 @@
 
 The live, per-version list is at https://render.janction.jp/changelog (Atom: https://render.janction.jp/changelog.xml). Versions are the PyPI releases of `janction-render`; the hosted service follows the same numbers.
 
+## 0.4.104 (2026-10-14)
+
+Receptionist and client.
+
+- **Every guide's answer names the MCP URL.** The paragraph AIs quote ends with where an agent connects (https://render.janction.jp/mcp, remote MCP with OAuth) on every guide, not 9 of 39.
+- **/start links to using it from an AI** (Claude, ChatGPT, Codex) next to the first-question tags.
+- **`janction-render doctor` compares with the live version** and says how to update when a newer one is out.
+
+## 0.4.103 (2026-10-14)
+
+Receptionist, GPU workers and pages.
+
+- **A render that runs out of memory says so.** When a render goes past the memory of its render box, the job fails as out of memory with what to lower, instead of reporting that your script failed; it is not retried.
+- **A .blend saved by a newer Blender opens with that version.** The scene view tells which Blender saved the file and which one opens it, and /start uses it for reading, estimating and rendering; Blender's memory-cleanup lines are no longer shown as warnings.
+- **/start and /upload take a file dropped on the dashed area,** and a file dropped elsewhere no longer makes the browser leave the page.
+- **/start asks before it forgets your key** ('use another key' needs a second click).
+- **The FAQ says what stays as in your Blender** (color management, cameras, lights, materials) and what the service sets (resolution, samples, denoising, engine, Blender version).
+
 ## 0.4.102 (2026-10-14)
 
 Receptionist, client and Blender add-on 0.1.10.

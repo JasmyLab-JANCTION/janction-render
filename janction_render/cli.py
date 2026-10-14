@@ -257,6 +257,15 @@ def cmd_estimate(c: Client, args: argparse.Namespace) -> int:
     return 0
 
 
+def _ver(v: str) -> tuple[int, ...]:
+    """'0.4.102' → (0, 4, 102)。数字でない部分は 0。"""
+    out = []
+    for part in str(v or "").split(".")[:4]:
+        digits = "".join(ch for ch in part if ch.isdigit())
+        out.append(int(digits) if digits else 0)
+    return tuple(out)
+
+
 def cmd_doctor(c: Client, args: argparse.Namespace) -> int:
     """つながるか・鍵が効くか・残高・GPU・この PC の AI アプリを点検する（10/11）。鍵の中身は出さない（頭の数文字だけ）。"""
     from . import __version__
@@ -265,7 +274,21 @@ def cmd_doctor(c: Client, args: argparse.Namespace) -> int:
     def add(name: str, ok: bool, detail: str, fix: str = "") -> None:
         checks.append({"check": name, "ok": ok, "detail": detail, **({"fix": fix} if fix and not ok else {})})
 
-    add("version", True, f"janction-render {__version__}")
+    # 10/14（docs/70 IF-07）: 本番の版（/version.json）と比べる。古いだけなら点検は通し、更新の方法を言う。受付が
+    # min_client_version を出していて、それより古ければ NG（その版では動かない）
+    latest, minimum = None, None
+    try:
+        vj = c.s.get(f"{c.server}/version.json", timeout=15).json()
+        latest, minimum = vj.get("current_version"), vj.get("min_client_version")
+    except Exception:  # noqa: BLE001 — 版が読めなくても点検は続ける
+        pass
+    upgrade = "pip install -U janction-render (uvx janction-render picks the latest by itself)"
+    if minimum and _ver(__version__) < _ver(minimum):
+        add("version", False, f"janction-render {__version__} is older than {minimum}, the oldest this service supports", upgrade)
+    elif latest and _ver(__version__) < _ver(latest):
+        add("version", True, f"janction-render {__version__} ({latest} is out: {upgrade})")
+    else:
+        add("version", True, f"janction-render {__version__}" + (" (the latest)" if latest else ""))
     try:
         health = c.health()
         ws = [w for w in health.get("workers") or [] if isinstance(w, dict)]
