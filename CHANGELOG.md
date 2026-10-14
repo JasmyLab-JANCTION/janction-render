@@ -2,6 +2,14 @@
 
 The live, per-version list is at https://render.janction.jp/changelog (Atom: https://render.janction.jp/changelog.xml). Versions are the PyPI releases of `janction-render`; the hosted service follows the same numbers.
 
+## 0.4.118 (2026-10-14)
+
+Receptionist.
+
+- The English /upload page no longer says a saved card opens 5 GB (it takes 500 JPY actually paid since 0.4.117).
+- facts.json names the paid .blend limit `max_blend_upload_mb_paid`; the former name stays with a note for older readers.
+- The morning report counts how often paid keeping was shortened for lack of space.
+
 ## 0.4.117 (2026-10-14)
 
 Receptionist. **Free and paid keys (from 2026-10-14):**
