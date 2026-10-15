@@ -2,6 +2,12 @@
 
 The live, per-version list is at https://render.janction.jp/changelog (Atom: https://render.janction.jp/changelog.xml). Versions are the PyPI releases of `janction-render`; the hosted service follows the same numbers.
 
+## 0.4.125 (2026-10-15)
+
+Receptionist and worker.
+
+- A script that sets or animates a light or camera value on the object (`light.energy`, `keyframe_insert("energy")`) gets the right fix: those values live on `obj.data`. It used to be told that an image was missing. Such a script is not rendered again on an older Blender.
+
 ## 0.4.124 (2026-10-15)
 
 Receptionist and worker.
