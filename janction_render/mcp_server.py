@@ -115,7 +115,7 @@ P: dict[str, str] = {
     "scene_script": "The scene as bpy Python code (text). No file and no local Blender needed; the service runs it in Blender 5.0 (5.2 with blender='5.2').",
     "scene_url": f"https link to a .blend, a .py script or a 3D file; the service fetches it (e.g. the sample {SAMPLE_URL}, or a 12-hour /upload link).",
     "assets": "Extra files sent with the scene: local paths (textures, glTF .bin), 'polyhaven:<id>' CC0 assets, or https URLs.",
-    "blender": "Blender version: '' (default: a .blend opens with the version it was saved in, other scenes with 5.0) or '5.0' / '5.2' to choose.",
+    "blender": "Blender version: '' (default: a .blend opens with the version it was saved in, other scenes with 5.0) or '5.0' / '5.2' (also '4.5', '4.2', '3.6'; a script that stops on Blender 5 because of an older API is rendered again on those automatically) to choose.",
     "frames": "Preview frames: '' = frame 1; '12' = one frame; '1,8,16,24' or '1-24' = up to 4 frames tiled in one labeled image.",
     "camera": "Name of the camera object to render from (default: the scene's active camera, or an automatic camera if none).",
     "cameras": "Several camera object names (up to 8) to render the same frame from in one job; the preview tiles them, the final returns one file per camera. Leave empty for the normal single camera.",

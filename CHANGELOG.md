@@ -2,6 +2,15 @@
 
 The live, per-version list is at https://render.janction.jp/changelog (Atom: https://render.janction.jp/changelog.xml). Versions are the PyPI releases of `janction-render`; the hosted service follows the same numbers.
 
+## 0.4.126 (2026-10-15)
+
+Receptionist and client.
+
+- Estimates and the billing reply give the daily free GPU time as the preview allowance (120 seconds) with what it applies to; they used to show the former 600 seconds a day.
+- A 4K estimate on a key that has not bought credit no longer says free: it says prepaid credit is needed, and that 1920x1080 is free.
+- An estimate for an unknown `scene_id` answers 404 `scene_not_found`, like creating the job.
+- The `render_preview` and `render_final` tool texts name Blender 4.5, 4.2 and 3.6 too.
+
 ## 0.4.125 (2026-10-15)
 
 Receptionist and worker.
