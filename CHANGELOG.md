@@ -2,6 +2,13 @@
 
 The live, per-version list is at https://render.janction.jp/changelog (Atom: https://render.janction.jp/changelog.xml). Versions are the PyPI releases of `janction-render`; the hosted service follows the same numbers.
 
+## 0.4.119 (2026-10-15)
+
+Receptionist and worker.
+
+- Color looks: a look such as `'AgX - Medium High Contrast'` is kept as written; a look written for another view transform is changed to the name Blender 5 uses with the scene's view transform, or skipped when that view transform has no such look. 0.4.115 had removed the `AgX - ` prefix, which made those scripts fail.
+- Scripts written for the Blender 4 compositor (`scene.use_nodes = True`, `scene.node_tree`) run on Blender 5: the compositor becomes a Blender 5 compositor node group, the Composite node its group output, and compositor nodes Blender 5 no longer has (such as MixRGB) pass the image through.
+
 ## 0.4.118 (2026-10-14)
 
 Receptionist.
