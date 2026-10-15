@@ -2,6 +2,15 @@
 
 The live, per-version list is at https://render.janction.jp/changelog (Atom: https://render.janction.jp/changelog.xml). Versions are the PyPI releases of `janction-render`; the hosted service follows the same numbers.
 
+## 0.4.120 (2026-10-15)
+
+Receptionist, client and docs.
+
+- Files are kept normally 7 days for keys that have paid 500 JPY or more in total (24 hours for other keys); every page, llms.txt, facts.json, the MCP tool descriptions and this README now say it that way instead of "keys that have topped up".
+- openapi.json and `/v1/capabilities`: 5 GB `.blend` uploads need 500 JPY or more paid in total; a saved card alone does not open them (former field names kept with a note). facts.json adds `saving_a_card_alone_unlocks_paid: false`.
+- The Blender API guide says the OpenAPI document is published at `/openapi.json`.
+- Terms, section 7: the Service is no longer called a beta; availability and response times are still not guaranteed.
+
 ## 0.4.119 (2026-10-15)
 
 Receptionist and worker.

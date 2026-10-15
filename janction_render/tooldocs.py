@@ -242,7 +242,7 @@ def descriptions(flavor: str, wait_cap_s: int = 50) -> dict[str, str]:
     if remote:
         download = (
             "Get the download links of a job (no key needed, valid about 24 hours; call again for fresh links while the files are "
-            f"kept, {RETENTION_HOURS} h after last use or {PAID_RETENTION_DAYS} days for keys that have topped up) and show them to the user; in a terminal, "
+            f"kept, {RETENTION_HOURS} h after last use or {PAID_RETENTION_DAYS} days, normally, for paid keys) and show them to the user; in a terminal, "
             "fetch them with curl -o. A finished preview also comes back as an inline image. wait_seconds > 0 first waits for "
             f"the job (the service waits at most {wait_cap_s} s per call; call again while it is still running). only picks "
             "the files: 'output' (default: the MP4 or the preview sheet, plus the first frames), 'mp4', 'sheet', 'frames' or "
