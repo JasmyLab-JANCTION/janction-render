@@ -2,6 +2,13 @@
 
 The live, per-version list is at https://render.janction.jp/changelog (Atom: https://render.janction.jp/changelog.xml). Versions are the PyPI releases of `janction-render`; the hosted service follows the same numbers.
 
+## 0.4.123 (2026-10-15)
+
+Receptionist.
+
+- On /start, a script that stops with an error is fixed by Claude: only the lines the error needs change, the page shows what was wrong and what changed, offers the fixed script to save, and reads the scene again. Scripts sent through an AI app (MCP or the API) still get the line and the fix in the reply, because that AI can fix them itself.
+- llms.txt says that Blender 3.6, 4.2 and 4.5 can be named and that scripts written for them are rendered again on them automatically.
+
 ## 0.4.122 (2026-10-15)
 
 Receptionist, worker and client.
