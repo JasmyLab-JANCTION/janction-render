@@ -2,6 +2,15 @@
 
 The live, per-version list is at https://render.janction.jp/changelog (Atom: https://render.janction.jp/changelog.xml). Versions are the PyPI releases of `janction-render`; the hosted service follows the same numbers.
 
+## 0.4.127 (2026-10-15)
+
+Receptionist.
+
+- llms.txt states the file size limits: `.blend` files sent in parts up to 1 GB on a free key and 5 GB on a key that has paid 500 JPY or more in total (saving a card alone does not raise it), other 3D files and scripts, and 100 MB per single request.
+- Pages fit phone screens: videos and images shrink to the width, wide tables scroll inside themselves, and the menu and footer wrap.
+- On /start, the next step after a first preview is written for the person reading it; the API and MCP replies keep the agent wording.
+- The resumable upload operations (`/v1/uploads`) are described in openapi.json.
+
 ## 0.4.126 (2026-10-15)
 
 Receptionist and client.
