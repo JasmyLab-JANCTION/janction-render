@@ -1,8 +1,9 @@
-import type { IAuthenticateGeneric, ICredentialTestRequest, ICredentialType, INodeProperties } from 'n8n-workflow';
+import type { IAuthenticateGeneric, ICredentialTestRequest, ICredentialType, Icon, INodeProperties } from 'n8n-workflow';
 
 export class JanctionRenderApi implements ICredentialType {
 	name = 'janctionRenderApi';
 	displayName = 'JANCTION Render API';
+	icon: Icon = { light: 'file:janction.svg', dark: 'file:janction.dark.svg' };
 	documentationUrl = 'https://github.com/JasmyLab-JANCTION/janction-render/tree/main/integrations/n8n';
 	properties: INodeProperties[] = [
 		{

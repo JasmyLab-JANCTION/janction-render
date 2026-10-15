@@ -1,3 +1,4 @@
+import { NodeConnectionTypes } from 'n8n-workflow';
 import type { INodeProperties, INodeType, INodeTypeDescription } from 'n8n-workflow';
 
 // The scene to render: one of a link (.blend, .py, GLB/glTF, FBX, USD, OBJ, STL) or bpy code. Shared by Render and Estimate.
@@ -71,19 +72,6 @@ const sceneFields: INodeProperties[] = [
 		placeholder: 'Add Field',
 		default: {},
 		options: [
-			{ displayName: 'Frame Start', name: 'frame_start', type: 'number', default: 1, routing: { send: { type: 'body', property: 'frame_start' } } },
-			{ displayName: 'Frame End', name: 'frame_end', type: 'number', default: 1, routing: { send: { type: 'body', property: 'frame_end' } } },
-			{ displayName: 'Width', name: 'width', type: 'number', default: 1920, routing: { send: { type: 'body', property: 'width' } } },
-			{ displayName: 'Height', name: 'height', type: 'number', default: 1080, routing: { send: { type: 'body', property: 'height' } } },
-			{ displayName: 'Samples', name: 'samples', type: 'number', default: 128, routing: { send: { type: 'body', property: 'samples' } } },
-			{
-				displayName: 'Output',
-				name: 'output',
-				type: 'options',
-				default: 'auto',
-				options: ['auto', 'png', 'exr', 'mp4', 'webm', 'gif', 'webp'].map((v) => ({ name: v.toUpperCase(), value: v })),
-				routing: { send: { type: 'body', property: 'output' } },
-			},
 			{
 				displayName: 'Environment',
 				name: 'environment',
@@ -92,7 +80,9 @@ const sceneFields: INodeProperties[] = [
 				options: ['studio', 'sunset', 'overcast', 'night'].map((v) => ({ name: v[0].toUpperCase() + v.slice(1), value: v })),
 				routing: { send: { type: 'body', property: 'environment' } },
 			},
-			{ displayName: 'Transparent Background', name: 'transparent', type: 'boolean', default: false, routing: { send: { type: 'body', property: 'transparent' } } },
+			{ displayName: 'Frame End', name: 'frame_end', type: 'number', default: 1, routing: { send: { type: 'body', property: 'frame_end' } } },
+			{ displayName: 'Frame Start', name: 'frame_start', type: 'number', default: 1, routing: { send: { type: 'body', property: 'frame_start' } } },
+			{ displayName: 'Height', name: 'height', type: 'number', default: 1080, routing: { send: { type: 'body', property: 'height' } } },
 			{
 				displayName: 'Max JPY',
 				name: 'max_yen',
@@ -101,6 +91,17 @@ const sceneFields: INodeProperties[] = [
 				description: 'Refuse the job if it would cost more than this (0 = only when the free GPU time covers it)',
 				routing: { send: { type: 'body', property: 'max_yen' } },
 			},
+			{
+				displayName: 'Output',
+				name: 'output',
+				type: 'options',
+				default: 'auto',
+				options: ['auto', 'png', 'exr', 'mp4', 'webm', 'gif', 'webp'].map((v) => ({ name: v.toUpperCase(), value: v })),
+				routing: { send: { type: 'body', property: 'output' } },
+			},
+			{ displayName: 'Samples', name: 'samples', type: 'number', default: 128, routing: { send: { type: 'body', property: 'samples' } } },
+			{ displayName: 'Transparent Background', name: 'transparent', type: 'boolean', default: false, routing: { send: { type: 'body', property: 'transparent' } } },
+			{ displayName: 'Width', name: 'width', type: 'number', default: 1920, routing: { send: { type: 'body', property: 'width' } } },
 		],
 	},
 ];
@@ -109,14 +110,15 @@ export class JanctionRender implements INodeType {
 	description: INodeTypeDescription = {
 		displayName: 'JANCTION Render',
 		name: 'janctionRender',
-		icon: 'file:janction.png',
+		icon: { light: 'file:janction.svg', dark: 'file:janction.dark.svg' },
 		group: ['transform'],
 		version: 1,
+		usableAsTool: true,
 		subtitle: '={{$parameter["operation"]}}',
 		description: 'Render Blender scenes and 3D models on cloud GPUs: product shots, turntables, animations and stills',
 		defaults: { name: 'JANCTION Render' },
-		inputs: ['main'],
-		outputs: ['main'],
+		inputs: [NodeConnectionTypes.Main],
+		outputs: [NodeConnectionTypes.Main],
 		credentials: [{ name: 'janctionRenderApi', required: true }],
 		requestDefaults: {
 			baseURL: 'https://render.janction.jp',

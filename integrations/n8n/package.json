@@ -1,6 +1,6 @@
 {
   "name": "n8n-nodes-janction-render",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "n8n node for JANCTION Render: render Blender scenes and 3D models (GLB, FBX, USD, OBJ, STL) on cloud GPUs. Product shots, 360-degree turntables, animations and stills as PNG or MP4.",
   "keywords": ["n8n-community-node-package", "blender", "3d", "rendering", "gpu", "glb", "product-photos", "turntable"],
   "license": "MIT",
@@ -9,7 +9,7 @@
   "repository": { "type": "git", "url": "git+https://github.com/JasmyLab-JANCTION/janction-render.git", "directory": "integrations/n8n" },
   "main": "index.js",
   "scripts": {
-    "build": "tsc && node -e \"require('fs').cpSync('nodes/JanctionRender/janction.png','dist/nodes/JanctionRender/janction.png')\"",
+    "build": "tsc && node -e \"for (const f of ['nodes/JanctionRender/janction.svg','nodes/JanctionRender/janction.dark.svg','credentials/janction.svg','credentials/janction.dark.svg']) require('fs').cpSync(f,'dist/'+f)\"",
     "prepublishOnly": "npm run build"
   },
   "files": ["dist"],
