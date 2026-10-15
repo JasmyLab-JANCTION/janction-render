@@ -23,7 +23,7 @@ CACHE = Path.home() / ".janction-render.json"
 
 # 送れるシーン: .blend、bpy スクリプト、こちらの Blender が読み込める 3D ファイル
 SCENE_SUFFIXES = (".blend", ".py", ".fbx", ".glb", ".gltf", ".obj", ".stl", ".ply", ".usd", ".usda", ".usdc", ".usdz", ".abc")
-ONLY_CHOICES = ("all", "mp4", "frames", "sheet", "output", "video")
+ONLY_CHOICES = ("all", "mp4", "frames", "sheet", "output", "video", "blend")
 ARCHIVE_MIN_FILES = 8   # これ以上の数のファイルは zip で 1 回で取る（1 枚ずつだと入口の回数制限 429 に当たる、10/9）
 # zip は約 1 GiB ずつの区切りで取る（10/14 受け取り側の 5 GB 試験: 1 本の zip は途中から取り直せず、切れると全部を 1 枚ずつ取り直していた）
 ARCHIVE_PART_BYTES = 1 << 30
@@ -77,8 +77,10 @@ def select_artifacts(artifacts: list[dict[str, Any]], only: Optional[str] = None
         return [a for a in artifacts if _FRAME_NAME_RE.match(a["name"])]
     if o == "sheet":
         return [a for a in artifacts if a["name"] == "sheet.png"]
+    if o == "blend":
+        return [a for a in artifacts if a["name"] == "scene.blend"]
     if o == "output":
-        picked = [a for a in artifacts if a["name"] in ("output.mp4", "output.webm", "output.mov", "sheet.png")]
+        picked = [a for a in artifacts if a["name"] in ("output.mp4", "output.webm", "output.mov", "sheet.png", "scene.blend")]
         return picked or [a for a in artifacts if _FRAME_NAME_RE.match(a["name"])][:1]
     raise ValueError("only must be one of: " + ", ".join(ONLY_CHOICES))
 

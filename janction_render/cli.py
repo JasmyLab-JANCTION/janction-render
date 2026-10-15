@@ -498,7 +498,7 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--samples", type=int, default=128)
     s.add_argument("--engine", choices=["cycles", "eevee"], default=None, help="cycles (default) or eevee (cheaper drafts)")
     s.add_argument("--fps", type=int, default=24)
-    s.add_argument("--output", choices=["auto", "png", "exr", "mp4", "webm", "prores", "gif", "webp"], default="auto",
+    s.add_argument("--output", choices=["auto", "png", "exr", "mp4", "webm", "prores", "gif", "webp", "blend"], default="auto",
                    help="png/exr = frames, mp4/webm/prores/gif/webp = video (auto: mp4 for a range, png for one frame)")
     s.add_argument("--transparent", action="store_true", help="transparent background (png/exr/webm/gif/webp)")
     s.add_argument("--notify-url", default=None, help="https URL that receives one JSON POST when the job finishes")

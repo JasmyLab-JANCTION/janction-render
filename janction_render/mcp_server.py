@@ -144,7 +144,7 @@ P: dict[str, str] = {
     "kind": "'final' (frame_start..frame_end at width x height, samples) or 'preview' (frames like '1-24').",
     "job_id": "The job_id returned by render_preview or render_final (looks like j_…).",
     "wait_seconds": "Wait up to this many seconds for the job to finish before downloading (0 = do not wait).",
-    "only": "'all' (every frame plus output.mp4 / sheet.png) | 'mp4' | 'frames' | 'sheet' | 'output' (the MP4 or the sheet only).",
+    "only": "'all' (every frame plus output.mp4 / sheet.png) | 'mp4' | 'frames' | 'sheet' | 'blend' (scene.blend) | 'output' (the MP4, the sheet or scene.blend only).",
     "query": "Words to search Poly Haven for (name, tags, category), e.g. 'wooden chair' or 'forest hdri'.",
     "kind_assets": "'models' (default) | 'textures' | 'hdris'.",
     "title": "Title shown on the public share page (optional).",
@@ -740,7 +740,7 @@ def render_download(job_id: Annotated[str, Field(description=P["job_id"])],
                     only: Annotated[str, D("only", "all")] = "all") -> str:
     """Download a JANCTION render job's files to out_dir (default ~/janction-render/<job_id>).
     only: 'all' (default: every PNG frame plus output.mp4 / sheet.png), 'mp4' (just the video), 'frames'
-    (just the PNG frames), 'sheet' (just the preview sheet), 'output' (the MP4 or the sheet only). Pass only='mp4'
+    (just the PNG frames), 'sheet' (just the preview sheet), 'blend' (scene.blend from output='blend'), 'output' (the MP4, the sheet or scene.blend only). Pass only='mp4'
     when the user wants the video: it avoids downloading hundreds of frames. wait_seconds > 0 first waits up to
     that long for the job to finish. Returns the local file paths (long lists are summarised)."""
     c = _client()

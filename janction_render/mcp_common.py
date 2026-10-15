@@ -297,13 +297,13 @@ _CAMERAS_DOC = (" cameras=['Front','Top','Iso']: render the same frame from seve
 _OUTPUT_DOC = {
     "remote": (" output: 'auto' (mp4 for a frame range, png for one frame) | 'png' | 'exr' (16-bit linear OpenEXR frames for "
                "compositing) | 'mp4' (H.264) | 'webm' (VP9) | 'prores' (Apple ProRes 422 HQ in a .mov, for editing) | 'gif' | 'webp' "
-               "(animated, at most 960 px wide; good for chat and web). transparent=True renders on a transparent background "
+               "(animated, at most 960 px wide; good for chat and web) | 'blend' (render_final only: the scene built by the script or import, saved as one .blend with its images packed; not rendered, no GPU, free; opens in Blender 5.0 or later). transparent=True renders on a transparent background "
                "(alpha; for product shots and overlays): png / exr frames, webm, gif and webp keep it, mp4 and prores cannot. "
                "notify_url (render_final): an https URL that receives one JSON POST when the job finishes "
                "(event job.done / job.failed, artifacts with download links), so nobody has to poll."),
     "stdio": (" output: 'auto' (mp4 for a frame range, png for one frame) | 'png' | 'exr' (16-bit linear OpenEXR frames) | "
               "'mp4' (H.264) | 'webm' (VP9) | 'prores' (ProRes 422 HQ .mov) | 'gif' | 'webp' (animated, at most 960 px wide; "
-              "good for chat and web). transparent=True renders on a transparent background (alpha): png / exr frames, webm, gif "
+              "good for chat and web) | 'blend' (render_final only: the scene built by the script or import, saved as one .blend with its images packed; not rendered, no GPU, free; opens in Blender 5.0 or later). transparent=True renders on a transparent background (alpha): png / exr frames, webm, gif "
               "and webp keep it, mp4 and prores cannot. notify_url: an https URL that receives one JSON POST when the job "
               "finishes (event job.done / job.failed, artifacts with download links)."),
 }

@@ -2,6 +2,13 @@
 
 The live, per-version list is at https://render.janction.jp/changelog (Atom: https://render.janction.jp/changelog.xml). Versions are the PyPI releases of `janction-render`; the hosted service follows the same numbers.
 
+## 0.4.121 (2026-10-15)
+
+Receptionist, worker and client.
+
+- `output="blend"` on a final render returns the scene the script or import built as one `scene.blend`, without rendering. Images from the upload and its assets are packed inside; text blocks set to run when the file opens are removed; the reply says it opens in Blender 5.0 or later.
+- It uses no GPU and is free (it does not use the free time either), and it runs even while the GPUs are lent out. `render_download(only="blend")` and the CLI `--output blend` fetch just the file.
+
 ## 0.4.120 (2026-10-15)
 
 Receptionist, client and docs.
