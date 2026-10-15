@@ -1,6 +1,7 @@
 # n8n のコミュニティノード（integrations/n8n、npm の n8n-nodes-janction-render）を公開する。タグ n8n-v<版> を push すると
-# npmjs.com に --provenance つきで公開する（n8n の検証済みノードの審査は provenance を求める）。認証は npm-publish.yml と同じ
-# NPM_TOKEN（新しいパッケージを作れる権限が要る）。版は integrations/n8n/package.json の version と一致していること。
+# npmjs.com に --provenance つきで「保留つきの公開」をする（npm stage publish。npmjs.com で本人が承認するまで入れられない）。
+# 認証は Trusted Publishing（OIDC、npmjs.com のパッケージ設定で JasmyLab-JANCTION/janction-render の n8n-publish.yml を登録済み、
+# 許可は stage publish だけ。10/15）。最初の 0.1.0 は本人の手元から公開した。版は integrations/n8n/package.json と一致していること。
 name: n8n-publish
 
 on:
@@ -30,8 +31,7 @@ jobs:
         run: |
           V=$(node -p "require('./package.json').version")
           test "n8n-v$V" = "${GITHUB_REF_NAME}" || { echo "tag ${GITHUB_REF_NAME} != package.json $V" >&2; exit 1; }
+      - run: npm install -g npm@latest   # npm stage は 11.15.0 から
       - run: npm install --no-audit --no-fund
       - run: npm run build
-      - run: npm publish --provenance --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - run: npm stage publish --provenance --access public

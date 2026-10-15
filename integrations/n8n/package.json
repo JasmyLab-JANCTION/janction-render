@@ -1,6 +1,6 @@
 {
   "name": "n8n-nodes-janction-render",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "n8n node for JANCTION Render: render Blender scenes and 3D models (GLB, FBX, USD, OBJ, STL) on cloud GPUs. Product shots, 360-degree turntables, animations and stills as PNG or MP4.",
   "keywords": ["n8n-community-node-package", "blender", "3d", "rendering", "gpu", "glb", "product-photos", "turntable"],
   "license": "MIT",
