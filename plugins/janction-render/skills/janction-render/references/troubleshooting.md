@@ -10,14 +10,9 @@ also has `failure` with `code`, `category`, `reason`, `recommended_action` (a se
   Authenticate. Codex: `codex mcp login janction-render`. Gemini CLI: `/mcp auth janction-render`. Claude.ai and ChatGPT:
   open the connector settings and connect again. Connecting creates a free key; no account or card is needed.
 - Codex stops with `MCP tool call requires approval, but approval policy is never`: Codex asks before each MCP tool
-  call and `codex exec` cannot ask, so the call never reaches the service. Tell the user to allow it when Codex asks, or to
-  approve the read, preview and estimate tools one by one in `~/.codex/config.toml`, under the server entry that has its
-  `url` (https://render.janction.jp/codex-blender#run-without-prompts). Leave `render_final` asking.
-- The browser page says "unknown app": the app's redirect address is not one the service knows. Use the official app or
-  pass an API key as `Authorization: Bearer <key>` instead.
-- Terminal check: `uvx janction-render doctor` reports the service, the key, the credit and the AI apps on the machine.
-- Antigravity CLI shows janction-render as Disabled (untrusted): it stops MCP servers in folders it does not trust. Trust the
-  folder (the first-run prompt, or `trustedWorkspaces` in its settings) and start it again.
+  call and `codex exec` cannot ask, so the call never reaches the service. Run Codex interactively and let the user allow
+  each call when Codex asks.
+- The browser page says "unknown app": the app's redirect address is not one the service knows. Use the official app.
 
 ## Money
 

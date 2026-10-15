@@ -1,0 +1,14 @@
+{
+  "compilerOptions": {
+    "target": "es2019",
+    "module": "commonjs",
+    "lib": ["es2019"],
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "declaration": false,
+    "outDir": "dist",
+    "rootDir": "."
+  },
+  "include": ["credentials/**/*.ts", "nodes/**/*.ts"]
+}

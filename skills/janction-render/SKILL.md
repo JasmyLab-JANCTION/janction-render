@@ -25,7 +25,7 @@ authenticated yet. Say so plainly and give the step for the user's app; never sa
 
 - Claude Code: run `/mcp`, choose janction-render, press Authenticate, then Connect in the browser (creates a free key).
 - Codex: `codex mcp login janction-render`. Gemini CLI: `/mcp auth janction-render`.
-- No MCP at all: `uvx janction-render try` renders a sample from the terminal (same service, free).
+- ChatGPT and Claude.ai: open the connector settings and connect again.
 
 The first call `render_preview(scene_url="https://render.janction.jp/samples/cube_scene.py", environment="compare")` checks the
 connection in a few seconds.

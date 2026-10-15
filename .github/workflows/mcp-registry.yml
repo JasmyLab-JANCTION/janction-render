@@ -30,5 +30,13 @@ jobs:
           echo "janction-render $V not on PyPI yet" >&2; exit 1
       - name: Login (GitHub OIDC)
         run: ./mcp-publisher login github-oidc
+      # PyPI の JSON に出ても、Registry 側の検査はしばらく「その版が無い」と 400 を返す（0.4.119〜0.4.121 が 3 回続けて落ちた、10/15）。
+      # 1 分おきに 10 回までやり直す
       - name: Publish
-        run: ./mcp-publisher publish
+        run: |
+          for i in $(seq 1 10); do
+            ./mcp-publisher publish && exit 0
+            echo "publish failed (try $i), retrying in 60 s" >&2
+            sleep 60
+          done
+          exit 1

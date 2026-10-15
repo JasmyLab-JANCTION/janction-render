@@ -8,3 +8,4 @@ dist/
 build/
 npm/node_modules/
 tests/_diag/
+integrations/n8n/node_modules/
