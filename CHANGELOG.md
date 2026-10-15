@@ -2,6 +2,12 @@
 
 The live, per-version list is at https://render.janction.jp/changelog (Atom: https://render.janction.jp/changelog.xml). Versions are the PyPI releases of `janction-render`; the hosted service follows the same numbers.
 
+## 0.4.124 (2026-10-15)
+
+Receptionist and worker.
+
+- Node inputs and outputs whose names changed between Blender versions (Distort / Distortion, Fac / Factor, Bright / Brightness, Z / Depth, Image / Background and Foreground) are looked up under the name the running Blender uses, so a compositor written for Blender 4 no longer stops on them. A script that still stops on such a name is rendered again on Blender 4.5, 4.2 or 3.6.
+
 ## 0.4.123 (2026-10-15)
 
 Receptionist.
