@@ -134,6 +134,12 @@ def cmd_preview(c: Client, args: argparse.Namespace) -> int:
 def cmd_render(c: Client, args: argparse.Namespace) -> int:
     sid = _scene(c, args)
     w, h = args.size
+    if args.frames is None:
+        # --output blend は描かない（シーンを .blend で返すだけ）のでコマは要らない（10/15）
+        if (args.output or "") != "blend":
+            print("--frames is required (e.g. 1-240 or 12); only --output blend works without it", file=sys.stderr)
+            return 2
+        args.frames = (1, 1)
     fs, fe = args.frames
     j = c.submit(sid, kind="final", frame_start=fs, frame_end=fe, width=w, height=h,
                  samples=args.samples, fps=args.fps, output=args.output, camera=args.camera, engine=args.engine,
@@ -493,7 +499,7 @@ def build_parser() -> argparse.ArgumentParser:
     s = sub.add_parser("render", help="render final frames (MP4 or PNG)")
     s.add_argument("scene", nargs="?")
     s.add_argument("--scene-id", default=None)
-    s.add_argument("--frames", type=_frames, required=True, help="e.g. 1-240 or 12")
+    s.add_argument("--frames", type=_frames, default=None, help="e.g. 1-240 or 12 (not needed with --output blend)")
     s.add_argument("--size", type=_size, default=(1920, 1080))
     s.add_argument("--samples", type=int, default=128)
     s.add_argument("--engine", choices=["cycles", "eevee"], default=None, help="cycles (default) or eevee (cheaper drafts)")

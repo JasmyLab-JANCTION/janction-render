@@ -2,6 +2,15 @@
 
 The live, per-version list is at https://render.janction.jp/changelog (Atom: https://render.janction.jp/changelog.xml). Versions are the PyPI releases of `janction-render`; the hosted service follows the same numbers.
 
+## 0.4.122 (2026-10-15)
+
+Receptionist, worker and client.
+
+- Blender 3.6, 4.2 and 4.5 run next to 5.0 and 5.2. A script that stops on Blender 5 because it uses an older API (for example `scene.node_tree` or `sequence_editor.sequences`) is rendered again on 4.5, 4.2 or 3.6 automatically, and the reply says which version drew it; the failed try is not charged.
+- `blender="4.5"` (or `"4.2"`, `"3.6"`) picks one directly. A `.blend` still opens with the version it was saved in (5.0 or 5.2).
+- EEVEE renders on every version (its engine name differs on 4.2 to 4.5).
+- CLI: `--output blend` no longer asks for `--frames`.
+
 ## 0.4.121 (2026-10-15)
 
 Receptionist, worker and client.
