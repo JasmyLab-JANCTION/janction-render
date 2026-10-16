@@ -2,6 +2,14 @@
 
 The live, per-version list is at https://render.janction.jp/changelog (Atom: https://render.janction.jp/changelog.xml). Versions are the PyPI releases of `janction-render`; the hosted service follows the same numbers.
 
+## 0.4.128 (2026-10-16)
+
+Receptionist and agent workflow.
+
+- An animation is checked frame by frame before it is marked done. Missing or unreadable frames and an isolated near-black frame now stop delivery with `verification_failed` instead of silently producing a broken video.
+- Estimates say whether they are based on a completed contiguous test using the final render settings. The workflow asks for ten contiguous final-path frames and a fresh estimate before a long final render.
+- The agent workflow preserves the scene's render engine and intended look unless the user approves a change, and verifies the exact frame count and output before delivery.
+
 ## 0.4.127 (2026-10-15)
 
 Receptionist.

@@ -37,17 +37,25 @@ connection in a few seconds.
 2. `scene_info` when you did not write the scene: cameras, frame range, objects, lights, missing files. No render.
 3. `render_preview` - up to 4 frames tiled in one image, seconds, free within the daily preview time. Look at the image.
    Every preview returns `critic` (`ok` / `check` / `fix`) with fix code; on `fix`, apply it and preview again.
-4. Show the preview and confirm frames, resolution and samples with the user.
-5. `render_estimate` - GPU seconds, wall time (`human`), queue wait, and `cost` (`free`, `estimated_yen`, `reserved_yen`,
-   `balance_yen`, `within_caps`). Tell the user the time and the price in yen.
-6. Ask before every final, even a free one: say the time and the price (0 yen when `cost.free` is true) and wait for a yes.
+4. Show the preview and confirm frames, resolution and samples with the user. Treat engine, color management, lighting,
+   materials, world/volume and compositor as visual invariants. Never switch Cycles to EEVEE or remove a look-changing
+   feature without explaining the visible tradeoff and getting explicit approval.
+5. For an animation, render at least 10 contiguous frames through the intended final path before the full job. Verify that
+   every frame exists and inspect for black, corrupt, duplicate-looking or visibly degraded frames. This short final still
+   requires the approval in step 7 unless the user already authorized final rendering.
+6. `render_estimate` - GPU seconds, wall time (`human`), queue wait, `calibration.final_path_measured`, and `cost` (`free`,
+   `estimated_yen`, `reserved_yen`, `balance_yen`, `within_caps`). Tell the user the time and the price in yen. After the
+   contiguous test, always estimate again. If final-path calibration is false, label the estimate preliminary.
+7. Ask before every final, even a free one: say the time and the price (0 yen when `cost.free` is true) and wait for a yes.
    Skip the question only when the user already said "render the final" in this conversation. If they set a budget, keep
    the job inside it (`reserved_yen` from `render_estimate`); on the terminal server or the HTTP API, also pass it as
    `max_yen`.
-7. `render_final` - returns `job_id`. Tell the user how long it will take.
-8. `render_status(job_id)` - report `eta.human`. If it says the GPU is lent out, tell the user the wait and stop polling.
-9. `render_download(job_id)` - links that need no key and work for about 24 hours.
-10. Show the image inline, give the MP4 link, or save it locally when the user wants a file.
+8. `render_final` - returns `job_id`. Tell the user how long it will take.
+9. `render_status(job_id)` - report `eta.human`. If it says the GPU is lent out, tell the user the wait and stop polling.
+10. `render_download(job_id)` - links that need no key and work for about 24 hours.
+11. Verify delivery before claiming success: contiguous frame numbering, decoded frame count, resolution, FPS, duration and
+    black frames. Report requested and actual totals separately. A completed job or critic `ok` alone is not proof of fidelity.
+12. Show the image inline, give the MP4 link, or save it locally when the user wants a file.
 
 For a model the user wants seen from all sides, pass `orbit=True`: the preview shows four angles and
 `render_final(orbit=True)` renders one full turn (24 frames) as an MP4. "A turntable preview" means
@@ -70,6 +78,8 @@ result.
 ## Rules
 
 - Do not run `render_final` before a preview of the same scene unless the user explicitly asks to skip it.
+- For an existing `.blend`, report its actual frame range and any mismatch with the requested count before rendering. Work
+  on a copy when a fix is needed; do not overwrite the source.
 - Do not start anything that is not free without an estimate and the user's yes. Never raise spending caps
   (`POST /v1/me/limits`) or buy credit on your own; give the user the `checkout_url` and let them pay.
 - Do not call `render_share` (a public page) unless the user asks to publish.

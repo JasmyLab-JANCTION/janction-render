@@ -205,12 +205,13 @@ def descriptions(flavor: str, wait_cap_s: int = 50) -> dict[str, str]:
         "Render the final frames or video of a Blender scene on cloud GPUs, after the user approved a preview: 'render the "
         "final', 'make the video', 'export the turntable MP4'. Call render_estimate first "
         f"when the time or {_free_left()} is uncertain, the job is longer than about 24 frames or above 720p, or the user "
-        "asks how long it takes, and tell the user. Long jobs are rendered in chunks and joined into one video. "
+        "asks how long it takes, and tell the user. For animations, keep the approved engine/look, test 10 contiguous final-path "
+        "frames, then estimate again. Long jobs are rendered in chunks and joined into one video. "
         + ("Returns job_id and estimate.human at once (short jobs return the links directly); then call "
            "render_download(job_id, wait_seconds=45). " if remote else
            "Returns job_id and estimate.human at once; then render_status until done, and render_download(job_id, only='mp4') "
            "for the video. ")
-        + _NOT_HERE + " Use the same environment and blender as the approved preview. "
+        + "Use the same environment and blender as the approved preview. "
         # 10/13: ここが「240 コマ・1080p まで」のままで、AI が長いアニメや 4K を断っていた（受付は 3,000 コマ・先払いは 4K）
         f"Limits: up to {MAX_FRAMES_PER_INSTRUCTION:,} frames per call (over {FREE_MAX_FRAMES} runs as parts under one job id); "
         f"{FREE_MAX_SIZE} on free time, {PAID_MAX_SIZE} with prepaid credit; {_free_offer()}; ask before a render the "
@@ -228,8 +229,9 @@ def descriptions(flavor: str, wait_cap_s: int = 50) -> dict[str, str]:
         "Estimate a render before starting it (no GPU time): GPU seconds, queue wait, the wall-clock time as text "
         f"(estimate.human, e.g. 'about 3 minutes') and whether it fits {_free_left()} and the size limits. Call it before "
         "render_final when the time or quota is uncertain, the job is longer than about 24 frames or above 720p, or the user "
-        "asks how long it takes; tell the user the result. With scene_id the estimate uses this scene's measured render times; "
-        "it also says when to split a job.")
+        "asks how long it takes; tell the user the result. With scene_id the estimate uses measured render times and returns "
+        "calibration.final_path_measured. If false, treat it as preliminary: run a short contiguous final-path test and "
+        "estimate again before the full animation. It also says when to split a job.")
     status = (
         "Check a render job: status (queued / running / done / failed / canceled), frames done, the ETA (eta.human, including "
         "queue wait), files ready, Blender warnings, and the error with the log tail if it failed. Use it to report progress "
