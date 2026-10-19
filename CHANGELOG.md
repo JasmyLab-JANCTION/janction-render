@@ -2,6 +2,10 @@
 
 The live, per-version list is at https://render.janction.jp/changelog (Atom: https://render.janction.jp/changelog.xml). Versions are the PyPI releases of `janction-render`; the hosted service follows the same numbers.
 
+## 0.4.138 (2026-10-19)
+
+- The MCP tool texts and the AI-app guide pages say it plainly: the price is shown before anything is rendered, final offers give each next render's time and price, a paid render runs only after the user approves it, and max_yen caps the charge.
+
 ## 0.4.137 (2026-10-19)
 
 - JANCTION Storage link, off by default (`STORAGE_KEEP_ENABLED`): when it is on for a key, a finished job can be saved to JANCTION Storage (`POST /v1/jobs/{job_id}/storage/save`, only the key's own jobs; a "Save to Storage" button on the web result). The job status carries `storage` (state and link). Storage space is its own plan, separate from GPU time; if Storage is down, the render stays done and saving can be retried. Revoking a key unlinks it from Storage. With the switch off nothing changes.

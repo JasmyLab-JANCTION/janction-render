@@ -191,7 +191,8 @@ def descriptions(flavor: str, wait_cap_s: int = 50) -> dict[str, str]:
         "slow on my laptop', 'Blenderでレンダリングして', 'GPUがない', 'ターンテーブル', '商品の360度動画'. Also use it after writing a "
         "bpy script, to see what it builds. Each preview returns a critic verdict (ok / check / fix) with fix code: apply the "
         "fixes and preview again before any final render. It also returns final_estimate (the same scene as a 1080p final) and "
-        "quota_left_today; tell the user both before asking to go on. A script that raises comes back as a failure with the "
+        "quota_left_today; tell the user both before asking to go on. Prices come before rendering: final_offers give each "
+        "next render's time and price, and a paid one needs the user's approval. A script that raises comes back as a failure with the "
         "line (nothing is rendered). " + _NOT_HERE + " This service is for CPU-only "
         f"machines, animations, and scripts with no Blender installed. Limits: up to {PREVIEW_MAX_SIZE}; 1-{PREVIEW_FRAMES_MAX} frames tiled in one labeled "
         "image for the GPU time of one 720p frame. preset='product' | 'turntable' | 'animation' sets camera, light, backdrop and "
@@ -211,7 +212,8 @@ def descriptions(flavor: str, wait_cap_s: int = 50) -> dict[str, str]:
            "render_download(job_id, wait_seconds=45). " if remote else
            "Returns job_id and estimate.human at once; then render_status until done, and render_download(job_id, only='mp4') "
            "for the video. ")
-        + "Use the same environment and blender as the approved preview. "
+        + "Use the same environment and blender as the approved preview. Render only what the user approved at the shown "
+          "price (max_yen caps it). "
         # 10/13: ここが「240 コマ・1080p まで」のままで、AI が長いアニメや 4K を断っていた（受付は 3,000 コマ・先払いは 4K）
         f"Limits: up to {MAX_FRAMES_PER_INSTRUCTION:,} frames per call (over {FREE_MAX_FRAMES} runs as parts under one job id); "
         f"{FREE_MAX_SIZE} on free time, {PAID_MAX_SIZE} with prepaid credit; {_free_offer()}; ask before a render the "
