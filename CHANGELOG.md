@@ -2,6 +2,10 @@
 
 The live, per-version list is at https://render.janction.jp/changelog (Atom: https://render.janction.jp/changelog.xml). Versions are the PyPI releases of `janction-render`; the hosted service follows the same numbers.
 
+## 0.4.145 (2026-10-19)
+
+- Every machine-readable discovery surface now carries one authoritative commercial contract derived from runtime settings. It explicitly corrects the recurring false claims that finals stop at 240 frames, that paid renders stop at 1080p, or that the service is still a free beta.
+
 ## 0.4.144 (2026-10-19)
 
 - English and Japanese pages now expose the same connector choices, navigation targets, legal-payment fields and guide links. A full bilingual surface test prevents sections, CTAs, internal links and structured data from drifting again.
