@@ -2,6 +2,15 @@
 
 The live, per-version list is at https://render.janction.jp/changelog (Atom: https://render.janction.jp/changelog.xml). Versions are the PyPI releases of `janction-render`; the hosted service follows the same numbers.
 
+## 0.4.140 (2026-10-19)
+
+Keep going after a result (behind `JR_UX_GROW`).
+
+- The web page lists up to five earlier finals whose scene is still kept; one press renders again with the same scene and settings, no upload.
+- Under a finished final: render the same scene again with other settings (the settings panel opens), or a turntable video of it.
+- An invitation to make a public page for the result; the public gallery is used only when the person ticks it, and only after a check.
+- `GET /v1/me` carries `plan_hint` only for keys that topped up two or more times in 30 days and whose spend would buy more credit on a monthly plan.
+
 ## 0.4.139 (2026-10-19)
 
 - On the web page, a button under a result that opens the "Before rendering" box (change the light, preview again, one frame, product shots, turntable, check the balance) now scrolls to that box when it is off screen. Before, nothing seemed to happen where the button was, and people pressed it several times in a row.
