@@ -2,6 +2,61 @@
 
 The live, per-version list is at https://render.janction.jp/changelog (Atom: https://render.janction.jp/changelog.xml). Versions are the PyPI releases of `janction-render`; the hosted service follows the same numbers.
 
+## 0.4.137 (2026-10-19)
+
+- JANCTION Storage link, off by default (`STORAGE_KEEP_ENABLED`): when it is on for a key, a finished job can be saved to JANCTION Storage (`POST /v1/jobs/{job_id}/storage/save`, only the key's own jobs; a "Save to Storage" button on the web result). The job status carries `storage` (state and link). Storage space is its own plan, separate from GPU time; if Storage is down, the render stays done and saving can be retried. Revoking a key unlinks it from Storage. With the switch off nothing changes.
+
+## 0.4.136 (2026-10-19)
+
+- A size above 1920x1080 on a key that has never bought credit is priced as `purchase_required` (top up from 500 JPY, then press again; up to 1920x1080 stays on free time) instead of "about 0 JPY from your credit". On the web page the main button opens the top-up options in that case.
+
+## 0.4.135 (2026-10-19)
+
+- With final offers on, the `final_estimate` of an MCP preview carries the list price and the fits-today answer of the first offer (it kept the one-frame values before).
+
+## 0.4.134 (2026-10-19)
+
+- MCP `render_preview` with final offers turned on no longer fails: building the offers read the key the wrong way. Whatever happens while building offers, the preview itself is now always returned.
+
+## 0.4.133 (2026-10-19)
+
+After a preview: the next step and its price.
+
+- The estimate carries `pricing`: one of `free_time` (covered by free GPU time, nothing to pay), `credit` (about N JPY from your credit, nothing more to pay; the held amount is the ceiling), `topup_needed` (the shortfall, the minimum top-up and what stays afterwards; after paying, the held render starts by itself) or `beta`, with an English and a Japanese sentence. Credit is never called free.
+- MCP `render_preview` (behind `JR_UX_MCP_PRICING`) returns `final_offers`: for an animation the whole animation (estimated over all its frames) and one frame as a still are separate offers; a still, several cameras and presets get their own. A range the scene does not report is never widened. Paid offers carry `requires_user_confirmation` and `confirm_with` (render_final arguments with `max_yen` set to the held amount and an `idempotency_key`).
+- MCP passes the details of `spend_cap_exceeded` (403) and says not to raise caps.
+- The web page (behind `JR_UX_START_CTA`, `JR_UX_START_DETAILS`, `JR_UX_START_RESUME`) shows one main button under a preview (finish the image, make the video of all frames, or finish every camera angle) with the estimated time and price, an optional settings panel (size, quality, frames, output) that re-estimates on every change, and, when credit is short, holds the render and starts it by itself after payment.
+- The top-up page names the render that starts after the payment; the payment page links back to the web page.
+- The preview check records the scene's frame range.
+
+## 0.4.132 (2026-10-19)
+
+- A script with `sky_type = 'NISHITA'` keeps its Nishita sky: it is no longer rewritten to `MULTIPLE_SCATTERING` (a side-by-side render showed a warm sky turning neutral). When no Blender version is asked for, it renders on Blender 4.5 automatically with the same look; when Blender 5 is asked for, the error explains both choices.
+
+## 0.4.131 (2026-10-19)
+
+- A script that uses `sky_type = 'NISHITA'` is accepted again. In 0.4.130 the line the service adds to translate it was refused by the upload safety check and counted as a strike against the key. The upload now also keeps the script as sent whenever one of its own fixes would be refused.
+
+## 0.4.130 (2026-10-19)
+
+Previews that stall are drawn again, and more old scripts run.
+
+- A preview that stops before drawing anything (no samples, no output for a minute, not in a heavy step such as BVH or shader compilation) is drawn again once on another GPU worker. The stalled attempt is not charged and does not use free time; if it stalls twice the job fails as RENDER_STALLED, on our side and free.
+- `sky_type = 'NISHITA'` (renamed in Blender 5) runs as `MULTIPLE_SCATTERING` on Blender 5, and `dust_density` as `aerosol_density`. The reply says the sky can look slightly different.
+- Setting or linking the Principled BSDF `Subsurface Color` input (removed in Blender 4.0) is skipped instead of stopping the script; the reply says the subsurface tint can look different. Other subsurface settings are kept.
+- A 3D curve's `fill_mode = 'BOTH'` is reported as a wrong value with the values a 3D curve accepts, not as a Blender version change.
+- A script refused for a syntax error says why: cut off at its end, not a Python script, typographic quotes, or a code error, with `cause`, `next_action` and `agent_can_fix` in the API and MCP replies.
+
+## 0.4.129 (2026-10-19)
+
+Fewer failed scene reads and previews.
+
+- A script that Blender 5.0 rejects because of an older API (for example `action.fcurves` or a video `file_format`) is now read again on an older Blender when the scene is first read, as previews and finals already were.
+- Setting the output format to FFMPEG through a variable and reading `fcurves` from an action stored in a variable are now fixed on upload, like the direct forms.
+- A script error that mentions FFMPEG is no longer reported as a video assembly failure on our side.
+- A preview or final keeps the service's sample count even if the scene raises it again right before rendering (a render handler or per-view-layer samples).
+- A render that crashes while drawing grease pencil inside the sandbox is drawn again once in the hardened container.
+
 ## 0.4.128 (2026-10-16)
 
 Receptionist and agent workflow.

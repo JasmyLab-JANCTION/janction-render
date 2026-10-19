@@ -99,6 +99,38 @@ def final_body_after_preview(j: dict[str, Any]) -> dict[str, Any] | None:
     return body
 
 
+def final_offers(j: dict[str, Any], scene_range: list[int] | tuple[int, int] | None = None) -> list[dict[str, Any]]:
+    """試し描きのあとの仕上げの候補（10/19、要件 UX-01・UX-02）。静止画・アニメーション・複数カメラ・preset で分ける。
+    アニメーションは scene_range（シーンのコマ範囲、試し描きの検査か読み取りの結果）があるときだけ「全コマを動画に」を出し、
+    その見積もりは全コマ・1920x1080・128 サンプル・MP4 で取る（1 コマの時間から推し量らない）。範囲が分からなければ、
+    試し描きしたコマだけを言う（頼まれていない範囲に広げない）。先頭が主な候補。"""
+    base = final_body_after_preview(j)
+    if not base:
+        return []
+    p = j.get("params") or {}
+    if base.get("preset"):
+        return [{"id": "preset", "what": PRESET_FINALS[base["preset"]]["what"], "body": base}]
+    if base.get("cameras"):
+        return [{"id": "cameras", "what": f"frame {base.get('frame_start')} from {len(base['cameras'])} cameras, one PNG each",
+                 "body": base}]
+    if base.get("orbit") or p.get("compare"):
+        return [{"id": "still" if p.get("compare") else "turntable", "body": base,
+                 "what": f"one {base.get('orbit_frames') or 24}-frame turntable" if base.get("orbit") else f"frame {base['frame_start']}"}]
+    frames = sorted(int(x) for x in (j.get("frames") or []) if isinstance(x, (int, float))) or [int(base.get("frame_start") or 1)]
+    first = frames[0]
+    still = {**base, "frame_start": first, "frame_end": first, "output": "png"}
+    rng = [int(x) for x in scene_range] if scene_range and len(scene_range) == 2 else None
+    if rng and rng[1] > rng[0]:
+        whole = {**base, "frame_start": rng[0], "frame_end": rng[1], "output": "mp4"}
+        return [{"id": "whole_animation", "what": f"all {rng[1] - rng[0] + 1} frames ({rng[0]}-{rng[1]}) as an MP4", "body": whole},
+                {"id": "this_frame", "what": f"frame {first} only, as a still image", "body": still}]
+    offers = [{"id": "still", "what": f"frame {first} as a still image", "body": still}]
+    if frames[-1] > first:
+        offers.append({"id": "previewed_range", "what": f"frames {first}-{frames[-1]} (the range you previewed) as an MP4",
+                       "body": {**base, "frame_start": first, "frame_end": frames[-1], "output": "mp4"}})
+    return offers
+
+
 def followup_after_preview(est: dict[str, Any] | None, body: dict[str, Any] | None) -> dict[str, Any]:
     """試し描きの後に添える「仕上げならどれくらいか・今日の枠の残り」（10/7）。est は /v1/estimate の返事。
     エージェントが『final なら約 N 秒、今日の無料枠はあと M 秒』と次の一手を提案できるようにする。"""

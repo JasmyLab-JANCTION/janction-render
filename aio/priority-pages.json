@@ -1,0 +1,12 @@
+[
+  {"path": "/", "intent": "brand"},
+  {"path": "/ja/", "intent": "brand"},
+  {"path": "/pricing", "intent": "pricing"},
+  {"path": "/ja/pricing", "intent": "pricing"},
+  {"path": "/render-blender-without-gpu", "intent": "no-gpu"},
+  {"path": "/ja/render-blender-without-gpu", "intent": "no-gpu"},
+  {"path": "/ai-3d-model-render", "intent": "glb"},
+  {"path": "/ja/ai-3d-model-render", "intent": "glb"},
+  {"path": "/ai-agent-generated-3d", "intent": "agent"},
+  {"path": "/ja/ai-agent-generated-3d", "intent": "agent"}
+]
