@@ -2,6 +2,10 @@
 
 The live, per-version list is at https://render.janction.jp/changelog (Atom: https://render.janction.jp/changelog.xml). Versions are the PyPI releases of `janction-render`; the hosted service follows the same numbers.
 
+## 0.4.141 (2026-10-19)
+
+- `storage_project` on `POST /v1/jobs` and MCP `render_final`: when saving to JANCTION Storage is on for the key, the result goes into that Storage project instead of a new one ("render again" from a Storage project continues the same project). Ignored otherwise.
+
 ## 0.4.140 (2026-10-19)
 
 Keep going after a result (behind `JR_UX_GROW`).

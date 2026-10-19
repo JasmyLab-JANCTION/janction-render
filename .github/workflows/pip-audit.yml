@@ -5,9 +5,9 @@ on:
   schedule:
     - cron: "0 21 * * 0"      # 月曜 06:00 JST
   workflow_dispatch:
+  # 10/19: pyproject.toml は版を上げるたびに変わり、ほぼ毎回の push で走っていた（今月 264 回）。依存の固定（lock）が変わったときだけ
   push:
     paths:
-      - "pyproject.toml"
       - "requirements*.txt"
       - ".github/workflows/pip-audit.yml"
 jobs:

@@ -360,6 +360,7 @@ def param_docs(flavor: str, wait_cap_s: int = 50) -> dict[str, str]:
         "preset": "Purpose preset: 'product' (4 studio shots at 0/90/180/270 deg on a plain backdrop; the final gives 4 PNGs at 1440x1440), 'turntable' (one full turn as an MP4, studio light, plain backdrop), 'animation' (the scene's own camera, lights and frame range; the scene is read first when the range is unknown), or '' (none). It fills what you do not pass; environment, orbit_frames, width/height and the frames still win when given.",
         "orbit_elevation": "Orbit camera elevation in degrees (default 18).",
         "max_yen": "Ceiling for this job in JPY (-1 = none): the job is refused before anything is reserved when its reservation would exceed it. 0 means 'only if it fits the free time'.",
+        "storage_project": "JANCTION Storage project id to continue (from a Storage project's Render again); the result is saved into that project when saving to Storage is on for this key, otherwise ignored.",
         "idempotency_key": "Any string up to 128 characters that identifies this order: sending the same key again returns the first job instead of rendering twice (a different body with the same key is refused).",
         "orbit_target": "Object name or 'x,y,z' to centre the orbit on (default: the scene's main objects).",
         "orbit_distance": "Multiplier for the orbit camera distance (default 1.0).",
