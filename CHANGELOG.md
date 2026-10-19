@@ -2,6 +2,10 @@
 
 The live, per-version list is at https://render.janction.jp/changelog (Atom: https://render.janction.jp/changelog.xml). Versions are the PyPI releases of `janction-render`; the hosted service follows the same numbers.
 
+## 0.4.139 (2026-10-19)
+
+- On the web page, a button under a result that opens the "Before rendering" box (change the light, preview again, one frame, product shots, turntable, check the balance) now scrolls to that box when it is off screen. Before, nothing seemed to happen where the button was, and people pressed it several times in a row.
+
 ## 0.4.138 (2026-10-19)
 
 - The MCP tool texts and the AI-app guide pages say it plainly: the price is shown before anything is rendered, final offers give each next render's time and price, a paid render runs only after the user approves it, and max_yen caps the charge.
