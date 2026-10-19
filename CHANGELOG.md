@@ -2,6 +2,10 @@
 
 The live, per-version list is at https://render.janction.jp/changelog (Atom: https://render.janction.jp/changelog.xml). Versions are the PyPI releases of `janction-render`; the hosted service follows the same numbers.
 
+## 0.4.132 (2026-10-19)
+
+- A script with `sky_type = 'NISHITA'` keeps its Nishita sky: it is no longer rewritten to `MULTIPLE_SCATTERING` (a side-by-side render showed a warm sky turning neutral). When no Blender version is asked for, it renders on Blender 4.5 automatically with the same look; when Blender 5 is asked for, the error explains both choices.
+
 ## 0.4.131 (2026-10-19)
 
 - A script that uses `sky_type = 'NISHITA'` is accepted again. In 0.4.130 the line the service adds to translate it was refused by the upload safety check and counted as a strike against the key. The upload now also keeps the script as sent whenever one of its own fixes would be refused.
