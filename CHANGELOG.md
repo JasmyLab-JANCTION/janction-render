@@ -2,6 +2,30 @@
 
 The live, per-version list is at https://render.janction.jp/changelog (Atom: https://render.janction.jp/changelog.xml). Versions are the PyPI releases of `janction-render`; the hosted service follows the same numbers.
 
+## 0.4.131 (2026-10-19)
+
+- A script that uses `sky_type = 'NISHITA'` is accepted again. In 0.4.130 the line the service adds to translate it was refused by the upload safety check and counted as a strike against the key. The upload now also keeps the script as sent whenever one of its own fixes would be refused.
+
+## 0.4.130 (2026-10-19)
+
+Previews that stall are drawn again, and more old scripts run.
+
+- A preview that stops before drawing anything (no samples, no output for a minute, not in a heavy step such as BVH or shader compilation) is drawn again once on another GPU worker. The stalled attempt is not charged and does not use free time; if it stalls twice the job fails as RENDER_STALLED, on our side and free.
+- `sky_type = 'NISHITA'` (renamed in Blender 5) runs as `MULTIPLE_SCATTERING` on Blender 5, and `dust_density` as `aerosol_density`. The reply says the sky can look slightly different.
+- Setting or linking the Principled BSDF `Subsurface Color` input (removed in Blender 4.0) is skipped instead of stopping the script; the reply says the subsurface tint can look different. Other subsurface settings are kept.
+- A 3D curve's `fill_mode = 'BOTH'` is reported as a wrong value with the values a 3D curve accepts, not as a Blender version change.
+- A script refused for a syntax error says why: cut off at its end, not a Python script, typographic quotes, or a code error, with `cause`, `next_action` and `agent_can_fix` in the API and MCP replies.
+
+## 0.4.129 (2026-10-19)
+
+Fewer failed scene reads and previews.
+
+- A script that Blender 5.0 rejects because of an older API (for example `action.fcurves` or a video `file_format`) is now read again on an older Blender when the scene is first read, as previews and finals already were.
+- Setting the output format to FFMPEG through a variable and reading `fcurves` from an action stored in a variable are now fixed on upload, like the direct forms.
+- A script error that mentions FFMPEG is no longer reported as a video assembly failure on our side.
+- A preview or final keeps the service's sample count even if the scene raises it again right before rendering (a render handler or per-view-layer samples).
+- A render that crashes while drawing grease pencil inside the sandbox is drawn again once in the hardened container.
+
 ## 0.4.128 (2026-10-16)
 
 Receptionist and agent workflow.
