@@ -2,6 +2,10 @@
 
 The live, per-version list is at https://render.janction.jp/changelog (Atom: https://render.janction.jp/changelog.xml). Versions are the PyPI releases of `janction-render`; the hosted service follows the same numbers.
 
+## 0.4.144 (2026-10-19)
+
+- English and Japanese pages now expose the same connector choices, navigation targets, legal-payment fields and guide links. A full bilingual surface test prevents sections, CTAs, internal links and structured data from drifting again.
+
 ## 0.4.143 (2026-10-19)
 
 - The missing-image warning comes first: Cycles' one line per missing image filled the warning list and pushed out the count and how to pack them.
