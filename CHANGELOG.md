@@ -2,6 +2,16 @@
 
 The live, per-version list is at https://render.janction.jp/changelog (Atom: https://render.janction.jp/changelog.xml). Versions are the PyPI releases of `janction-render`; the hosted service follows the same numbers.
 
+## 0.4.143 (2026-10-19)
+
+- The missing-image warning comes first: Cycles' one line per missing image filled the warning list and pushed out the count and how to pack them.
+
+## 0.4.142 (2026-10-19)
+
+- Scenes whose compositor (Glare, Lens Distortion) ran on the GPU crashed right after the last sample on our workers. The compositor now runs on the CPU, with the same nodes and the same look.
+- A .blend whose images were not sent rendered pink without a word. The result now warns how many images were not found and how to pack them.
+- The gallery says which entries are examples made by the JANCTION team.
+
 ## 0.4.141 (2026-10-19)
 
 - `storage_project` on `POST /v1/jobs` and MCP `render_final`: when saving to JANCTION Storage is on for the key, the result goes into that Storage project instead of a new one ("render again" from a Storage project continues the same project). Ignored otherwise.
