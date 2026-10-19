@@ -2,6 +2,13 @@
 
 The live, per-version list is at https://render.janction.jp/changelog (Atom: https://render.janction.jp/changelog.xml). Versions are the PyPI releases of `janction-render`; the hosted service follows the same numbers.
 
+## 0.4.147 (2026-10-19)
+
+- DeepSeek: a connection guide at /deepseek-blender (DeepSeek Harness through the official dsh-mcp-client with a Bearer key, the DeepSeek API through function calling, the web chat through /start), rows in the connect tables, and the aliases /integrations/deepseek, /deepseek, /deepseek-harness. Verified with dsh 0.2.1-rc.2 against a local server (2026-07-28 revision, server/discover and tools/list, 12 tools).
+- examples/deepseek_tool_calling.py bridges the MCP tools to DeepSeek function calling; render_final asks before spending GPU time.
+- tools/deepseek_aio.py measures DeepSeek's own Search / Fetch API for 42 queries and the priority pages; without DEEPSEEK_API_KEY it reports "unverified". tools/aio_ask.py gains a deepseek engine.
+- found_via accepts "deepseek"; public statistics name DeepSeek and DeepSeek Harness.
+
 ## 0.4.146 (2026-10-19)
 
 - Removed the last stale search-snippet phrase, “240-frame cap per job,” from the animation guide metadata. It now states the 3,000-frame instruction limit and automatic 240-frame internal parts.
