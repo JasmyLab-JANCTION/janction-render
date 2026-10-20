@@ -383,6 +383,17 @@ def brief(j: dict[str, Any]) -> dict[str, Any]:
         out["estimate"] = estimate_brief(j["estimate"])
     if j.get("error"):
         out["error"] = j["error"]
+    if j.get("failure"):
+        # 失敗の中身（10/20）: 前は error の 1 文だけで、時間切れの単位・上限・案（feasibility の alternatives）が AI に届かなかった。
+        # evidence は Blender の出力（利用者が書ける）なので載せない
+        f = j["failure"]
+        out["failure"] = {k: f[k] for k in ("code", "subcode", "reason", "recommended_action", "retryable", "fix_by", "charged_yen",
+                                            "unit", "limit_seconds", "gpu_seconds_counted", "cameras") if k in f}
+        if f.get("alternatives"):
+            out["failure"]["alternatives"] = [{k: a[k] for k in ("action", "change", "unit_seconds", "fits", "note") if k in a}
+                                              for a in f["alternatives"]]
+    if j.get("delivery"):
+        out["delivery"] = j["delivery"]          # 失敗した仕上げで渡せた分と渡せなかった分（10/20）
     if j.get("log_tail"):
         out["log_tail"] = j["log_tail"][-1500:]
     if j.get("warnings"):

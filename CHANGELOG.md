@@ -2,6 +2,16 @@
 
 The live, per-version list is at https://render.janction.jp/changelog (Atom: https://render.janction.jp/changelog.xml). Versions are the PyPI releases of `janction-render`; the hosted service follows the same numbers.
 
+## 0.4.151 (2026-10-20)
+
+- A failed final now says what was delivered: `delivery` (`total`, `delivered`, `not_delivered`, `files`, and `frames_not_delivered` or `cameras_delivered` / `cameras_not_delivered`). The status stays `failed`; the delivered files download like any result (view_url, `/artifacts/{name}`, `/archive`).
+- MCP status replies (stdio and remote) carry `failure` (code, reason, recommended action, alternatives with estimates; without Blender's log lines) and `delivery`, instead of only the error sentence.
+
+## 0.4.150 (2026-10-20)
+
+- DeepSeek Harness (dsh) calls are recognized from the MCP client name, so renders started from dsh count as DeepSeek in usage statistics; other apps are unchanged.
+- /deepseek-blender states who pays for what: DeepSeek tokens on your own DeepSeek key (it stays on your machine), GPU time on your JANCTION Render key. It also records the 2026-10-20 check of dsh's tool loop calling render_info and render_preview through the plugin.
+
 ## 0.4.149 (2026-10-20)
 
 - A script that was already auto-fixed and is sent again (for example after an AI fixed a typo) keeps one copy of the compatibility helpers on its first line; before, each resend added another copy, and a new rewrite in a resent script that needed a helper already present was dropped.

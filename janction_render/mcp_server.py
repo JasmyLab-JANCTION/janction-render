@@ -734,6 +734,25 @@ def render_status(job_id: Annotated[str, Field(description=P["job_id"])] = "") -
     return _j(b)
 
 
+def render_resume_options(limit: Annotated[int, Field(description="How many projects to return (1-20, default 3).")] = 3,
+                          cursor: Annotated[str, Field(description="next_cursor from the previous call, to see more projects.")] = "") -> str:
+    """List this key's earlier JANCTION Render projects to continue them (read-only, no charge). (full description on the tool)."""
+    # 10/20 docs/82: 受付の GET /v1/projects/resume（受付の旗 JR_RESUME_TOOL が OFF なら 404 を伝える）
+    c = _client()
+    try:
+        r = c.s.get(f"{c.server}/v1/projects/resume", params={"limit": int(limit or 3), "cursor": cursor or ""},
+                    headers=c._headers(), timeout=30)
+        c._raise(r)
+        return _j(r.json())
+    except ClientError as exc:
+        return _j(_fail(exc))
+
+
+if tooldocs.resume_on():
+    # 旗 JR_RESUME_TOOL=1 のときだけ道具の一覧に出す（10/20、docs/82。リモートと同じ扱い）
+    mcp.tool(annotations=_ann(READ, "Resume earlier renders"), description=tooldocs.resume_description("stdio"))(render_resume_options)
+
+
 @mcp.tool(annotations=_ann(READ, "Download results"), meta=_ui_meta())
 def render_download(job_id: Annotated[str, Field(description=P["job_id"])],
                     out_dir: Annotated[str, D("out_dir", "")] = "",

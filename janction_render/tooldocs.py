@@ -22,7 +22,8 @@ from typing import Any
 SAMPLE_URL = "https://render.janction.jp/samples/cube_scene.py"
 SITE = "https://render.janction.jp"
 
-TOOL_ORDER = ("render_preview", "render_final", "render_review", "render_download", "render_status", "scene_info", "render_estimate",
+TOOL_ORDER = ("render_preview", "render_final", "render_review", "render_download", "render_status", "render_resume_options",
+              "scene_info", "render_estimate",
               "render_info", "asset_search", "render_share", "render_unshare", "render_cancel", "billing")
 
 # 上限（billing の既定値と同じ。tests/test_tooldocs.py が突き合わせる。stdio は手元で動くので受付の設定を読めない）
@@ -166,14 +167,24 @@ def instructions(flavor: str) -> str:
                 "-> render_estimate when the job is long or the quota is uncertain -> render_final -> render_download(job_id, "
                 "wait_seconds=45) until the links come back; tell the user eta.human, and if the GPU is lent out tell them the "
                 "wait, do not poll.")
-        return " ".join([head, _WHEN, _DONT, _FIRST, flow, _presets(flavor), _limits(), _SCRIPTS, _MORE])
+        return " ".join([head, _WHEN, _DONT, _FIRST, flow, _presets(flavor), _limits(), _SCRIPTS, _more()])
     head = ("JANCTION Render: Blender rendering on cloud GPUs for AI agents, from the terminal (no local GPU or Blender; key "
             "made on first use).")
     local = "LOCAL FILES: scene_path (.blend, .py or 3D file); results in ~/janction-render/<job_id>."
     flow = ("FLOW: render_preview (image saved and shown + critic verdict with fix code; fix, repeat) -> ask the user "
             "-> render_estimate when long or the quota is uncertain -> render_final -> render_status (tell eta.human) "
             "-> render_download(job_id, only='mp4'); GPU lent out? say the wait, do not poll.")
-    return " ".join([head, _WHEN, _DONT, _FIRST, local, flow, _presets(flavor), _limits(), _SCRIPTS, _MORE])
+    return " ".join([head, _WHEN, _DONT, _FIRST, local, flow, _presets(flavor), _limits(), _SCRIPTS, _more()])
+
+
+def resume_on() -> bool:
+    """render_resume_options を出すか（10/20、docs/82）。審査中のリモートの道具の一覧を変えないため、既定は出さない。"""
+    return (os.environ.get("JR_RESUME_TOOL") or "").strip().lower() in ("1", "on", "yes", "true")
+
+
+def _more() -> str:
+    # 旗が on のときだけ、最後の 1 文に再開の道具を入れる（指示文を 1,800 字に収めるため、文の長さは今の _MORE と同じくらい）
+    return "RESUME earlier work: render_resume_options. Docs: https://render.janction.jp/llms.txt" if resume_on() else _MORE
 
 
 # ------------------------------------------------------------------ 道具の説明
@@ -303,7 +314,25 @@ def descriptions(flavor: str, wait_cap_s: int = 50) -> dict[str, str]:
     return {"render_preview": preview, "render_final": final, "scene_info": scene_info, "render_estimate": estimate,
             "render_status": status, "render_download": download, "asset_search": assets, "billing": billing,
             "render_review": review_description(flavor), "render_cancel": cancel, "render_share": share,
-            "render_unshare": unshare, "render_info": info}
+            "render_unshare": unshare, "render_info": info, "render_resume_options": resume_description(flavor)}
+
+
+def resume_description(flavor: str) -> str:
+    """render_resume_options の説明（10/20、docs/82）。「必ず使え」は書かない。使う場面・使わない場面・副作用なしを先に。"""
+    who = ("It runs as the connected account. If the user rendered from another AI before and nothing comes back, they may be on "
+           "another account: reconnecting with 'sign in with email' or their existing key (jr_...) reaches the same one."
+           if flavor == "remote" else
+           "It uses the API key in JANCTION_RENDER_API_KEY or ~/.janction-render.json.")
+    return (
+        "List this account's earlier JANCTION Render projects so the user can continue them: past Blender renders, their saved "
+        "settings (resolution, samples, frames, engine, Blender version), whether the scene file and the result are still stored, "
+        "and ready-to-use arguments for the next call. Use it when the user wants to resume or redo an earlier render, reuse "
+        "earlier settings ('same settings as last time', 'continue my previous render', '前回と同じ設定で', '前に作った動画をまた'), "
+        "or asks what they rendered before. Do not use it for unrelated conversations, general Blender questions, or a new render "
+        "that does not mention earlier work (use render_preview). Read-only: it does not start a render and charges nothing. "
+        "Returns up to 3 projects (pass next_cursor as cursor for more); with no history it says so. Then tell the user the "
+        "options, ask which one, and call the tool in that option's 'first' (render_preview); ask before render_final. "
+        + who)
 
 
 def review_description(flavor: str) -> str:
@@ -339,6 +368,8 @@ def param_docs(flavor: str, wait_cap_s: int = 50) -> dict[str, str]:
     return {
         "scene_path": "Local path to the scene: a .blend file, a bpy .py script, or a 3D file (.glb/.gltf/.fbx/.usd/.obj/.stl/.ply/.abc, imported into an empty scene). Uploaded once; reuse the returned scene_id afterwards.",
         "scene_id": "scene_id returned by an earlier call (reuses the uploaded scene without sending it again).",
+        "resume_limit": "How many projects to return (1-20, default 3).",
+        "resume_cursor": "next_cursor from the previous call, to see more projects. Leave empty for the newest.",
         "scene_script": "The scene as bpy Python code (text). No file and no local Blender needed; the service runs it in Blender 5.0 (5.2 with blender='5.2')." + _script_notes(flavor),
         "scene_url": f"https link to a .blend, a .py script or a 3D file (.glb/.gltf/.fbx/.usd/.obj/.stl/.ply/.abc); the service fetches it (e.g. the sample {SAMPLE_URL}, or a {UPLOAD_LINK_HOURS}-hour /upload link). A .gltf or .obj also brings its .bin / .mtl / textures from the same folder.",
         "asset_urls": "Extra files sent with the scene: https links (textures, glTF .bin) or 'polyhaven:<id>' CC0 assets from asset_search ('polyhaven:<id>@2k' for 2k textures). A .blend finds them through relative paths (same folder); a script through os.environ['JR_ASSETS_DIR'] or the jr_assets helpers.",
@@ -388,7 +419,8 @@ def param_docs(flavor: str, wait_cap_s: int = 50) -> dict[str, str]:
 
 
 # 道具ごとに引数の名前と説明の鍵が違うもの
-PARAM_ALIAS = {("asset_search", "kind"): "kind_assets", ("render_review", "environment"): "environment_review"}
+PARAM_ALIAS = {("asset_search", "kind"): "kind_assets", ("render_review", "environment"): "environment_review",
+               ("render_resume_options", "limit"): "resume_limit", ("render_resume_options", "cursor"): "resume_cursor"}
 
 
 # ------------------------------------------------------------------ 当てはめ
