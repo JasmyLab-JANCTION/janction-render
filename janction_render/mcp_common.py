@@ -340,6 +340,21 @@ def docs(flavor: str) -> dict[str, str]:
             "CAMERAS_DOC": _CAMERAS_DOC, "OUTPUT_DOC": _OUTPUT_DOC[f], "TRANSPARENT_DOC": _TRANSPARENT_DOC, "ENGINE_DOC": _ENGINE_DOC}
 
 
+FEASIBILITY_NEXT = (
+    "tell the user this render would run out of time (feasibility.message); nothing was queued or charged. Offer the "
+    "alternatives that fit (feasibility.alternatives: lower resolution or samples, prepaid credit for a longer limit, or a "
+    "preview first) with their estimated seconds, let the user choose, then call render_final again with the chosen change. "
+    "Never lower settings, switch to paid, or pass rerender=true on your own")
+
+
+def add_feasibility(out: dict[str, Any], error: str, extra: Optional[dict[str, Any]]) -> None:
+    """422 estimate_exceeds_limit（10/20、受付の feasibility）: 案を落とさずに渡す（remote・stdio 共通）。"""
+    if error == "estimate_exceeds_limit":
+        out["feasibility"] = (extra or {}).get("feasibility")
+        out["nothing_queued"] = True
+        out["next"] = FEASIBILITY_NEXT
+
+
 def auto_idempotency_key(tool: str, body: dict[str, Any], now: Optional[float] = None, window_s: int = 120) -> str:
     """render_final にキーが無いときの自動の Idempotency-Key（10/13）。MCP の呼び出しが時間切れになって AI が同じ
     render_final を呼び直すと、同じ仕事が 2 本描かれて 2 回引かれていた。同じ中身・同じ 2 分の枠なら同じキーになり、

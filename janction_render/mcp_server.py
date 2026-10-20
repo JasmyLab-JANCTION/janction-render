@@ -228,6 +228,7 @@ def _fail(exc: Exception) -> dict[str, Any]:
         out.update(exc.agent_fields())
         # 10/14 IF-03: 大きさで断られたら、ブラウザの /upload（分けて送る・途中から再開）を代わりの道として足す
         mcp_common.add_upload_hint(out, _server_url(), exc.error, exc.status)
+        mcp_common.add_feasibility(out, exc.error, exc.extra)     # 1 枚が時間の上限を超える（10/20）: 案を渡す
         if exc.status == 404 and exc.error == "not_found":
             # 10/14 IF-05: 覚えていない job_id には一覧の道を
             out.setdefault("next", "render_status() with no job_id lists this key's recent jobs")

@@ -2,6 +2,14 @@
 
 The live, per-version list is at https://render.janction.jp/changelog (Atom: https://render.janction.jp/changelog.xml). Versions are the PyPI releases of `janction-render`; the hosted service follows the same numbers.
 
+## 0.4.148 (2026-10-20)
+
+- Final renders with several cameras are planned like any other final: heavy angles go out one camera per part, and a part renders only its own cameras. Before, two heavy 1080p angles shared one 240-second part and could not recover after a timeout (docs/81).
+- Before rendering, each frame or camera image is checked against the time limit (240 s on free keys, up to 1800 s on prepaid keys). If it clearly cannot fit, nothing is queued: 422 `estimate_exceeds_limit` (code `RENDER_ESTIMATE_EXCEEDS_LIMIT`) lists lower-resolution, lower-sample and prepaid options with their estimates. Settings are never lowered automatically. `render_estimate` / `POST /v1/estimate` return the same `feasibility`.
+- A failed final now says which unit ran out of time, the limit, what was delivered, what was counted and the options (`failure.subcode`, `failure.alternatives`).
+- A final that timed out without delivering anything is not charged and does not use free GPU time (up to 3 a day per key, `JR_TIMEOUTS_FORGIVEN_PER_KEY_PER_DAY`). The same settings are not rendered again after such a timeout unless something changes or `rerender=true`. Timeout retries per job are capped (`JR_JOB_RETRY_SECONDS_MAX`).
+- Sending the same final again from /start or an MCP client while it is still queued or rendering returns that job instead of starting another (`duplicate_of`, code `RENDER_DUPLICATE_REQUEST`); `rerender=true` renders it again on purpose. REST calls without an Idempotency-Key still get a second job, marked `possible_duplicate_of`. /start no longer sends while a render is running.
+
 ## 0.4.147 (2026-10-19)
 
 - DeepSeek: a connection guide at /deepseek-blender (DeepSeek Harness through the official dsh-mcp-client with a Bearer key, the DeepSeek API through function calling, the web chat through /start), rows in the connect tables, and the aliases /integrations/deepseek, /deepseek, /deepseek-harness. Verified with dsh 0.2.1-rc.2 against a local server (2026-07-28 revision, server/discover and tools/list, 12 tools).
