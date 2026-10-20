@@ -2,6 +2,11 @@
 
 The live, per-version list is at https://render.janction.jp/changelog (Atom: https://render.janction.jp/changelog.xml). Versions are the PyPI releases of `janction-render`; the hosted service follows the same numbers.
 
+## 0.4.152 (2026-10-20)
+
+- The web start page shows a preview as a draft: its save button names the draft size, and a line under the image leads to the full-size render (docs/81 §10).
+- After sending a different file or a fixed script, the start page no longer reuses the earlier request's Idempotency-Key, which made the next render fail with `idempotency_key_reused`.
+
 ## 0.4.151 (2026-10-20)
 
 - A failed final now says what was delivered: `delivery` (`total`, `delivered`, `not_delivered`, `files`, and `frames_not_delivered` or `cameras_delivered` / `cameras_not_delivered`). The status stays `failed`; the delivered files download like any result (view_url, `/artifacts/{name}`, `/archive`).
