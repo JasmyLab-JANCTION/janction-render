@@ -2,6 +2,10 @@
 
 The live, per-version list is at https://render.janction.jp/changelog (Atom: https://render.janction.jp/changelog.xml). Versions are the PyPI releases of `janction-render`; the hosted service follows the same numbers.
 
+## 0.4.149 (2026-10-20)
+
+- A script that was already auto-fixed and is sent again (for example after an AI fixed a typo) keeps one copy of the compatibility helpers on its first line; before, each resend added another copy, and a new rewrite in a resent script that needed a helper already present was dropped.
+
 ## 0.4.148 (2026-10-20)
 
 - Final renders with several cameras are planned like any other final: heavy angles go out one camera per part, and a part renders only its own cameras. Before, two heavy 1080p angles shared one 240-second part and could not recover after a timeout (docs/81).
