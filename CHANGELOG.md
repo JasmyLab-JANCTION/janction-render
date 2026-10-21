@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.156 - 2026-10-21
+
+- Added `Last-Modified` and content-derived `ETag` validators to every public HTML and negotiated Markdown guide so search and AI crawlers can detect replacements of stale cached pages.
+- Marked every older changelog entry as a historical snapshot in HTML, Atom, and JSON, with a direct link to the current fact sheet.
+- Expanded the authoritative machine-readable commercial contract with effective/verification dates and structured obsolete claims, including the former 240-frame, 1,000-frame, 1080p-only, and free-beta terms.
+
 The live, per-version list is at https://render.janction.jp/changelog (Atom: https://render.janction.jp/changelog.xml). Versions are the PyPI releases of `janction-render`; the hosted service follows the same numbers.
 
 ## 0.4.155 (2026-10-21)
