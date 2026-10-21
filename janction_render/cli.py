@@ -12,6 +12,7 @@
     janction-render login                                 # 鍵を確かめてこの PC に覚える（貼った鍵は履歴に残さない）
     janction-render connect [claude-code|codex|gemini|cursor|windsurf|vscode|all]   # ほかの AI につなぐ
     janction-render init                                  # このプロジェクトのエージェントに使い方を書く
+    janction-render upload scene.blend                    # AI アプリに渡すリンクを作る（scene_url に貼る、大きいものは分けて送る）
 """
 from __future__ import annotations
 
@@ -24,7 +25,7 @@ from typing import Any
 
 from . import hookup, links
 from .brief import welcome_billing
-from .client import Client, ClientError, parse_frames
+from .client import Client, ClientError, parse_frames, trace_blend_assets
 
 
 QUICKSTART = """JANCTION Render: render Blender scenes on cloud GPUs from the terminal.
@@ -107,6 +108,40 @@ def _scene(c: Client, args: argparse.Namespace) -> str:
         renamed = f" (stored as {stored})" if stored and stored != up.get("original_name") else ""
         print(f"upload complete: {up.get('original_name') or stored}{renamed} -> scene_id {up['scene_id']}", file=sys.stderr)
     return up["scene_id"]
+
+
+def cmd_upload(c: Client, args: argparse.Namespace) -> int:
+    """手元のファイルを、AI アプリ（リモートの MCP、この PC とは別の鍵）が使える形で送る（10/21、docs/90 FR-03）。
+    Claude Code・Gemini CLI・Codex のように PC でコマンドを打てる AI は、これを打って出たリンクを scene_url に渡す。"""
+    path = Path(args.file)
+    if not path.is_file():
+        raise FileNotFoundError(f"no such file: {path}")
+    if args.keep:
+        up = c.upload(path, progress=_upload_progress)
+        print(_j({"scene_id": up["scene_id"], "key": "this machine's key",
+                  "next": "use this scene_id with this CLI or the local MCP server (janction-render-mcp); AI apps connected "
+                          "through OAuth use another key, so run `janction-render upload <file>` without --keep for them"}))
+        return 0
+    if path.suffix.lower() == ".blend":
+        found, _missing = trace_blend_assets(path)
+        if found:
+            # 鍵なしのリンクは .blend だけを運ぶ。外の画像は付かないので、詰めてから送るか、この PC の鍵で送る（--keep）
+            print(f"note: this .blend uses {len(found)} external file(s) (textures) that the link does not carry; pack them "
+                  "in Blender (File > External Data > Pack Resources) and save, or use --keep", file=sys.stderr)
+    out = c.send_for_ai(path, progress=_upload_progress, upload_url=args.link or "")
+    if out.get("scene_id"):
+        print("upload complete: the file is now a scene of your AI app's connection", file=sys.stderr)
+        print(_j({"scene_id": out["scene_id"], "reused": bool(out.get("reused")),
+                  "next": "tell your AI app that the upload finished (it reads the scene_id with upload_status)"}))
+        return 0
+    url = out.get("url") or ""
+    print(f"upload complete. Give this link to your AI app: {url}", file=sys.stderr)
+    # 分けて送り終えた返事は期限を drop の中に持つ（/v1/drops は上の段）。10/21 本番の試しで null と出ていた
+    expires = out.get("expires_at_iso") or (out.get("drop") or {}).get("expires_at_iso")
+    print(_j({"scene_url": url, "expires_at_iso": expires,
+              "next": "pass scene_url to scene_info / render_preview / render_final of JANCTION Render; the link works for "
+                      "12 hours and the file becomes a scene of the connection that uses it first"}))
+    return 0
 
 
 def cmd_inspect(c: Client, args: argparse.Namespace) -> int:
@@ -600,6 +635,15 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--out", default=None, help="folder for the image (default: render_out/<job_id>)")
     s.add_argument("--timeout", type=float, default=180)
     s.set_defaults(fn=cmd_try)
+
+    s = sub.add_parser("upload", help="send a local file for an AI app (Claude, ChatGPT, Gemini ...): prints a link to pass as "
+                                      "scene_url (large files go in parts and resume)")
+    s.add_argument("file", help=".blend, 3D file (glb, fbx, usd, obj ...) or bpy script on this computer")
+    s.add_argument("--link", default=None, help="the /upload?t=... link your AI app gave (upload_link); the file then becomes "
+                                                "a scene of that connection")
+    s.add_argument("--keep", action="store_true", help="store it under this machine's key instead and print the scene_id "
+                                                       "(for this CLI and the local MCP server)")
+    s.set_defaults(fn=cmd_upload)
 
     s = sub.add_parser("inspect", help="read the scene without rendering (cameras, frame range, missing files)")
     s.add_argument("scene", nargs="?", help=".blend file or bpy Python script")

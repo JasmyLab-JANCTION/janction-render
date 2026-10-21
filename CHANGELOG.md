@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.164 - 2026-10-21
+
+- A render whose estimate fits your free GPU time no longer asks for a small credit hold when the key has no credit: it runs free, and if it runs a little past the free time we cover that part (up to 50 JPY). On free time, a single heavy frame that runs past the time limit is drawn again within your welcome credit left, instead of failing.
+
 ## 0.4.163 - 2026-10-21
 
 - Security: repeated failed sign-ins from one network are paused for a few minutes (429 auth_locked with Retry-After); requests without a key are not affected. Paid and long renders are no longer moved out of the extra sandbox layer when it fails to start; they are retried on another GPU worker at no charge.

@@ -213,12 +213,20 @@ def upload_page_hint(server: str, use_as: str = "scene_url") -> str:
             f"can go with it), then pass the link the page shows as {use_as}")
 
 
+TERMINAL_UPLOAD = ("if you can run commands on the user's computer: pip install janction-render, then "
+                   "`janction-render upload <file>` sends it in parts and prints the link to pass as scene_url")
+
+
 def add_upload_hint(out: dict[str, Any], server: str, error: str = "", status: int = 0) -> dict[str, Any]:
-    """大きさで断られた（413・too_large）返事に /upload の案内を足す。それ以外は触らない。"""
-    if not (error == "too_large" or status == 413):
+    """大きさで断られた（413・too_large）返事と、手元のパス・チャットの添付を渡した返事（bad_url、10/21 docs/90 FR-01）に
+    /upload の案内を足す。それ以外は触らない。"""
+    local_path = error == "bad_url" and "cannot be read from here" in str(out.get("detail") or "")
+    if not (error == "too_large" or status == 413 or local_path):
         return out
     hint = upload_page_hint(server)
     out["upload_page"] = f"{(server or 'https://render.janction.jp').rstrip('/')}/upload"
+    if local_path:
+        out["from_a_terminal"] = TERMINAL_UPLOAD
     fix = str(out.get("possible_fix") or "")
     out["possible_fix"] = (fix + "; or " if fix else "") + hint
     return out

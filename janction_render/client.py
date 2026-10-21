@@ -591,21 +591,24 @@ class Client:
 
     def upload_resumable(self, path: str | Path, digest: str = "",
                          progress: Optional[Callable[[int, int], None]] = None, part_bytes: int = 0,
-                         scene_id: str = "", asset: str = "") -> Optional[dict[str, Any]]:
+                         scene_id: str = "", asset: str = "", auth: Optional[dict[str, str]] = None,
+                         mode: str = "") -> Optional[dict[str, Any]]:
         """100 MB を超えるファイルを部分に分けて送る（POST /v1/uploads → PATCH、tus 1.0）。返り値は受付の状態（scene_id・scene）。
         通信が切れたら位置を聞き直して続きから送る。途中で止めても、同じコマンドをもう一度打てば続きから（~/.janction-render-uploads.json）。
-        受付が分けて送る道を持っていなければ None。"""
+        受付が分けて送る道を持っていなければ None。auth を渡すと鍵の代わりにそれを付ける（{} は鍵なし＝/d/ のリンク、
+        {"X-Upload-Token": …} は AI が出したリンク。10/21 docs/90）。mode は続きの控えを鍵の送信と分ける印。"""
         import base64
 
         p = Path(path)
         size = p.stat().st_size
         digest = digest or sha256_of(p)
-        ident = f"{self.server}|{digest}|{size}" + (f"|{scene_id}|{asset}" if asset else "")
+        hdr = self._headers() if auth is None else dict(auth)
+        ident = f"{self.server}|{digest}|{size}" + (f"|{scene_id}|{asset}" if asset else "") + (f"|{mode}" if mode else "")
         tus = {"Tus-Resumable": "1.0.0"}
         url, off = self._resume_get(ident), 0
         if url:
             try:
-                h = self.s.head(url, headers={**self._headers(), **tus}, timeout=30)
+                h = self.s.head(url, headers={**hdr, **tus}, timeout=30)
                 if h.status_code == 200 and int(h.headers.get("Upload-Length") or -1) == size:
                     off = int(h.headers.get("Upload-Offset") or 0)
                 else:
@@ -621,7 +624,7 @@ class Client:
                 meta += (f",scene_id {base64.b64encode(scene_id.encode()).decode()},"
                          f"asset {base64.b64encode(asset.encode('utf-8')).decode()}")
             r = self.s.post(f"{self.server}/v1/uploads", timeout=60,
-                            headers={**self._headers(), **tus, "Upload-Length": str(size), "Upload-Metadata": meta})
+                            headers={**hdr, **tus, "Upload-Length": str(size), "Upload-Metadata": meta})
             if r.status_code in (404, 405):
                 return None
             self._raise(r)
@@ -640,7 +643,7 @@ class Client:
                 sent_from, t_part = off, time.monotonic()
                 try:
                     r = self.s.patch(url, data=data, timeout=600, headers={
-                        **self._headers(), **tus, "Upload-Offset": str(off), "Content-Type": "application/offset+octet-stream",
+                        **hdr, **tus, "Upload-Offset": str(off), "Content-Type": "application/offset+octet-stream",
                         "Upload-Checksum": part_sum})
                 except ClientError:
                     r = None                       # つながらない・切れた: 待って位置を聞き直す
@@ -671,7 +674,7 @@ class Client:
                                       "to continue from there", extra={"retryable": True, "offset": off})
                 time.sleep(min(30.0, 2.0 ** tries))
                 try:
-                    h = self.s.head(url, headers={**self._headers(), **tus}, timeout=30)
+                    h = self.s.head(url, headers={**hdr, **tus}, timeout=30)
                     if h.status_code == 200:
                         off = int(h.headers.get("Upload-Offset") or off)
                         if off > sent_from:
@@ -687,6 +690,36 @@ class Client:
                 except ClientError as exc:
                     if exc.status:
                         raise
+
+    def send_for_ai(self, path: str | Path, progress: Optional[Callable[[int, int], None]] = None,
+                    upload_url: str = "") -> dict[str, Any]:
+        """手元のファイルを、チャットやエージェントの AI（リモートの MCP、別の鍵）が使える形で送る（10/21、docs/90 FR-03）。
+        upload_url なし: 鍵を使わずに送り、12 時間の https のリンク（/d/…）を返す。AI はそれを scene_url に渡し、自分の鍵のシーンにする。
+        upload_url あり（AI の upload_link が出した /upload?t=…）: そのリンクの鍵のシーンになり、AI は upload_status で受け取る。
+        この PC の鍵（~/.janction-render.json）とリモートの鍵は別なので、この PC の scene_id はリモートでは使えない。"""
+        from urllib.parse import parse_qs
+
+        p = Path(path)
+        if not p.is_file():
+            raise FileNotFoundError(f"no such file: {p}")
+        token = ""
+        if upload_url:
+            parts = urlsplit(upload_url)
+            token = (parse_qs(parts.query).get("t") or [""])[0]
+            if not token or not parts.path.rstrip("/").endswith("/upload"):
+                raise ValueError("the upload link must be the /upload?t=... link that upload_link returned")
+        auth = {"X-Upload-Token": token} if token else {}
+        mode = ("link:" + hashlib.sha256(token.encode()).hexdigest()[:12]) if token else "drop"
+        out = self.upload_resumable(p, progress=progress, auth=auth, mode=mode)
+        if out is None:
+            if token:
+                raise ClientError(0, "uploads_unavailable", "this server does not accept upload links; send the file without --link")
+            with p.open("rb") as fh:
+                r = self.s.post(f"{self.server}/v1/drops", files={"file": (p.name, fh)}, timeout=1800,
+                                headers={"Accept": "application/json"})
+            self._raise(r)
+            out = r.json()
+        return out
 
     def upload_cap_bytes(self) -> int:
         """1 回の送信の上限（バイト）。0 は見ない（手元・自前の受付）。"""
