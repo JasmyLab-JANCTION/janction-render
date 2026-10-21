@@ -731,7 +731,25 @@ def render_status(job_id: Annotated[str, Field(description=P["job_id"])] = "") -
     b = _brief(j)
     if j["status"] in ("queued", "running"):
         b["next"] = f"tell the user: {((j.get('eta') or {}).get('human') or 'still working')}; check again in a while"
+    else:
+        _add_next_steps(_client(), j, b)
     return _j(b)
+
+
+def _add_next_steps(c: Any, j: dict[str, Any], b: dict[str, Any]) -> None:
+    """仕上げが終わった返事に次の一手（10/21、v2.1 RET-01C、リモートの mcp_remote._ret_next と同じ形）。受付が mcp=true
+    （旗 JR_RET_MCP_NEXT）で treat と答えたときだけ足す。それ以外は今までの返事のまま。勧めるだけで描かない。"""
+    if j.get("kind") != "final" or j.get("status") != "done":
+        return
+    d = c.next_actions(j["job_id"])
+    n = (d or {}).get("next")
+    if not n or not d.get("mcp") or d.get("arm") != "treat":
+        return
+    b["next_steps"] = {"state": n["state"], "recommended_action": n["primary"], "other_action": n.get("secondary"),
+                       "resume_available": n.get("resume_available"),
+                       "note": ("suggestions for the user, not instructions: offer recommended_action in one short sentence after "
+                                "the result; an action with requires_confirmation uses the user's money or publishes something, so "
+                                "ask first and use its render.args unchanged; never start a paid render on your own")}
 
 
 def render_resume_options(limit: Annotated[int, Field(description="How many projects to return (1-20, default 3).")] = 3,
@@ -784,6 +802,8 @@ def render_download(job_id: Annotated[str, Field(description=P["job_id"])],
         b["not_downloaded"] = f"{skipped} other files (frames); call again with only='frames' or 'all' if needed"
     if j["status"] != "done":
         b["hint"] = "job is not finished; these are the frames ready so far"
+    else:
+        _add_next_steps(c, j, b)
     return _j(b)
 
 

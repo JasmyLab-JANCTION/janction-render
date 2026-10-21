@@ -10,6 +10,7 @@ import hashlib
 import json
 import re
 import os
+import sys
 import time
 from pathlib import Path
 from typing import Any, Callable, Optional
@@ -374,6 +375,11 @@ class Client:
         r = self.s.post(f"{self.server}/v1/keys", json={"label": self.s.headers.get("X-Client", "auto")}, timeout=15)
         self._raise(r)
         self._key = r.json()["api_key"]
+        first = r.json().get("first_render")
+        if isinstance(first, dict) and first.get("cli"):
+            # 10/21 v2.1 ACT-01: 鍵を作っただけで離れる人が多い（Phase 0 で API・CLI 19 本）。最初の 1 枚の道を標準エラーに 1 行
+            print(f"janction-render: a new key was saved; nothing has rendered yet. To check rendering works: {first['cli']}",
+                  file=sys.stderr)
         cache[self.server] = self._key
         self._write_cache(cache)
         return self._key
@@ -823,6 +829,18 @@ class Client:
 
     def job(self, job_id: str) -> dict[str, Any]:
         return self._req("GET", f"/v1/jobs/{job_id}")
+
+    def next_actions(self, job_id: str) -> Optional[dict[str, Any]]:
+        """終わった仕事の次の一手（受付の旗 JR_RET_NEXT_ACTIONS が OFF なら None）。見るだけで描かない。"""
+        try:
+            r = self.s.get(f"{self.server}/v1/jobs/{job_id}/next-actions", headers=self._headers(), timeout=15)
+        except Exception:  # noqa: BLE001
+            return None
+        return r.json() if r.status_code == 200 else None
+
+    def recipe(self, job_id: str) -> dict[str, Any]:
+        """次回用の設定（受付の旗 JR_RET_RECIPE）。鍵やリンクは入っていない。"""
+        return self._req("GET", f"/v1/jobs/{job_id}/recipe")
 
     def jobs(self, limit: int = 20) -> list[dict[str, Any]]:
         return self._req("GET", f"/v1/jobs?limit={int(limit)}")["jobs"]

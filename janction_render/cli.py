@@ -128,6 +128,7 @@ def cmd_preview(c: Client, args: argparse.Namespace) -> int:
     print(_j({"job_id": j["job_id"], "scene_id": sid, "frames": frames, "files": [str(p) for p in paths],
               "warnings": j.get("warnings") or [], "gpu_seconds": j["gpu_seconds"], "device": j["device"],
               "expires_at": j["expires_at"]}))
+    _suggest_next(c, j["job_id"])
     return 0
 
 
@@ -161,6 +162,70 @@ def cmd_render(c: Client, args: argparse.Namespace) -> int:
     print(_j({"job_id": j["job_id"], "scene_id": sid, "files": [str(p) for p in paths],
               "warnings": j.get("warnings") or [], "gpu_seconds": j["gpu_seconds"], "device": j["device"],
               "expires_at": j["expires_at"]}))
+    _suggest_next(c, j["job_id"])
+    return 0
+
+
+_CLI_FLAGS = {"samples": "--samples", "engine": "--engine", "fps": "--fps", "output": "--output", "camera": "--camera"}
+
+
+def _command_for(args: dict[str, Any]) -> str:
+    """render_final の引数 → そのまま打てる CLI の 1 行（preset は CLI の shots / turntable。どちらもファイルから描く）。"""
+    sid = args.get("scene_id") or "SCENE_ID"
+    pre = {"product": "shots", "turntable": "turntable"}.get(str(args.get("preset") or ""))
+    if pre:
+        return f"janction-render {pre} YOUR_MODEL_FILE" + (f" --environment {args['environment']}" if args.get("environment") else "")
+    fs, fe = args.get("frame_start"), args.get("frame_end")
+    parts = ["janction-render render", f"--scene-id {sid}"]
+    if fs is not None:
+        parts.append(f"--frames {fs}-{fe}" if fe not in (None, fs) else f"--frames {fs}")
+    if args.get("width") and args.get("height"):
+        parts.append(f"--size {args['width']}x{args['height']}")
+    parts += [f"{flag} {str(args[k]).lower() if k == 'engine' else args[k]}" for k, flag in _CLI_FLAGS.items()
+              if args.get(k) not in (None, "")]
+    if args.get("transparent"):
+        parts.append("--transparent")
+    if args.get("max_yen"):
+        parts.append(f"--max-yen {args['max_yen']}")
+    return " ".join(parts) + " --wait"
+
+
+def _suggest_next(c: Client, job_id: str) -> None:
+    """終わった後の次のおすすめ（10/21、v2.1 RET-01C）。受付が treat と答えた鍵だけ。標準エラーに出す（標準出力の JSON は変えない）。
+    コマンドを見せるだけで、自分では描かない。"""
+    d = c.next_actions(job_id)
+    n = (d or {}).get("next")
+    if not n or d.get("arm") != "treat":
+        return
+    lines = ["next (suggested):"]
+    for a in (n.get("primary"), n.get("secondary")):
+        if not a:
+            continue
+        label = (a.get("label") or {}).get("en") or a.get("id")
+        price = ((a.get("pricing") or {}).get("en") or "") if a.get("type") == "render" else ""
+        if a.get("type") == "render":
+            cmd = _command_for((a.get("render") or {}).get("args") or {})
+        elif a.get("type") == "recipe":
+            cmd = f"janction-render recipe {job_id} --out recipe.json"
+        elif a.get("type") == "upload":
+            cmd = "janction-render preview my_scene.blend"
+        else:
+            cmd = ""
+        lines.append(f"  {label}" + (f" ({'paid: ' if a.get('requires_confirmation') else ''}{price})" if price else ""))
+        if cmd:
+            lines.append(f"    {cmd}")
+    print("\n".join(lines), file=sys.stderr)
+
+
+def cmd_recipe(c: Client, args: argparse.Namespace) -> int:
+    """次回用の設定を JSON で（--out でファイルに）。"""
+    r = c.recipe(args.job)
+    text = _j(r)
+    if args.out:
+        Path(args.out).write_text(text + "\n", encoding="utf-8")
+        print(f"saved to {args.out}; next time: {r.get('cli')}", file=sys.stderr)
+    else:
+        print(text)
     return 0
 
 
@@ -538,6 +603,11 @@ def build_parser() -> argparse.ArgumentParser:
     s = sub.add_parser("status")
     s.add_argument("job")
     s.set_defaults(fn=cmd_status)
+
+    s = sub.add_parser("recipe", help="save the settings of a finished render for next time (JSON, no key or links inside)")
+    s.add_argument("job")
+    s.add_argument("--out", default=None, help="write the JSON to this file")
+    s.set_defaults(fn=cmd_recipe)
 
     s = sub.add_parser("download")
     s.add_argument("job")

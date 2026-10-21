@@ -454,7 +454,7 @@ class JR_OT_preview(bpy.types.Operator):
 
 
 class JR_OT_final(bpy.types.Operator):
-    """Render the scene frame range on JANCTION GPUs (up to 240 frames at 1080p per job)"""
+    """Render up to 3,000 frames; the service splits parts and enforces the key's resolution entitlement."""
     bl_idname = "jr.final"
     bl_label = "Final render"
     bl_options = {'REGISTER'}

@@ -140,7 +140,7 @@ key is no longer known to the service, the tools create a new one once and retry
 - Frame rate comes from the app's setting (Maya time unit, `hou.fps()`, `doc.GetFps()`), rounded
   to a whole number.
 - The service takes up to 3,000 frames per instruction (run as parts of 240 under one job id) and up to 4K on prepaid credit;
-  these submit tools still send at most 240 frames and 1080p per job: they scale the final size down and refuse longer ranges with a message.
+  these submit tools support one instruction of up to 3,000 frames, split by the service into parts of up to 240 frames and assembled as one result. Resolution entitlement is enforced by the server; paid-credit keys may request the currently documented higher-resolution limit. Check `/v1/capabilities` rather than copying a fixed limit into an integration.
 
 ## Manual fallback from any application
 

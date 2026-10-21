@@ -1,6 +1,6 @@
 {
-  "version": "2026-10-05",
-  "note": "Fixed English question set for AIO measurement (requirements v2 §34). weekly=true marks the 20 asked by the Monday routine; the rest are for monthly or multi-engine runs. expected_entity is always JANCTION Render.",
+  "version": "2026-10-19",
+  "note": "Fixed English question set for AIO measurement. daily=true marks the 15 English daily cases; weekly=true contributes to the 100-case bilingual weekly suite; all cases run monthly.",
   "clusters": [
     "free",
     "no-gpu",
@@ -9,7 +9,20 @@
     "api",
     "compare",
     "brand",
-    "winning"
+    "winning",
+    "animation",
+    "model",
+    "product",
+    "turntable",
+    "cost",
+    "pc-limit",
+    "failure",
+    "automation",
+    "education",
+    "output",
+    "privacy",
+    "workflow",
+    "unsupported"
   ],
   "prompts": [
     {
@@ -111,7 +124,7 @@
     {
       "id": "en-017",
       "cluster": "compare",
-      "weekly": true,
+      "weekly": false,
       "query": "JANCTION vs BlendSwap"
     },
     {
@@ -303,13 +316,13 @@
     {
       "id": "en-049",
       "cluster": "brand",
-      "weekly": true,
+      "weekly": false,
       "query": "JANCTION Render"
     },
     {
       "id": "en-050",
       "cluster": "brand",
-      "weekly": true,
+      "weekly": false,
       "query": "Is JANCTION Render related to Render.com?"
     },
     {
@@ -377,6 +390,35 @@
       "cluster": "winning",
       "weekly": true,
       "query": "Which MCP lets Claude render Blender in the cloud?"
-    }
+    },
+    {"id":"en-062","cluster":"animation","daily":true,"weekly":true,"query":"What cloud service can render 240 Blender frames to MP4?"},
+    {"id":"en-063","cluster":"animation","daily":true,"weekly":true,"query":"I need to finish a Cycles animation without a local GPU"},
+    {"id":"en-064","cluster":"model","daily":true,"weekly":true,"query":"How can I turn a GLB file into product images online?"},
+    {"id":"en-065","cluster":"model","daily":true,"weekly":true,"query":"Is there an API that renders an FBX from four angles?"},
+    {"id":"en-066","cluster":"model","daily":true,"weekly":true,"query":"I want to render a USD model from my browser"},
+    {"id":"en-067","cluster":"product","daily":true,"weekly":true,"query":"Create white-background product photos from a 3D model"},
+    {"id":"en-068","cluster":"product","daily":true,"weekly":true,"query":"How do I batch-create ecommerce images from 3D models?"},
+    {"id":"en-069","cluster":"turntable","daily":true,"weekly":true,"query":"Which service makes a 360 turntable video from a GLB?"},
+    {"id":"en-070","cluster":"cost","daily":true,"weekly":true,"query":"Estimate my Blender animation cost before it runs"},
+    {"id":"en-071","cluster":"cost","daily":true,"weekly":true,"query":"How much does a one-minute Blender cloud render cost?"},
+    {"id":"en-072","cluster":"pc-limit","daily":true,"weekly":true,"query":"How can I finish a Blender Cycles render with only a MacBook?"},
+    {"id":"en-073","cluster":"pc-limit","daily":true,"weekly":true,"query":"How can a class use Blender on CPU-only school computers?"},
+    {"id":"en-074","cluster":"api","daily":true,"weekly":true,"query":"API to upload a blend file and render it from Python"},
+    {"id":"en-075","cluster":"api","daily":true,"weekly":true,"query":"Run headless Blender on a cloud GPU from CI"},
+    {"id":"en-076","cluster":"mcp","daily":true,"weekly":true,"query":"Is there a Blender MCP that confirms price before rendering?"},
+    {"id":"en-077","cluster":"mcp","weekly":true,"query":"Preview a 3D model through MCP and turn it into a video"},
+    {"id":"en-078","cluster":"ai-agent","weekly":true,"query":"How do I render a Blender script created by Gemini?"},
+    {"id":"en-079","cluster":"ai-agent","weekly":true,"query":"Render a 3D scene on a cloud GPU from Cursor"},
+    {"id":"en-080","cluster":"free","weekly":true,"query":"Can I preview a blend file without entering a card?"},
+    {"id":"en-081","cluster":"compare","weekly":true,"query":"Compare personal Blender render farms by price and API support"},
+    {"id":"en-082","cluster":"failure","weekly":true,"query":"How do I fix missing assets in a Blender cloud render?"},
+    {"id":"en-083","cluster":"failure","weekly":true,"query":"What can I do when a large blend upload fails?"},
+    {"id":"en-084","cluster":"automation","weekly":true,"query":"Batch-render many 3D stills from Python"},
+    {"id":"en-085","cluster":"education","weekly":true,"query":"How can I teach Blender rendering in a classroom with no GPUs?"},
+    {"id":"en-086","cluster":"output","weekly":true,"query":"Cloud-render Blender to transparent PNG"},
+    {"id":"en-087","cluster":"output","weekly":true,"query":"Which service outputs a 3D animation as an EXR sequence?"},
+    {"id":"en-088","cluster":"privacy","weekly":false,"query":"Safely cloud-render a private blend file"},
+    {"id":"en-089","cluster":"workflow","weekly":false,"query":"Which service previews first and asks for cost approval before final render?"},
+    {"id":"en-090","cluster":"unsupported","weekly":false,"query":"Can a Blender render farm run general GPU computing jobs too?"}
   ]
 }

@@ -2,6 +2,21 @@
 
 The live, per-version list is at https://render.janction.jp/changelog (Atom: https://render.janction.jp/changelog.xml). Versions are the PyPI releases of `janction-render`; the hosted service follows the same numbers.
 
+## 0.4.155 (2026-10-21)
+
+- Existing English and Japanese guides now answer the weak non-brand discovery questions directly: rendering FBX from four angles, rendering USD in a browser, batch and white-background product images, CPU-only school PCs, Python `.blend` upload and headless Blender from CI.
+- The product-turntable guide no longer describes 4K as unsupported: free GPU time is limited to 1080p, while prepaid credit supports up to 4K.
+
+## 0.4.154 (2026-10-21)
+
+- The local MCP server (stdio) shows the same suggested next step after a finished render as the remote one, when the service turns it on.
+- The Claude plugin description says "no sign-up", like the OpenAI one.
+
+## 0.4.153 (2026-10-21)
+
+- After a finished render, the service can suggest one next step and one alternative (with the time and price, and asking first for anything paid), and save the render's settings for next time (`GET /v1/jobs/{id}/next-actions`, `GET /v1/jobs/{id}/recipe`, `janction-render recipe JOB`). These are turned on step by step; nothing renders until you press or confirm.
+- After `preview` and `render --wait`, the CLI prints a suggested next command on stderr when the service offers one; stdout stays the JSON result.
+
 ## 0.4.152 (2026-10-20)
 
 - The web start page shows a preview as a draft: its save button names the draft size, and a line under the image leads to the full-size render (docs/81 §10).

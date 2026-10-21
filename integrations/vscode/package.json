@@ -1,0 +1,22 @@
+{
+  "name": "janction-render",
+  "displayName": "JANCTION Render",
+  "description": "Render Blender scenes and 3D models on cloud GPUs from GitHub Copilot and other MCP-aware chat in VS Code. Adds the JANCTION Render MCP server; no local GPU or Blender needed.",
+  "version": "0.1.0",
+  "publisher": "janction",
+  "license": "MIT",
+  "icon": "icon.png",
+  "homepage": "https://render.janction.jp",
+  "repository": {"type": "git", "url": "https://github.com/JasmyLab-JANCTION/janction-render"},
+  "bugs": {"url": "https://render.janction.jp/support"},
+  "engines": {"vscode": "^1.101.0"},
+  "categories": ["AI", "Chat", "Other"],
+  "keywords": ["mcp", "blender", "render", "gpu", "3d", "copilot"],
+  "main": "./extension.js",
+  "activationEvents": [],
+  "contributes": {
+    "mcpServerDefinitionProviders": [
+      {"id": "janction-render", "label": "JANCTION Render"}
+    ]
+  }
+}

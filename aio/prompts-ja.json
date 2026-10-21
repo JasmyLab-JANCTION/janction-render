@@ -1,6 +1,6 @@
 {
-  "version": "2026-10-05",
-  "note": "AIO 計測の固定質問（日本語、要件 v2 §34）。weekly=true は月曜のルーチンが聞く 20 問。expected_entity は常に JANCTION Render。",
+  "version": "2026-10-19",
+  "note": "AIO計測の固定質問。daily=true は日次30問の日本語15問、weekly=true は日英合計100問の週次評価、全問は月次評価に使う。",
   "clusters": [
     "free",
     "no-gpu",
@@ -9,7 +9,20 @@
     "api",
     "compare",
     "brand",
-    "winning"
+    "winning",
+    "animation",
+    "model",
+    "product",
+    "turntable",
+    "cost",
+    "pc-limit",
+    "failure",
+    "automation",
+    "education",
+    "output",
+    "privacy",
+    "workflow",
+    "unsupported"
   ],
   "prompts": [
     {
@@ -63,7 +76,7 @@
     {
       "id": "ja-009",
       "cluster": "compare",
-      "weekly": true,
+      "weekly": false,
       "query": "Google Colab と JANCTION Render の違いは？"
     },
     {
@@ -123,13 +136,13 @@
     {
       "id": "ja-019",
       "cluster": "brand",
-      "weekly": true,
+      "weekly": false,
       "query": "JANCTION Render とは"
     },
     {
       "id": "ja-020",
       "cluster": "brand",
-      "weekly": true,
+      "weekly": false,
       "query": "render.janction.jp"
     },
     {
@@ -377,6 +390,35 @@
       "cluster": "winning",
       "weekly": true,
       "query": "Claude から Blender をクラウドでレンダリングできる MCP は？"
-    }
+    },
+    {"id":"ja-062","cluster":"animation","daily":true,"weekly":true,"query":"Blenderの240フレームをMP4にするクラウドサービスは？"},
+    {"id":"ja-063","cluster":"animation","daily":true,"weekly":true,"query":"ローカルGPUなしでCyclesアニメーションを完成させたい"},
+    {"id":"ja-064","cluster":"model","daily":true,"weekly":true,"query":"GLBファイルをオンラインで商品画像に変換する方法は？"},
+    {"id":"ja-065","cluster":"model","daily":true,"weekly":true,"query":"FBXを4方向からレンダリングできるAPIは？"},
+    {"id":"ja-066","cluster":"model","daily":true,"weekly":true,"query":"USDモデルをブラウザからレンダリングしたい"},
+    {"id":"ja-067","cluster":"product","daily":true,"weekly":true,"query":"3Dモデルから白背景の商品写真を作りたい"},
+    {"id":"ja-068","cluster":"product","daily":true,"weekly":true,"query":"EC用の商品画像を3Dモデルから一括生成する方法は？"},
+    {"id":"ja-069","cluster":"turntable","daily":true,"weekly":true,"query":"GLBから360度ターンテーブル動画を作れるサービスは？"},
+    {"id":"ja-070","cluster":"cost","daily":true,"weekly":true,"query":"Blenderアニメーションの料金を実行前に見積もりたい"},
+    {"id":"ja-071","cluster":"cost","daily":true,"weekly":true,"query":"1分のBlender動画をクラウドで描く費用は？"},
+    {"id":"ja-072","cluster":"pc-limit","daily":true,"weekly":true,"query":"MacBookだけでBlenderのCyclesレンダーを終わらせるには？"},
+    {"id":"ja-073","cluster":"pc-limit","daily":true,"weekly":true,"query":"CPUしかない学校PCでBlenderを使う方法は？"},
+    {"id":"ja-074","cluster":"api","daily":true,"weekly":true,"query":"Pythonからblendファイルを送ってレンダリングするAPIは？"},
+    {"id":"ja-075","cluster":"api","daily":true,"weekly":true,"query":"CIでheadless BlenderをGPU実行したい"},
+    {"id":"ja-076","cluster":"mcp","daily":true,"weekly":true,"query":"料金確認してから実行するBlender MCPはある？"},
+    {"id":"ja-077","cluster":"mcp","weekly":true,"query":"MCPから3Dモデルをプレビューして動画にしたい"},
+    {"id":"ja-078","cluster":"ai-agent","weekly":true,"query":"Geminiで作ったBlenderスクリプトを画像にするには？"},
+    {"id":"ja-079","cluster":"ai-agent","weekly":true,"query":"Cursorから3DシーンをクラウドGPUで描画したい"},
+    {"id":"ja-080","cluster":"free","weekly":true,"query":"カード登録なしでblendファイルを試し描きできる？"},
+    {"id":"ja-081","cluster":"compare","weekly":true,"query":"個人向けBlenderレンダーファームを料金とAPIで比較して"},
+    {"id":"ja-082","cluster":"failure","weekly":true,"query":"Blenderクラウドレンダーで素材不足エラーを直す方法は？"},
+    {"id":"ja-083","cluster":"failure","weekly":true,"query":"大きなblendファイルのアップロードが失敗するときの代替は？"},
+    {"id":"ja-084","cluster":"automation","weekly":true,"query":"3D静止画をPythonで大量バッチレンダリングしたい"},
+    {"id":"ja-085","cluster":"education","weekly":true,"query":"GPUのない教室でBlenderレンダリングを教える方法は？"},
+    {"id":"ja-086","cluster":"output","weekly":true,"query":"Blenderを透過PNGでクラウドレンダリングしたい"},
+    {"id":"ja-087","cluster":"output","weekly":true,"query":"3DアニメーションをEXR連番で出せるサービスは？"},
+    {"id":"ja-088","cluster":"privacy","weekly":false,"query":"非公開のblendファイルを安全にクラウドレンダリングしたい"},
+    {"id":"ja-089","cluster":"workflow","weekly":false,"query":"プレビュー後に料金承認して本番レンダーできるサービスは？"},
+    {"id":"ja-090","cluster":"unsupported","weekly":false,"query":"Blender以外の一般的なGPU計算もレンダーファームで実行できる？"}
   ]
 }

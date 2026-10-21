@@ -26,6 +26,19 @@ python tools/aio_review.py --gsc path/to/search-export.zip --inspections path/to
 
 Absence from a performance export does not mean a URL is unindexed. Inspections older than 14 days are marked stale. Search Console Web performance includes AI features and cannot isolate AIO clicks; Bing/Google referral traffic also does not identify whether an AI answer caused the visit.
 
+## Governed 32-route production audit
+
+`docs/aio/02-intent-coverage.csv` is the current 16-intent × 2-locale master. Audit every route without equating HTTP 200 with indexing:
+
+```powershell
+python tools/production_activation.py --out reports/production-activation-YYYYMMDD
+python tools/production_activation.py --inspections path/to/url-inspection.json --out reports/production-activation-YYYYMMDD
+```
+
+The first command proves technical eligibility and crawler HTTP behavior. It must leave index status as `UNKNOWN / ACCESS_REQUIRED`. The second accepts saved Search Console URL Inspection API responses and can classify `INDEXED`, `INDEXABLE_NOT_INDEXED`, `BLOCKED`, `CANONICAL_MISMATCH` or `CRAWL_ERROR`.
+
+Run the governed AI question sets with `tools/aio_ask.py --set daily` (30), `--set weekly` (100), or `--set monthly` (180). Daily and weekly sets are unbranded and fail closed if a JANCTION-named question enters them. Keep connected-tool/UI observations separate from unconnected search/API runs.
+
 ## Three verifiable use cases
 
 The English and Japanese pages `/render-blender-without-gpu`, `/ai-3d-model-render` and `/ai-agent-generated-3d` link recorded inputs, settings, dates, outputs and replay commands. `/benchmarks.json` exposes the same evidence under `use_cases`; the text versions include it too. An unrecorded round-trip duration stays null. Historical GPU times are observations, not promises; estimated prices use the current configured rate before rounding, credit and outcome ceilings.
