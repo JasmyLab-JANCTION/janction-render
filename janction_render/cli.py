@@ -77,6 +77,14 @@ def _progress(j: dict[str, Any]) -> None:
           + (f", {p['queue_ahead']} chunks ahead" if p["queue_ahead"] else ""), file=sys.stderr)
 
 
+def _upload_progress(done: int, total: int) -> None:
+    """One compact, human-readable line per completed upload part."""
+    pct = 100 if not total else min(100, int(done * 100 / total))
+    print(f"  upload: {pct:3d}% ({done / 1048576:.1f}/{total / 1048576:.1f} MiB)"
+          + ("; safe to rerun the same command if interrupted" if done == 0 and total > 100 * 1024 * 1024 else ""),
+          file=sys.stderr)
+
+
 def _scene(c: Client, args: argparse.Namespace) -> str:
     if getattr(args, "scene_id", None):
         return args.scene_id
@@ -90,8 +98,14 @@ def _scene(c: Client, args: argparse.Namespace) -> str:
         up = c.upload_url(url)
         print(f"fetched {url} -> scene_id {up['scene_id']}", file=sys.stderr)
         return up["scene_id"]
-    up = c.upload(args.scene)
-    print(f"uploaded {up['name']} -> scene_id {up['scene_id']}", file=sys.stderr)
+    up = c.upload(args.scene, progress=_upload_progress)
+    args._upload = up
+    if up.get("reused_existing"):
+        print(f"same file already uploaded; reused scene_id {up['scene_id']} (no bytes sent)", file=sys.stderr)
+    else:
+        stored = up.get("stored_name") or up.get("name")
+        renamed = f" (stored as {stored})" if stored and stored != up.get("original_name") else ""
+        print(f"upload complete: {up.get('original_name') or stored}{renamed} -> scene_id {up['scene_id']}", file=sys.stderr)
     return up["scene_id"]
 
 
@@ -108,6 +122,24 @@ def cmd_inspect(c: Client, args: argparse.Namespace) -> int:
     info["scene_id"] = sid
     if j.get("warnings"):
         info["blender_warnings"] = j["warnings"]
+    # Upload success is not render readiness.  Use the same preflight model as
+    # the browser and HTTP API so missing assets and setting differences cannot
+    # be mistaken for a ready scene.
+    try:
+        readiness = c.preflight(sid, strict=True)
+        info["render_readiness"] = readiness
+        status = readiness.get("status", "warning")
+        print(f"render readiness: {status}", file=sys.stderr)
+        for check in readiness.get("checks") or []:
+            if check.get("level") in ("blocked", "warning"):
+                print(f"  {check.get('level')}: {check.get('message')}", file=sys.stderr)
+                if check.get("action"):
+                    print(f"    fix: {check['action']}", file=sys.stderr)
+    except ClientError as exc:
+        # Backward compatibility with an older/self-hosted server: inspection
+        # still succeeds, but it must not claim that readiness passed.
+        info["render_readiness"] = {"status": "unknown", "charged": False,
+                                    "note": f"preflight unavailable: {exc.error}"}
     print(_j(info))
     return 0
 
@@ -295,11 +327,36 @@ def cmd_info(c: Client, args: argparse.Namespace) -> int:
     return 0
 
 
+def _credit_summary(me: dict[str, Any]) -> dict[str, Any]:
+    """Return the amounts a person can actually spend, not only prepaid cash.
+
+    ``balance_yen`` is intentionally the prepaid/promotional ledger balance in
+    the HTTP API.  The welcome credit lives under ``quota.welcome``.  Showing
+    only the former made CLI users (and agents reading its JSON) conclude that
+    a render needed a top-up even when the welcome credit covered it.
+    """
+    welcome = ((me.get("quota") or {}).get("welcome") or {})
+    free_yen = int(welcome.get("yen_left") or 0)
+    prepaid_yen = int(me.get("balance_yen") or 0)
+    held_yen = int(me.get("held_yen") or 0)
+    return {
+        # /v1/me balance_yen is already net of active holds. held_yen is
+        # informational (it may return when a render settles), so do not
+        # subtract it a second time.
+        "available_yen": free_yen + prepaid_yen,
+        "free_credit_yen": free_yen,
+        "prepaid_balance_yen": prepaid_yen,
+        "held_yen": held_yen,
+        **({"free_credit_expires_at": welcome.get("expires_at_iso")} if welcome.get("expires_at_iso") else {}),
+    }
+
+
 def cmd_balance(c: Client, args: argparse.Namespace) -> int:
     me = c.me()
     synced = c.billing_sync() if me["billing"]["enabled"] else {}
     me = c.me()
-    print(_j({"balance_yen": me["balance_yen"], "free_previews_left": me["free_previews_left"],
+    credit = _credit_summary(me)
+    print(_j({"balance_yen": me["balance_yen"], **credit, "free_previews_left": me["free_previews_left"],
               "billing": me["billing"], "just_credited": synced.get("credited", []),
               "ledger": c.ledger(args.limit)["entries"]}))
     return 0
@@ -381,7 +438,10 @@ def cmd_doctor(c: Client, args: argparse.Namespace) -> int:
         try:
             me = c.me()
             add("key", True, f"{src} works (prefix {me.get('prefix') or '?'})")
-            add("credit", True, f"balance {me.get('balance_yen')} JPY")
+            credit = _credit_summary(me)
+            add("credit", True, f"available {credit['available_yen']} JPY "
+                f"(free {credit['free_credit_yen']} + prepaid {credit['prepaid_balance_yen']}"
+                + (f", held {credit['held_yen']}" if credit["held_yen"] else "") + ")")
         except ClientError as exc:
             add("key", False, str(exc), "run `janction-render login` with a working key, or unset JANCTION_RENDER_API_KEY")
     found = [x["label"] for x in hookup.clients(server=args.server) if x.get("found")]

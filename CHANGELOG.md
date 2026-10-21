@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.159 - 2026-10-21
+
+- The CLI `balance` and `doctor` commands now report welcome/free credit, prepaid balance, holds, and the actual total available amount separately, so a key with card-granted free credit is no longer described as having zero usable credit.
+
+## 0.4.158 - 2026-10-21
+
+- A preview no longer runs at the sample count saved in a .blend when that count has keyframes or a driver: the requested samples are kept, and each preview frame on Cycles has a render-time cap, so a heavy scene returns an image instead of timing out.
+
 ## 0.4.157 - 2026-10-21
 
 - Bumped every public page's sitemap and HTTP modification date after the site-wide stale-cache correction, so crawlers no longer see unchanged 2026-10-14 dates on affected guides.

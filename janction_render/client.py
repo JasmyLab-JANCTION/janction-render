@@ -453,7 +453,8 @@ class Client:
         return r.json()
 
     def upload(self, path: str | Path, assets: Optional[list[str | Path]] = None,
-               trace_assets: bool = True) -> dict[str, Any]:
+               trace_assets: bool = True,
+               progress: Optional[Callable[[int, int], None]] = None) -> dict[str, Any]:
         """シーンを送る。同じ中身を送ってあれば送り直さない（sha256 で照合）。
 
         assets: 一緒に送る素材（画像など）。.blend は blender-asset-tracer があれば参照する外部ファイルを自動で集める。
@@ -467,24 +468,34 @@ class Client:
                              "(" + ", ".join(SCENE_SUFFIXES[2:]) + ")")
         digest = sha256_of(p)
         out: Optional[dict[str, Any]] = None
+        reused = False
+        upload_method = "single_request"
         try:
             out = self.lookup(digest)
+            reused = out is not None
         except ClientError:
             out = None
         if out is None:
             cap = self.upload_cap_bytes()
             if cap and p.stat().st_size > min(cap, RESUMABLE_ABOVE):
                 # 1 回で送れる大きさ（Cloudflare の 100 MB）に近い・超える: 分けて送る（/v1/uploads、10/13）。受付が古ければ前のとおり断る
-                done = self.upload_resumable(p, digest)
+                upload_method = "resumable_parts"
+                done = self.upload_resumable(p, digest, progress=progress)
                 if done is None:
                     raise self._too_large(f"the scene file {p.name}", p.stat().st_size, cap, "scene_url")
                 out = done.get("scene") or done
             else:
+                if progress:
+                    progress(0, p.stat().st_size)
                 with p.open("rb") as fh:
                     r = self.s.post(f"{self.server}/v1/files", headers=self._headers(),
                                     files={"file": (p.name, fh, "application/octet-stream")}, timeout=1800)
                 self._raise(r)
                 out = r.json()
+                if progress:
+                    progress(p.stat().st_size, p.stat().st_size)
+        else:
+            upload_method = "reused_existing"
         items: list[tuple[str, Path]] = []
         missing: list[str] = []
         if p.suffix.lower() == ".blend" and trace_assets:
@@ -539,7 +550,18 @@ class Client:
         if todo:
             out = self.upload_assets(out["scene_id"], todo)
         out["missing_assets"] = missing
+        # Keep the user's name separate from the server-safe stored name.  This
+        # avoids making a normalized filename look like a different upload.
+        out["original_name"] = p.name
+        out["stored_name"] = out.get("name") or p.name
+        out["upload_bytes"] = p.stat().st_size
+        out["upload_method"] = upload_method
+        out["reused_existing"] = reused
         return out
+
+    def preflight(self, scene_id: str, **settings: Any) -> dict[str, Any]:
+        """Return the shared render-readiness diagnosis without rendering or charging."""
+        return self._req("POST", f"/v1/scenes/{scene_id}/preflight", json=settings)
 
     # ---- 分けて送る（10/13、docs/67。最大 5 GiB の .blend）----------------------------------------
 
