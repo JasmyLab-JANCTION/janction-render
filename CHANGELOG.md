@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.4.162 - 2026-10-21
+
+- Groundwork for connecting JANCTION Storage: a JANCTION Render key holder can let Storage start renders that continue a Storage project, without pasting the key into Storage. Off until Storage switches it on; prices, limits and paid-render approval are unchanged.
+
+## 0.4.161 - 2026-10-21
+
+- /facts.json lists use cases (the problem, who it is for, inputs, the first tool, the steps, what it is not for, and the guide page) so an AI can tell when this service fits a request and when it does not.
+
+## 0.4.160 - 2026-10-21
+
+- The web start page shows the free welcome credit and its expiry next to the balance, so a returning user no longer sees only "Credit 0 JPY".
+- A size saved from an earlier visit that this key cannot render without prepaid credit (for example 4K) is no longer offered on the main button.
+- Credit notes say whether the free credit is low or only expiring, and say the time left in hours when it is under two days.
+- After the files expire, the start page and the recent-jobs list (render_status without a job, GET /v1/jobs?summary=1) still offer the settings of earlier finals; send the file again to render with them.
+
 ## 0.4.159 - 2026-10-21
 
 - The CLI `balance` and `doctor` commands now report welcome/free credit, prepaid balance, holds, and the actual total available amount separately, so a key with card-granted free credit is no longer described as having zero usable credit.

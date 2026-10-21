@@ -456,7 +456,7 @@ def welcome_billing(w: dict[str, Any], me: dict[str, Any], synced: dict[str, Any
     b = me.get("billing") or {}
     yen = b.get("yen_per_gpu_second")
     if w.get("in_welcome"):
-        summary = f"welcome credit: {w['yen_left']} JPY left, {w['days_left']} days"
+        summary = f"welcome credit: {w['yen_left']} JPY left, {w.get('time_left_en') or str(w['days_left']) + ' days'}"
     elif w.get("in_window"):
         summary = "the welcome credit is used up"
     else:
@@ -495,10 +495,15 @@ def welcome_billing(w: dict[str, Any], me: dict[str, Any], synced: dict[str, Any
         out["first_topup_bonus"] = (f"the first top-up during the welcome period counts {1 + bonus:g}x"
                                     + (f", bonus up to {cap:,} JPY" if cap else "") + f" ({mt} JPY adds {credit:,} JPY of credit)")
     out.update(plan_fields(me))
-    if w.get("in_window") and (int(w.get("yen_left") or 0) < 100 or int(w.get("days_left") or 0) <= 3):
+    if w.get("in_window") and int(w.get("yen_left") or 0) < 100:
         out["next"] = ("tell the user the welcome credit is running out (" + summary + ")"
                        + (" and that the first top-up now counts " + f"{1 + bonus:g}x" if bonus else "")
                        + "; a top-up link comes with the next job that needs credit (402 checkout_url)")
+    elif w.get("in_welcome") and int(w.get("days_left") or 0) <= 3:
+        # 10/21: 残りが十分あるのに「running out」とチャージを勧めていた。期限だけを伝え、チャージは勧めない
+        out["next"] = ("tell the user the welcome credit expires in " + str(w.get("time_left_en") or str(w["days_left"]) + " days")
+                       + f" ({w['yen_left']} JPY left; what is left then is not carried over). Do not push a top-up; "
+                       "previews stay free (2 GPU minutes a day) after that")
     if me.get("usd_indicative"):
         out["usd_indicative"] = me["usd_indicative"]     # ドルの目安（受付の env があるとき、10/12）
     if me.get("autocharge_offer") and not me.get("card_offer"):

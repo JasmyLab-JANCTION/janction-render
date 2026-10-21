@@ -187,6 +187,11 @@ def recent_job_row(v: dict[str, Any]) -> dict[str, Any]:
 def recent_jobs_next(out: dict[str, Any]) -> str:
     """render_status（job_id なし）の next。"""
     jobs = out.get("jobs") or []
+    if not jobs and out.get("earlier_settings"):
+        # 10/21: ファイルは消えたが、前の仕上げの設定は分かる。同じ設定で描き直す道を先に言う
+        return ("the earlier files have expired, but earlier_settings lists the settings of this key's earlier finals: tell the user "
+                "briefly (date, size, frames, output) and offer to render again with them once they send the file again "
+                "(render_preview with the file, then render_final with the same settings; ask before anything paid)")
     if not jobs:
         return ("no jobs for this key yet (a reconnected app or a new key starts empty: jobs belong to the API key that made them); "
                 "start with render_preview")

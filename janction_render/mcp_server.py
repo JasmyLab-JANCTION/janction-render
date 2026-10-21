@@ -701,7 +701,9 @@ def render_final(
     if j.get("credit_note"):
         # 無料分が残り少ない（受付の credit_note、0.4.39）: 壁に当たる前に人間に伝える
         brief["credit_note"] = j["credit_note"]
-        brief["next"] += "; also tell the user credit_note.tell_user in their own language (free credit is running low)"
+        brief["next"] += ("; also tell the user credit_note.tell_user in their own language ("
+                          + ("the free credit expires soon but is not used up; do not push a top-up"
+                             if j["credit_note"].get("reason") == "expiring" else "free credit is running low") + ")")
     return _j(_attach_upload_notes(brief))
 
 
