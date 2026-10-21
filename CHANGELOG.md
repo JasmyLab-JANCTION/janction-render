@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.157 - 2026-10-21
+
+- Bumped every public page's sitemap and HTTP modification date after the site-wide stale-cache correction, so crawlers no longer see unchanged 2026-10-14 dates on affected guides.
+- AI citation evaluation now fails answers that repeat obsolete 240-frame, 1,000-frame, free-beta, or daily-10-minute claims as current terms.
+
 ## 0.4.156 - 2026-10-21
 
 - Added `Last-Modified` and content-derived `ETag` validators to every public HTML and negotiated Markdown guide so search and AI crawlers can detect replacements of stale cached pages.
