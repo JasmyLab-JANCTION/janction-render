@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.165 - 2026-10-21
+
+- Previews and finals over the HTTP API take background: grey (default, unchanged), white (only what the camera sees directly turns white; lighting and reflections stay on the studio light) or transparent. It needs an environment preset such as preset='product'. The MCP server's directory listing is titled JANCTION Render.
+
 ## 0.4.164 - 2026-10-21
 
 - A render whose estimate fits your free GPU time no longer asks for a small credit hold when the key has no credit: it runs free, and if it runs a little past the free time we cover that part (up to 50 JPY). On free time, a single heavy frame that runs past the time limit is drawn again within your welcome credit left, instead of failing.
