@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.163 - 2026-10-21
+
+- Security: repeated failed sign-ins from one network are paused for a few minutes (429 auth_locked with Retry-After); requests without a key are not affected. Paid and long renders are no longer moved out of the extra sandbox layer when it fails to start; they are retried on another GPU worker at no charge.
+
 ## 0.4.162 - 2026-10-21
 
 - Groundwork for connecting JANCTION Storage: a JANCTION Render key holder can let Storage start renders that continue a Storage project, without pasting the key into Storage. Off until Storage switches it on; prices, limits and paid-render approval are unchanged.
