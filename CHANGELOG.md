@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.168 - 2026-10-23
+
+- What a bpy script prints now comes back even when the render succeeds: script_output on the job (GET /v1/jobs/{id}, render_status) and in scene_info, the last 300 lines. Scripts no longer need to raise an error just to read a value such as a camera projection. Over MCP, failures also carry line, check and auto_fix.
+
 ## 0.4.167 - 2026-10-23
 
 - When a script stops itself with its own check (an assert, or a raise at the line that failed), the failure now says so: code SCENE_QA_FAILED with the check's message and line, and auto_fix false, so the check is not removed just to get an image. When Blender's startup line was mixed into an error, the line shown is now the one that actually failed.
