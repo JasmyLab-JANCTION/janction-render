@@ -228,7 +228,8 @@ def add_upload_hint(out: dict[str, Any], server: str, error: str = "", status: i
     if local_path:
         out["from_a_terminal"] = TERMINAL_UPLOAD
     fix = str(out.get("possible_fix") or "")
-    out["possible_fix"] = (fix + "; or " if fix else "") + hint
+    if out["upload_page"] not in fix:       # 10/22: 受付の直し方が既に /upload を言っていれば重ねない
+        out["possible_fix"] = (fix + "; or " if fix else "") + hint
     return out
 
 

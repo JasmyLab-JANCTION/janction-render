@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.167 - 2026-10-23
+
+- When a script stops itself with its own check (an assert, or a raise at the line that failed), the failure now says so: code SCENE_QA_FAILED with the check's message and line, and auto_fix false, so the check is not removed just to get an image. When Blender's startup line was mixed into an error, the line shown is now the one that actually failed.
+
+## 0.4.166 - 2026-10-22
+
+- Groundwork for JANCTION Storage re-renders: when Storage asks for a re-render, the same look settings (product shots, turntables, studio light, multiple cameras) come back exactly, "render again" always renders instead of reusing earlier frames, and textures stored next to a .blend in Storage are delivered with it, including ones Storage found in another folder. Off until Storage switches it on; prices, limits and the results of renders sent with an API key are unchanged.
+
 ## 0.4.165 - 2026-10-21
 
 - Previews and finals over the HTTP API take background: grey (default, unchanged), white (only what the camera sees directly turns white; lighting and reflections stay on the studio light) or transparent. It needs an environment preset such as preset='product'. The MCP server's directory listing is titled JANCTION Render.

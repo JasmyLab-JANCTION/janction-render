@@ -128,7 +128,15 @@ def cmd_upload(c: Client, args: argparse.Namespace) -> int:
             # 鍵なしのリンクは .blend だけを運ぶ。外の画像は付かないので、詰めてから送るか、この PC の鍵で送る（--keep）
             print(f"note: this .blend uses {len(found)} external file(s) (textures) that the link does not carry; pack them "
                   "in Blender (File > External Data > Pack Resources) and save, or use --keep", file=sys.stderr)
-    out = c.send_for_ai(path, progress=_upload_progress, upload_url=args.link or "")
+    try:
+        out = c.send_for_ai(path, progress=_upload_progress, upload_url=args.link or "")
+    except ClientError as exc:
+        if not args.link and (exc.status == 429 or exc.error in ("rate_limited", "upload_quota")):
+            # 鍵なしの送信は回線ごとの上限がある（1 時間の回数・1 日の量）。自分の鍵で送れば当たらない（10/22）
+            print("note: uploads without a key are limited per network. To keep going now, send with this machine's key: "
+                  f"`janction-render upload --keep {path.name}` (no network limit; the scene_id works with this CLI and the "
+                  "local MCP server), or ask your AI app for an upload link and pass it with --link", file=sys.stderr)
+        raise
     if out.get("scene_id"):
         print("upload complete: the file is now a scene of your AI app's connection", file=sys.stderr)
         print(_j({"scene_id": out["scene_id"], "reused": bool(out.get("reused")),

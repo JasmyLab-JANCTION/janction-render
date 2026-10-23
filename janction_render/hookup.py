@@ -157,7 +157,7 @@ def clients(server: Optional[str] = None, home: Optional[Path] = None,
                     "entry": entry, "show": f"{cfg}: \"{top}\": {{\"{NAME}\": {json.dumps(entry)}}}"})
     for key, label, how in (
         ("claude-app", "Claude.ai / Claude Desktop", f"Settings > Connectors > Add custom connector > {url}"),
-        ("chatgpt", "ChatGPT", f"Settings > Connectors > Advanced > Developer mode > Create > {url}"),
+        ("chatgpt", "ChatGPT", f"Plugins > Add > Create plugin > {url}"),
         ("grok", "Grok", f"Connectors > New Connector > Custom > {url}"),
         ("notion", "Notion Agent", f"Settings > Connections > Discover > Add Custom MCP > {url}"),
     ):
