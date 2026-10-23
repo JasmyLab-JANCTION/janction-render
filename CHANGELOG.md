@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.169 - 2026-10-23
+
+- Measurement only, nothing visible changes: the /start page now records how long the finish button was on screen before a visitor left without pressing it, whether the button was scrolled into view, and whether the settings were opened. No key, IP address or personal data is recorded, as before.
+
 ## 0.4.168 - 2026-10-23
 
 - What a bpy script prints now comes back even when the render succeeds: script_output on the job (GET /v1/jobs/{id}, render_status) and in scene_info, the last 300 lines. Scripts no longer need to raise an error just to read a value such as a camera projection. Over MCP, failures also carry line, check and auto_fix.
