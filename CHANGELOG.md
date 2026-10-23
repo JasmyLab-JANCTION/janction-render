@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.4.171 - 2026-10-23
+
+- The pricing page now labels itself as the current authoritative terms and links directly to the same machine-readable pricing contract. Its modification date and the site-wide crawl validators were refreshed after verifying the live 100 JPY plus 400 JPY welcome-credit terms.
+- The English and Japanese pricing, no-GPU guide, facts and llms.txt URLs were resubmitted to IndexNow. Search snippets that predate paid use are stale; the live page and `/v1/pricing` are the source of truth.
+
+## 0.4.170 - 2026-10-23
+
+- The moment of payment after a preview: the next step now says one of four things (covered by the free time / about N JPY from the credit / a card registration that costs nothing covers it / a top-up of N JPY covers this render and about M more like it) instead of "it does not fit today, use fewer frames or wait for the reset" on a key that has credit. quota_left_today says what it applies to (previews only once the welcome credit is over; finals are paid from the credit), render_estimate uses the same wording, and final_offers carry mode card_needed when the card bonus covers the job.
+- render_info: the diagnosis no longer fails on a zero balance alone, separates previews (free seconds left today) from finals (credit), reports "N lanes on M GPUs", and adds connection_ok / render_ready / paid_final_available and tell_user_ja. The stdio render_info no longer embeds the whole of /v1/me (webhook signing secret, billing links). /v1/me carries card_offer only when the balance is 0.
+- environment='compare': the reply shows one frame in 4 lights (frames [1] plus variants), show_user asks the user to pick one, the final offer needs environment=<the pick> (a placeholder is refused by the server), and the critic no longer suggests hiding the HDRI in a compare sheet. Every preview also returns show_user_ja.
+- No "whole animation" offer for a scene with nothing animated and the default 1-250 frame range; a still comes first.
+- jr_assets.import_model removes Blender's untouched startup cube before importing, and the preview critic reports default_cube_left (severity fix when the imported objects sit inside the cube, which made the cube the only thing in the render).
+- Card registration that does not qualify for the free GPU time (a prepaid card, or a card already used on another key) now keeps the saved card and answers with a top-up link that uses it (card_kept, topup_link; the return page shows the button), instead of removing the card. No free time is added in these cases, as before. Top-up checkout pages pass the key's Stripe customer so a saved card is offered.
+
 ## 0.4.169 - 2026-10-23
 
 - Measurement only, nothing visible changes: the /start page now records how long the finish button was on screen before a visitor left without pressing it, whether the button was scrolled into view, and whether the settings were opened. No key, IP address or personal data is recorded, as before.

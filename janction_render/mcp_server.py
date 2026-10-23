@@ -906,7 +906,8 @@ def render_info() -> str:
     diag = mcp_common.diagnose(health, me, last_failed, connection=f"local MCP to {c.server}")
     return _j({"ok": True, "server": c.server, "diagnose": diag, "workers": health["workers"], "queue": health["queue"],
                "features": health.get("features"),
-               "key": me, "downloads_go_to": str(_out_root()),
+               # 10/23: /v1/me を丸ごと載せない（約 27 KB、Webhook の署名の秘密・決済のリンクまでエージェントの記録に出ていた）
+               "key": mcp_common.key_view(me), "downloads_go_to": str(_out_root()),
                "first_call": f"render_preview(scene_url='{SAMPLE_URL}', environment='compare') confirms the connection in a few seconds",
                "remote_mcp": f"{c.server}/mcp (Streamable HTTP; for Claude.ai, ChatGPT, Cursor: add this URL as a connector)"})
 

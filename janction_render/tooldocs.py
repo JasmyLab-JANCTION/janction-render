@@ -146,7 +146,7 @@ def product_recipe(flavor: str) -> str:
     a = _assets_param(flavor)
     return ("For product shots of something the user has no model for: asset_search('<item>'), then "
             f"render_preview(scene_script='import jr_assets; jr_assets.import_model(\"<id>\")', {a}=['polyhaven:<id>'], "
-            "preset='product') gives 4 studio shots on a plain backdrop.")
+            "preset='product') gives 4 studio shots on a plain backdrop (import_model removes Blender's untouched startup cube first).")
 
 
 def _free_left() -> str:

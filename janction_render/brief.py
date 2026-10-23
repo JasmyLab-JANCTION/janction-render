@@ -56,6 +56,62 @@ PRESET_FINALS: dict[str, dict[str, Any]] = {
 }
 
 
+DEFAULT_FRAME_RANGE = [1, 250]       # Blender の初期のコマ範囲（台本が触っていないしるし）
+COMPARE_PICK = "<the light the user picked: studio | sunset | overcast | night>"
+
+
+def pay_words(cost: dict[str, Any] | None, quota: dict[str, Any] | None = None, min_topup_yen: int = 500) -> dict[str, Any]:
+    """仕上げの払い方を 1 文に（10/23、初見の体験の指摘）。無料で描ける / 残高で足りる / カード登録の分で足りる / チャージが要る、の
+    4 通りだけ。仕上げに「今日は入らない・コマを減らせ・リセットを待て」とは言わない: 有料の鍵の仕上げは残高から描けるし、
+    「今日の無料」は試し描きの枠の話。リンクは 1 つ（render_final の 402 に付く）。ベータ（全員が日次枠）だけは今までの言い方。"""
+    c = cost or {}
+    q = quota or {}
+    w = q.get("welcome") or {}
+    if not c or ("free" not in c and not c.get("free_beta") and not c.get("needs_prepaid_credit")):
+        return {}          # 払い方の分かる見積もりでなければ（定価だけなど）何も言わない: 呼ぶ側が今までの枠の文を使う
+    if c.get("free_beta"):
+        if q.get("fits_today") is False:
+            return {"mode": "wait", "en": "it does not fit today's free GPU time (beta): propose fewer frames, a smaller size, or waiting for the reset",
+                    "ja": "今日の無料の GPU 時間（ベータ）に収まりません。コマを減らす・小さくする・リセットを待つ、のどれかを提案してください"}
+        return {"mode": "free", "en": "no charge during the beta", "ja": "ベータ期間中のため請求なし"}
+    if c.get("needs_prepaid_credit"):
+        return {"mode": "topup", "en": (f"this size needs a key that has bought credit (from {min_topup_yen} JPY); up to 1920x1080 is covered "
+                                       "by the free GPU time. Ask the user which"),
+                "ja": f"この大きさは {min_topup_yen} 円以上チャージした鍵で描けます。1920×1080 までなら無料の時間で描けます。どちらにするか聞いてください"}
+    if c.get("free"):
+        return {"mode": "free", "en": "covered by the free GPU time, nothing to pay: ask the user, then render_final",
+                "ja": "無料の GPU 時間で描けます（支払いなし）。利用者に確かめてから render_final"}
+    est = int(c.get("estimated_yen") or 0)
+    held = int(c.get("max_charge_yen") or c.get("reserved_yen") or 0)
+    bal = int(c.get("balance_yen") or 0)
+    if c.get("enough_balance", bal >= held):
+        return {"mode": "credit",
+                "en": (f"about {est} JPY from the credit (balance {bal} JPY; up to {held} JPY held, the rest comes back; nothing more to "
+                       "pay): ask the user whether to render this one, and if yes call render_final"),
+                "ja": (f"残高から 約 {est} 円（残高 {bal} 円。仮押さえ {held} 円、使わなかった分は戻ります。追加の支払いなし）。"
+                       "この 1 本を仕上げるか聞いて、はいなら render_final")}
+    short = max(0, held - bal)
+    card_yen = int(w.get("card_bonus_yen") or 0) if w.get("card_bonus_available") else 0
+    if card_yen and card_yen >= held:
+        return {"mode": "card", "card_bonus_yen": card_yen,
+                "en": (f"about {est} JPY; the credit is {bal} JPY. Registering a card adds {card_yen} JPY of free GPU time and covers "
+                       "this render; the registration itself costs nothing and the card is not charged (one page). Ask the user; if yes, "
+                       "call render_final: its answer carries the one link to open, and the render starts by itself once the card is saved"),
+                "ja": (f"料金 約 {est} 円・残高 {bal} 円。カードを登録すると {card_yen} 円分の無料の GPU 時間が足され、この仕上げはそれで描けます"
+                       "（登録は 0 円、カードに請求は行われません。ページは 1 つ）。利用者に聞いて、はいなら render_final: その返事にリンクが "
+                       "1 つ付き、登録が済むと描画が自動で始まります")}
+    topup = max(int(min_topup_yen), short)
+    after = bal + topup - est
+    more = (after // est) if est > 0 else 0
+    return {"mode": "topup", "shortfall_yen": short, "topup_yen": topup, "credit_after_yen": after,
+            "en": (f"about {est} JPY; the credit is {bal} JPY ({short} JPY short). A top-up of {topup} JPY covers this render"
+                   + (f" and about {more} more like it" if more else "") + ". Ask the user; if yes, call render_final: its answer "
+                   "carries the one checkout link, and the render starts by itself after payment"),
+            "ja": (f"料金 約 {est} 円・残高 {bal} 円（不足 {short} 円）。{topup} 円のチャージでこの仕上げ"
+                   + (f"と、同じくらいの仕上げが約 {more} 回分" if more else "") + "描けます。利用者に聞いて、はいなら render_final: "
+                   "その返事に決済のリンクが 1 つ付き、払うと描画が自動で始まります")}
+
+
 def final_body_after_preview(j: dict[str, Any]) -> dict[str, Any] | None:
     """試し描き（done）の次の一手の見積もりに使う final の本文（10/7）: 同じシーン・同じ設定で、試し描きしたコマ範囲を
     1920x1080・128 サンプルで仕上げたら、という仮定。compare は 1 コマ、cameras は同じカメラ群、orbit は 1 周。"""
@@ -99,11 +155,14 @@ def final_body_after_preview(j: dict[str, Any]) -> dict[str, Any] | None:
     return body
 
 
-def final_offers(j: dict[str, Any], scene_range: list[int] | tuple[int, int] | None = None) -> list[dict[str, Any]]:
+def final_offers(j: dict[str, Any], scene_range: list[int] | tuple[int, int] | None = None,
+                 animated: bool | None = None) -> list[dict[str, Any]]:
     """試し描きのあとの仕上げの候補（10/19、要件 UX-01・UX-02）。静止画・アニメーション・複数カメラ・preset で分ける。
     アニメーションは scene_range（シーンのコマ範囲、試し描きの検査か読み取りの結果）があるときだけ「全コマを動画に」を出し、
     その見積もりは全コマ・1920x1080・128 サンプル・MP4 で取る（1 コマの時間から推し量らない）。範囲が分からなければ、
-    試し描きしたコマだけを言う（頼まれていない範囲に広げない）。先頭が主な候補。"""
+    試し描きしたコマだけを言う（頼まれていない範囲に広げない）。先頭が主な候補。
+    10/23: 動くものが無く（animated=False）コマ範囲が Blender の初期値 1-250 のままなら、全コマの動画は出さない（同じ絵が 250 枚、66 円の
+    提案が静止画 1 円より先に出ていた）。台本が範囲を決めていれば（1-48 など）動くものが見つからなくても出す（物理など、鍵の付かない動き）。"""
     base = final_body_after_preview(j)
     if not base:
         return []
@@ -113,14 +172,17 @@ def final_offers(j: dict[str, Any], scene_range: list[int] | tuple[int, int] | N
     if base.get("cameras"):
         return [{"id": "cameras", "what": f"frame {base.get('frame_start')} from {len(base['cameras'])} cameras, one PNG each",
                  "body": base}]
-    if base.get("orbit") or p.get("compare"):
-        return [{"id": "still" if p.get("compare") else "turntable", "body": base,
-                 "what": f"one {base.get('orbit_frames') or 24}-frame turntable" if base.get("orbit") else f"frame {base['frame_start']}"}]
+    if p.get("compare"):
+        # 10/23: 比較の試し描きは「光を 1 つ選ぶ」が仕上げの前の意図。環境を空のまま仕上げると、どの枠とも違う絵（シーン自身の世界）になる
+        return [{"id": "still", "body": base, "what": f"frame {base['frame_start']} in the light the user picks",
+                 "choose": {"environment": list(p["compare"])}}]
+    if base.get("orbit"):
+        return [{"id": "turntable", "body": base, "what": f"one {base.get('orbit_frames') or 24}-frame turntable"}]
     frames = sorted(int(x) for x in (j.get("frames") or []) if isinstance(x, (int, float))) or [int(base.get("frame_start") or 1)]
     first = frames[0]
     still = {**base, "frame_start": first, "frame_end": first, "output": "png"}
     rng = [int(x) for x in scene_range] if scene_range and len(scene_range) == 2 else None
-    if rng and rng[1] > rng[0]:
+    if rng and rng[1] > rng[0] and not (animated is False and rng == DEFAULT_FRAME_RANGE):
         whole = {**base, "frame_start": rng[0], "frame_end": rng[1], "output": "mp4"}
         return [{"id": "whole_animation", "what": f"all {rng[1] - rng[0] + 1} frames ({rng[0]}-{rng[1]}) as an MP4", "body": whole},
                 {"id": "this_frame", "what": f"frame {first} only, as a still image", "body": still}]
@@ -131,9 +193,11 @@ def final_offers(j: dict[str, Any], scene_range: list[int] | tuple[int, int] | N
     return offers
 
 
-def followup_after_preview(est: dict[str, Any] | None, body: dict[str, Any] | None) -> dict[str, Any]:
+def followup_after_preview(est: dict[str, Any] | None, body: dict[str, Any] | None, min_topup_yen: int = 500) -> dict[str, Any]:
     """試し描きの後に添える「仕上げならどれくらいか・今日の枠の残り」（10/7）。est は /v1/estimate の返事。
-    エージェントが『final なら約 N 秒、今日の無料枠はあと M 秒』と次の一手を提案できるようにする。"""
+    エージェントが『final なら約 N 秒、今日の無料枠はあと M 秒』と次の一手を提案できるようにする。
+    10/23: final_estimate.pay に払い方の 1 文（pay_words）。quota_left_today は何に効く枠かを applies_to で言う
+    （ようこそが終わった鍵は、試し描きの今日の無料と、残高から描く仕上げが別物。前は仕上げの枠 0 秒と試し描きの 120 秒が同じ名前だった）。"""
     if not est or not body:
         return {}
     q = est.get("quota") or {}
@@ -157,8 +221,21 @@ def followup_after_preview(est: dict[str, Any] | None, body: dict[str, Any] | No
                            "fits_today": q.get("fits_today"), "gpu_seconds_left_today": q.get("gpu_seconds_left_today")},
     }
     if q.get("gpu_seconds_left_today") is not None:
-        out["quota_left_today"] = {"gpu_seconds": q["gpu_seconds_left_today"], "resets_at": iso(q.get("resets_at")) or q.get("resets_at")}
+        ql: dict[str, Any] = {"gpu_seconds": q["gpu_seconds_left_today"], "resets_at": iso(q.get("resets_at")) or q.get("resets_at")}
+        w = q.get("welcome") or {}
+        pv = q.get("preview_free_seconds_left_today")
+        if w.get("in_welcome"):
+            ql["applies_to"] = f"previews and finals (the welcome credit: {w.get('yen_left')} JPY left)"
+        elif pv is not None:
+            ql = {"preview_free_gpu_seconds": pv,
+                  "applies_to": "previews only (free up to this many GPU seconds today); a final is not limited by it, it is paid "
+                                "from the credit (see final_estimate.pay)",
+                  "resets_at": ql["resets_at"]}
+        out["quota_left_today"] = ql
     cost = est.get("cost") or {}
+    pay = pay_words(cost, q, min_topup_yen)
+    if pay:
+        out["final_estimate"]["pay"] = pay
     if cost.get("list_price_yen") is not None:
         out["final_estimate"]["list_price_yen"] = cost["list_price_yen"]
     if cost.get("estimated_yen") is not None:      # 有料モード: 無料枠を超えた分の見込み額（収まれば 0）
@@ -263,23 +340,40 @@ def preview_presentation(j: dict[str, Any], fu: dict[str, Any] | None, image_url
     c = j.get("cost") or {}
     paid = ("free" if (not c or c.get("free")) else
             f"{c.get('charged_yen')} JPY" if c.get("settled") else f"up to {c.get('reserved_yen')} JPY")
-    head = f"Preview ready ({gs:g} GPU-seconds, {paid})." if isinstance(gs, (int, float)) else "Preview ready."
+    p = j.get("params") or {}
+    cost_txt = f" ({gs:g} GPU-seconds, {paid})" if isinstance(gs, (int, float)) else ""
+    if p.get("compare"):
+        # 10/23: 比較の絵は「光を 1 つ選ぶ」ための絵。見せたところで用事が終わらないよう、選ぶと何になるかを同じ行で言う
+        names = list(p["compare"])
+        head = (f"Preview ready{cost_txt}: the same frame in {len(names)} lights ({', '.join(names)}; tiles left to right, top to bottom). "
+                "Pick one light; the final renders it at 1920x1080.")
+        head_ja = (f"試し描きができました{cost_txt}。同じコマを {len(names)} つの光（{'・'.join(names)}、左上から右へ）で描いています。"
+                   "1 つ選ぶと、その光で 1920×1080 に仕上げます。")
+    else:
+        head = f"Preview ready{cost_txt}."
+        head_ja = f"試し描きができました{cost_txt}。"
     if image_url:
         show = f"{head}\n\n![preview]({image_url})\n\nIf the image does not show, open {image_url}"
+        show_ja = f"{head_ja}\n\n![preview]({image_url})\n\n画像が出ないときはこのリンクを開いてください: {image_url}"
     elif saved_to:
         show = f"{head} Saved to {saved_to}"
+        show_ja = f"{head_ja} 保存先: {saved_to}"
     else:
         show = head
+        show_ja = head_ja
     sid = j.get("scene_id")
-    p = j.get("params") or {}
     fe = (fu or {}).get("final_estimate") or {}
     body = final_body_after_preview(j) or {}
     actions: list[dict[str, Any]] = []
     if fe:
         args = {k: body[k] for k in ("scene_id", "preset", "frame_start", "frame_end", "width", "height", "samples", "camera", "cameras",
                                      "environment", "orbit", "engine", "blender", "transparent") if body.get(k) not in (None, "")}
-        actions.append({"do": f"Render the final in full quality ({fe.get('what')}, {fe.get('size')})", "tool": "render_final",
-                        "args": args, "time": fe.get("human"), "price": _price_words(fe)})
+        do = f"Render the final in full quality ({fe.get('what')}, {fe.get('size')})"
+        if p.get("compare"):
+            args["environment"] = COMPARE_PICK
+            do = (f"Ask which light ({' / '.join(p['compare'])}), then render the final in full quality ({fe.get('what')}, "
+                  f"{fe.get('size')}) with environment=<the pick>")
+        actions.append({"do": do, "tool": "render_final", "args": args, "time": fe.get("human"), "price": _price_words(fe)})
     if turntable and not p.get("orbit") and not p.get("cameras"):
         actions.append({"do": "Make a 360-degree turntable video", "tool": "render_final",
                         "args": {"scene_id": sid, "preset": "turntable"}, "time": turntable.get("human"),
@@ -301,7 +395,7 @@ def preview_presentation(j: dict[str, Any], fu: dict[str, Any] | None, image_url
                 "render_share makes a page that stays (unlisted).")
     else:
         keep = f"Saved to {saved_to}; the files stay there (the service deletes its own copy 24 hours after the last use)." if saved_to else ""
-    out: dict[str, Any] = {"show_user": show, "next_actions": actions}
+    out: dict[str, Any] = {"show_user": show, "show_user_ja": show_ja, "next_actions": actions}
     if keep:
         out["keep"] = keep
     return out
@@ -314,6 +408,10 @@ def final_estimate_text(fu: dict[str, Any] | None) -> str:
         return ""
     text = (f". A final render of {fe.get('what')} at {fe.get('size')}/{fe.get('samples')} spp would take "
             f"{fe.get('human') or 'about ' + str(fe.get('gpu_seconds')) + ' s'} ({fe.get('gpu_seconds')} GPU s)")
+    pay = fe.get("pay") or {}
+    if pay.get("en"):
+        # 10/23: 払い方の 1 文（無料 / 残高 / カード登録 / チャージ）。「今日は入らない、リセットを待て」とは言わない
+        return text + ": " + pay["en"] + ". Tell the user this before asking"
     left = fe.get("gpu_seconds_left_today")
     if left is not None:
         text += f"; {left} GPU s of today's free quota remain"
@@ -373,6 +471,13 @@ def brief(j: dict[str, Any]) -> dict[str, Any]:
         "device": j["device"],
         "expires_at": iso(j.get("expires_at")) or j.get("expires_at"),
     }
+    prm = j.get("params") or {}
+    if prm.get("compare"):
+        # 10/23: 比較は「同じ 1 コマを 4 つの光で」。frames に 1〜4 の仮の番号を出すと 4 コマのアニメに見えた（初見の指摘）
+        out["frames"] = [int(prm.get("compare_frame") or 1)]
+        out["variants"] = list(prm["compare"])
+        out["variants_note"] = ("environment='compare': the same frame in these lights, tiles left to right, top to bottom; "
+                                "the final takes one of them as environment=<name>")
     if j.get("eta"):
         out["eta"] = eta_brief(j["eta"])
     if j.get("credit_hint"):

@@ -94,15 +94,38 @@ def estimate_next(est: dict[str, Any]) -> str:
         return (f"too big: at most {most} frames per render_final call (longer than {q.get('max_frames_per_job')} frames runs as "
                 "parts under one job id) and 1920x1080 on free time, 3840x2160 for keys with prepaid credit; split the frame range "
                 "into several calls or lower the size")
-    if q and not q.get("fits_today", True) and q.get("mode") == "free_allowance":
-        # 有料モード: 無料枠を超えた分は残高から（10/8）。額と残高を言ってから
+    from .brief import pay_words
+    pay = pay_words(cost, q)
+    if pay.get("mode") == "wait":
+        return pay["en"]
+    if pay.get("mode") in ("credit", "card", "topup"):
+        # 有料の鍵（10/8〜）: 無料の分を超えた仕上げは、残高 / カード登録の分 / チャージ、の 3 通りで言う（10/23）。
+        # 「今日は入らない、リセットを待て」とは言わない（仕上げは残高から描ける）
+        return "this goes past the free GPU time: " + pay["en"] + (
+            "; a smaller job (fewer frames, lower resolution or samples) may stay free" if pay["mode"] != "credit" else "")
+    if q and not q.get("fits_today", True) and q.get("mode") == "free_allowance" and cost.get("estimated_yen") is not None:
+        # 古い受付の cost（free の欄が無い）: 額と残高だけ言う
         return (f"this goes past the free GPU time left: about {cost.get('estimated_yen')} JPY would be charged from credit "
                 f"(balance {cost.get('balance_yen')} JPY). Tell the user the time and the price and ask before "
                 "render_final; a smaller job (fewer frames, lower resolution or samples) may stay free")
-    if q and not q.get("fits_today", True):
+    if q and not q.get("fits_today", True) and not cost:
         return ("this does not fit today's remaining free GPU time; propose fewer frames, lower resolution or samples, "
                 "or wait until resets_at")
     return "tell the user the estimate and ask before calling render_final"
+
+
+def key_view(me: Optional[dict[str, Any]]) -> dict[str, Any]:
+    """render_info に載せる鍵の要点（10/23）。前は /v1/me をそのまま載せていて、約 27 KB・Webhook の署名の秘密・決済のリンクまで
+    エージェントの画面と記録に出ていた（初見の指摘）。残りは GET /v1/me で読める。"""
+    if not me:
+        return {}
+    out = {k: me.get(k) for k in ("prefix", "jobs", "previews", "gpu_seconds", "balance_yen", "held_yen", "charged_yen_total", "quota")
+           if me.get(k) is not None}
+    for k in ("plan", "retention"):
+        if isinstance(me.get(k), dict):
+            out[k] = me[k]
+    out["more"] = "GET /v1/me (with the API key) has the rest: limits, billing links, the webhook signing secret"
+    return out
 
 
 def scene_info_reply(j: dict[str, Any], assets_param: str) -> dict[str, Any]:
@@ -247,56 +270,104 @@ def diagnose(health: Optional[dict[str, Any]], me: Optional[dict[str, Any]], las
     checks は [{check, ok, say}]、tell_user はそのまま利用者に言える 1 段落（英語。AI が利用者の言葉に直す）。"""
     errors = errors or {}
     checks: list[dict[str, Any]] = []
+    ja: list[str] = []
+    bal = 0.0
+    in_welcome = False
 
-    def add(name: str, ok: bool, say: str) -> None:
+    def add(name: str, ok: bool, say: str, say_ja: str = "") -> None:
         checks.append({"check": name, "ok": ok, "say": say})
+        if say_ja:
+            ja.append(say_ja)
 
     if health is None:
         add("connection", False, "the render service did not answer: " + (errors.get("health") or "unknown error")
-            + "; try again in a minute, and check https://render.janction.jp/status")
+            + "; try again in a minute, and check https://render.janction.jp/status",
+            "描画サービスが応答しません（1 分後にもう一度。状態は https://render.janction.jp/status）")
     else:
-        add("connection", True, "connected to the render service" + (f" ({connection})" if connection else ""))
+        add("connection", True, "connected to the render service" + (f" ({connection})" if connection else ""), "接続は正常です")
     if me is None and health is None and not errors.get("me"):
-        add("key", False, "the API key could not be checked because the service did not answer")
+        add("key", False, "the API key could not be checked because the service did not answer", "鍵はサービスが応答しないため確かめられません")
     elif me is None:
         add("key", False, "the API key did not work: " + (errors.get("me") or "unknown error")
-            + "; reconnect the app (a new key starts with free GPU time) or check the key in the app's settings")
+            + "; reconnect the app (a new key starts with free GPU time) or check the key in the app's settings",
+            "API キーが使えません（アプリをつなぎ直すと新しい鍵に無料の GPU 時間が付きます）")
     else:
-        add("key", True, f"the API key works (starts with {me.get('prefix') or '?'}; {me.get('jobs', 0)} jobs so far)")
+        add("key", True, f"the API key works (starts with {me.get('prefix') or '?'}; {me.get('jobs', 0)} jobs so far)",
+            f"鍵は有効です（これまで {me.get('jobs', 0)} 件）")
         try:
             br = billing_reply(me)
         except (KeyError, TypeError, ValueError):     # 古い受付の /v1/me の形: 残高だけで言う
             br = {}
-        if br.get("mode") == "welcome_credit":
-            credit = str(br.get("summary") or "")
-            ok = bool((br.get("welcome") or {}).get("in_welcome")) or float(me.get("balance_yen") or 0) > 0
+        bal = float(me.get("balance_yen") or 0)
+        q = me.get("quota") or {}
+        w = q.get("welcome") or {}
+        in_welcome = bool(w.get("in_welcome"))
+        pv = q.get("preview_free_seconds_left_today")
+        if br.get("mode") == "welcome_credit" and in_welcome:
+            credit = (f"welcome credit: {w.get('yen_left')} JPY left ({w.get('time_left_en') or str(w.get('days_left')) + ' days'}); "
+                      "it covers previews and finals")
+            credit_ja = f"ようこそクレジットが {w.get('yen_left')} 円残っています（{w.get('time_left_ja') or ''}）。試し描きも仕上げもこれで描けます"
+            ok = True
+        elif br.get("mode") == "welcome_credit":
+            # 10/23: ようこそが終わった鍵。試し描きの今日の無料と、残高から描く仕上げは別のもの。残高があるのに「チャージして」と言わない
+            parts, parts_ja = [], []
+            if pv is not None:
+                parts.append(f"previews: {int(float(pv))} free GPU-seconds left today")
+                parts_ja.append(f"試し描きは今日あと {int(float(pv))} GPU 秒無料")
+            if bal > 0:
+                parts.append(f"finals: paid from the credit (balance {int(bal)} JPY)")
+                parts_ja.append(f"仕上げは残高 {int(bal)} 円から")
+            else:
+                parts.append("finals: the credit is 0 JPY, so the first final asks for a card registration (no payment) or a top-up; "
+                             "the price comes with the preview and nothing is charged before the user agrees")
+                parts_ja.append("仕上げは残高 0 円なので、最初の仕上げでカード登録（0 円）かチャージを聞きます（料金は試し描きの返事に出ます。"
+                                "利用者が承知する前に請求はありません）")
+            credit = "; ".join(parts) or str(br.get("summary") or "")
+            credit_ja = "。".join(parts_ja)
+            ok = bal > 0 or float(pv or 0) > 0
         elif br.get("mode") in ("free_allowance", "free_beta"):
             left = int(br.get("gpu_seconds_left_today") or 0)
             credit = f"{left // 60} free GPU-minutes left today" + (f"; balance {me.get('balance_yen')} JPY" if "balance_yen" in br else "")
-            ok = left > 0 or float(me.get("balance_yen") or 0) > 0
+            credit_ja = f"今日の無料の GPU 時間はあと {left // 60} 分" + (f"、残高 {me.get('balance_yen')} 円" if "balance_yen" in br else "")
+            ok = left > 0 or bal > 0
         else:
             credit = f"balance {me.get('balance_yen')} JPY"
-            ok = float(me.get("balance_yen") or 0) > 0 or int(me.get("free_previews_left") or 0) > 0
-        add("credit", ok, credit + ("" if ok else "; previews may still be free, a final needs a top-up (billing tool)"))
+            credit_ja = f"残高 {me.get('balance_yen')} 円"
+            ok = bal > 0 or int(me.get("free_previews_left") or 0) > 0
+        add("credit", ok, credit + ("" if ok else "; nothing renders until the free time resets or the credit is topped up (billing tool)"),
+            credit_ja + ("" if ok else "。無料の時間が戻るかチャージするまで描けません"))
     if health is not None:
         q = health.get("queue") or {}
         ready = int(q.get("workers_available") or 0)
+        gpus = int(q.get("gpus_available") or 0)
         if ready > 0:
             wait = q.get("wait_seconds")
-            add("gpus", True, f"{ready} GPU worker(s) ready" + (f", about {int(wait)} s of queue ahead" if wait else ", no queue"))
+            where = f"{ready} worker lane(s) on {gpus} GPU(s) ready" if gpus else f"{ready} GPU worker(s) ready"
+            add("gpus", True, where + (f", about {int(wait)} s of queue ahead" if wait else ", no queue"),
+                (f"GPU は {gpus} 枚（{ready} 本の受け口）が空いています" if gpus else f"GPU の受け口が {ready} 本空いています")
+                + (f"（約 {int(wait)} 秒待ち）" if wait else "（待ちなし）"))
         elif int(q.get("workers_gated") or 0) > 0:
-            add("gpus", False, (q.get("note") or "the GPU is lent out right now") + "; renders wait in the queue and start by themselves")
+            add("gpus", False, (q.get("note") or "the GPU is lent out right now") + "; renders wait in the queue and start by themselves",
+                "GPU は貸し出し中です（順番待ちに入り、戻ると自動で始まります）")
         else:
-            add("gpus", False, "no GPU worker is online right now; renders wait in the queue and start when one returns")
+            add("gpus", False, "no GPU worker is online right now; renders wait in the queue and start when one returns",
+                "GPU が 1 枚もオンラインではありません（順番待ちに入り、戻ると始まります）")
     if last_failed:
         add("last_error", False, f"the last failed job ({last_failed.get('job_id')}, {last_failed.get('kind')}) said: "
-            + str(last_failed.get("error") or "no reason recorded")[:200])
+            + str(last_failed.get("error") or "no reason recorded")[:200],
+            f"直近の失敗（{last_failed.get('job_id')}）: " + str(last_failed.get("error") or "理由の記録なし")[:120])
     elif me is not None:
-        add("last_error", True, "the last render of this key did not fail")
+        add("last_error", True, "the last render of this key did not fail", "この鍵の直近の描画は失敗していません")
     bad = [c for c in checks if not c["ok"]]
     tell = ("Everything looks fine: " if not bad else "Found " + str(len(bad)) + " thing(s) to look at: ") + \
         " ".join(c["say"][0].upper() + c["say"][1:] + "." for c in (bad or checks))
-    return {"ok": not bad, "checks": checks, "tell_user": tell}
+    by = {c["check"]: c["ok"] for c in checks}
+    return {"ok": not bad, "checks": checks, "tell_user": tell,
+            "tell_user_ja": ("問題ありません。" if not bad else f"確かめることが {len(bad)} つあります。") + "。".join(ja) + "。",
+            # 10/23: つながるか・描けるか・有料の仕上げが今すぐ出せるか、を分けて読めるように（残高 0 だけで「ok: false」にしない）
+            "connection_ok": health is not None, "key_ok": me is not None,
+            "render_ready": bool(health is not None and me is not None and by.get("gpus", False)),
+            "paid_final_available": bool(me is not None and (bal > 0 or in_welcome))}
 
 
 # ------------------------------------------------------------------ 引数の説明（道具の description の末尾に足す）
