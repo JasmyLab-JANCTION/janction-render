@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.174 - 2026-10-26
+
+- Pay only the shortfall, behind the switch `JR_TOPUP_SHORTFALL` (off by default; with it off, prices and every page are unchanged). When on, the minimum top-up is `JR_TOPUP_SHORTFALL_MIN_YEN` (100 JPY) and the checkout made by a 402 rounds the shortfall up to 100 JPY (68 → 100, 158 → 200, 501 → 600) instead of 500 / 1,000 JPY steps. Web, MCP and the pricing, terms and commerce pages read the same value; the estimate carries `cost.topup_yen` so the sentence before the render names the amount the 402 will ask for. The held order of a 402 still starts by itself after payment, once. A checkout created before the switch keeps its amount, and a key that has paid before is still offered 2,000 JPY.
+
 ## 0.4.173 - 2026-10-26
 
 - Removed the internal 240-frame part size from current public guidance, plugin instructions and integration metadata after a live Claude search answer misread it as the user-facing job limit. The supported limit remains 3,000 frames per instruction, with automatic internal splitting under one job id.

@@ -100,7 +100,7 @@ def pay_words(cost: dict[str, Any] | None, quota: dict[str, Any] | None = None, 
                 "ja": (f"料金 約 {est} 円・残高 {bal} 円。カードを登録すると {card_yen} 円分の無料の GPU 時間が足され、この仕上げはそれで描けます"
                        "（登録は 0 円、カードに請求は行われません。ページは 1 つ）。利用者に聞いて、はいなら render_final: その返事にリンクが "
                        "1 つ付き、登録が済むと描画が自動で始まります")}
-    topup = max(int(min_topup_yen), short)
+    topup = int(c.get("topup_yen") or 0) or max(int(min_topup_yen), short)   # 受付が決めた額があればそれ（10/26 REQ-03）
     after = bal + topup - est
     more = (after // est) if est > 0 else 0
     return {"mode": "topup", "shortfall_yen": short, "topup_yen": topup, "credit_after_yen": after,
