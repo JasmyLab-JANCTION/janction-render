@@ -154,6 +154,19 @@ def scene_info_reply(j: dict[str, Any], assets_param: str) -> dict[str, Any]:
     return info
 
 
+def _with_card_offer(out: dict[str, Any], me: dict[str, Any]) -> dict[str, Any]:
+    """/v1/me の card_offer（カード登録 0 円で無料の GPU 時間が足される、無料分を使い切った鍵だけ）を billing の返事にも載せ、
+    まずそれを利用者に伝えるよう next で言う（10/26: 案内を受けた AI・CLI の鍵 8 本が 1 本も登録しなかった。billing の返事が案内を落としていた）。"""
+    co = me.get("card_offer")
+    if not co:
+        return out
+    out["card_offer"] = co
+    out["next"] = ("first tell the user card_offer.tell_user in their own language: registering a card costs nothing, the card is not "
+                   f"charged, and it adds {co.get('bonus_yen')} JPY of free GPU time; they open card_offer.link in a browser"
+                   + ("; " + out["next"] if out.get("next") else ""))
+    return out
+
+
 def billing_reply(me: dict[str, Any], synced: Optional[dict[str, Any]] = None) -> dict[str, Any]:
     """billing 道具の返事（GET /v1/me の形から）。無料ベータ / ようこそ / 毎日の無料枠 / 旧形 の 4 通りを両方の道具で同じに。"""
     from .brief import plan_fields, welcome_billing
@@ -168,7 +181,7 @@ def billing_reply(me: dict[str, Any], synced: Optional[dict[str, Any]] = None) -
                 **({"key_prefix": prefix} if prefix else {})}
     if q and q.get("welcome"):
         # ようこそクレジット（10/8 夜 本人の判断、docs/46）: 残りの円と期限、期間の後の試し描き、最初のチャージの特典
-        return welcome_billing(q["welcome"], me, synced)
+        return _with_card_offer(welcome_billing(q["welcome"], me, synced), me)
     if q:
         # 有料（10/8〜）: 毎日の無料枠と、超えた分を払う残高の両方
         yen = me["billing"]["yen_per_gpu_second"]

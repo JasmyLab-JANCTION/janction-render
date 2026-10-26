@@ -60,7 +60,8 @@ DEFAULT_FRAME_RANGE = [1, 250]       # Blender の初期のコマ範囲（台本
 COMPARE_PICK = "<the light the user picked: studio | sunset | overcast | night>"
 
 
-def pay_words(cost: dict[str, Any] | None, quota: dict[str, Any] | None = None, min_topup_yen: int = 500) -> dict[str, Any]:
+def pay_words(cost: dict[str, Any] | None, quota: dict[str, Any] | None = None, min_topup_yen: int = 500,
+              paid_min_yen: int = 500) -> dict[str, Any]:
     """仕上げの払い方を 1 文に（10/23、初見の体験の指摘）。無料で描ける / 残高で足りる / カード登録の分で足りる / チャージが要る、の
     4 通りだけ。仕上げに「今日は入らない・コマを減らせ・リセットを待て」とは言わない: 有料の鍵の仕上げは残高から描けるし、
     「今日の無料」は試し描きの枠の話。リンクは 1 つ（render_final の 402 に付く）。ベータ（全員が日次枠）だけは今までの言い方。"""
@@ -75,9 +76,9 @@ def pay_words(cost: dict[str, Any] | None, quota: dict[str, Any] | None = None, 
                     "ja": "今日の無料の GPU 時間（ベータ）に収まりません。コマを減らす・小さくする・リセットを待つ、のどれかを提案してください"}
         return {"mode": "free", "en": "no charge during the beta", "ja": "ベータ期間中のため請求なし"}
     if c.get("needs_prepaid_credit"):
-        return {"mode": "topup", "en": (f"this size needs a key that has bought credit (from {min_topup_yen} JPY); up to 1920x1080 is covered "
+        return {"mode": "topup", "en": (f"this size needs a key that has paid {paid_min_yen} JPY or more in total; up to 1920x1080 is covered "
                                        "by the free GPU time. Ask the user which"),
-                "ja": f"この大きさは {min_topup_yen} 円以上チャージした鍵で描けます。1920×1080 までなら無料の時間で描けます。どちらにするか聞いてください"}
+                "ja": f"この大きさは合計 {paid_min_yen} 円以上チャージした鍵で描けます。1920×1080 までなら無料の時間で描けます。どちらにするか聞いてください"}
     if c.get("free"):
         return {"mode": "free", "en": "covered by the free GPU time, nothing to pay: ask the user, then render_final",
                 "ja": "無料の GPU 時間で描けます（支払いなし）。利用者に確かめてから render_final"}
@@ -103,13 +104,24 @@ def pay_words(cost: dict[str, Any] | None, quota: dict[str, Any] | None = None, 
     topup = int(c.get("topup_yen") or 0) or max(int(min_topup_yen), short)   # 受付が決めた額があればそれ（10/26 REQ-03）
     after = bal + topup - est
     more = (after // est) if est > 0 else 0
-    return {"mode": "topup", "shortfall_yen": short, "topup_yen": topup, "credit_after_yen": after,
-            "en": (f"about {est} JPY; the credit is {bal} JPY ({short} JPY short). A top-up of {topup} JPY covers this render"
-                   + (f" and about {more} more like it" if more else "") + ". Ask the user; if yes, call render_final: its answer "
-                   "carries the one checkout link, and the render starts by itself after payment"),
-            "ja": (f"料金 約 {est} 円・残高 {bal} 円（不足 {short} 円）。{topup} 円のチャージでこの仕上げ"
-                   + (f"と、同じくらいの仕上げが約 {more} 回分" if more else "") + "描けます。利用者に聞いて、はいなら render_final: "
-                   "その返事に決済のリンクが 1 つ付き、払うと描画が自動で始まります")}
+    out = {"mode": "topup", "shortfall_yen": short, "topup_yen": topup, "credit_after_yen": after,
+           "en": (f"about {est} JPY; the credit is {bal} JPY ({short} JPY short). A top-up of {topup} JPY covers this render"
+                  + (f" and about {more} more like it" if more else "") + ". Ask the user; if yes, call render_final: its answer "
+                  "carries the one checkout link, and the render starts by itself after payment"),
+           "ja": (f"料金 約 {est} 円・残高 {bal} 円（不足 {short} 円）。{topup} 円のチャージでこの仕上げ"
+                  + (f"と、同じくらいの仕上げが約 {more} 回分" if more else "") + "描けます。利用者に聞いて、はいなら render_final: "
+                  "その返事に決済のリンクが 1 つ付き、払うと描画が自動で始まります")}
+    fs = c.get("free_short") or {}
+    ch = fs.get("change") or {}
+    if ch:
+        # 無料の短い完成版（10/26 P0-2、旗 JR_FREE_SHORT）: 2 つ目の道として言う。短くするかは利用者が選ぶ（勝手に短くしない）
+        args = ", ".join(f"{k}={ch[k]}" for k in ("frame_start", "frame_end", "width", "height"))
+        out["free_short"] = fs
+        out["en"] += (f". Or a free short version: {fs['frames']} frames ({fs['video_seconds']:g} s) at {ch['width']}x{ch['height']}, "
+                      f"covered by the free GPU time; if the user picks it, call render_final with {args}")
+        out["ja"] += (f"。または無料の短い版: {fs['frames']} コマ（{fs['video_seconds']:g} 秒）・{ch['width']}×{ch['height']}"
+                      f"（支払いなし）。利用者がこちらを選んだら render_final を {args} で")
+    return out
 
 
 def final_body_after_preview(j: dict[str, Any]) -> dict[str, Any] | None:

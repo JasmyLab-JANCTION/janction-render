@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.4.178 - 2026-10-26
+
+- The MCP billing tool (remote and stdio) dropped the `card_offer` of `/v1/me`: an agent asking for the balance of a key whose free time was used up never learned that registering a card (no charge) adds free GPU time. The reply now carries `card_offer` and `next` says to tell it to the user first. From 10/12 to 10/26, 8 keys that got the offer through `/v1/me` (CLI and agents) registered none.
+- CLI: `balance` prints the card line on stderr (and `card_offer` in its JSON); `estimate` prints the pricing sentence when a card or a top-up is needed; on a 402 with a card offer, the card line comes before the top-up link.
+
+## 0.4.177 - 2026-10-26
+
+- /start, the panel shown when a render waits for payment (402 with a held order): when registering a card covers the render, the heading says it can be rendered for free and the main button is "Register a card and render for free" (the paid amount stays as a second button); otherwise the heading says how many JPY are missing and the main button pays the top-up amount, with the first top-up bonus when there is one. The card page is opened in a tab created on the click, so a popup blocker does not stop it. The card offer was in the 402 body but the panel never drew it: 7 web keys that hit a 402 since 10/19 never saw it.
+- Fixed: after paying, the panel kept saying "waiting for the payment" because the held order then reports the job's own status (queued, running, done), not started; the result now appears as soon as the job is done. A failed order (still short) shows its reason.
+- Payment links styled as links (`<a class="b">`) now look like the other buttons.
+- The price line under the main button (`/v1/estimate` pricing) names the free card path for keys that can still get it, as the MCP final offers already did.
+- New browser events `card_offer_seen` (the card offer was drawn on the page) and `free_short_shown` are recorded; `free_short_shown` from 0.4.176 had been dropped by the event allowlist.
+- A payer on the Japanese /start gets Japanese payment pages end to end: the top-up chooser opens in Japanese, a checkout page is reused only in the same language (`checkout_sessions.lang`; earlier rows count as English), `POST /v1/billing/checkout` takes `lang`, and the panel's pay button creates a Japanese checkout on the click instead of the English one the 402 made. Before, picking 100 JPY on the Japanese chooser reused the English page from the 402 and the return page was English.
+- `tools/stripe_test_local.py --set JR_NAME=VALUE` passes flags to the local receptionist without touching the env file that holds the test key.
+
+## 0.4.176 - 2026-10-26
+
+- A free short version, behind the switch `JR_FREE_SHORT` (off by default; with it off nothing changes). When a video final does not fit the free GPU time left, `POST /v1/estimate` and the MCP estimates (render_estimate, the follow-up after a preview, the final offers) add `cost.free_short`: the longest of 5, 4 or 3 seconds at up to 1280x720 (same samples) that the receptionist would run for free, with the frame range and size to send. /start shows it as a second button under the paid main button, and the MCP pay sentence offers it as a second path; the render is shortened only when the user picks it. Submitting a job does not search for it.
+- `tools/stripe_test_local.py` passes the other `JR_` values of its env file to the local receptionist.
+
+## 0.4.175 - 2026-10-26
+
+- With `JR_TOPUP_SHORTFALL` on (minimum top-up 100 JPY), the pricing page and /start said that a top-up from 100 JPY opens 5 GB .blend files: the page-wide rewrite of "from 500 JPY" to the minimum top-up also hit the paid-key condition, which is 500 JPY or more paid in total (`entitlements.paid_min_yen`). Those sentences, the estimate note and `purchase_required` for sizes above 1920x1080, and the per-image time note now say "500 JPY or more in total" and are not rewritten. The top-up page opened from the 5 GB button shows only amounts that reach that total (no 100 JPY tile, no card registration). The switch was on for about 3 minutes (13:52-13:55 JST) and is off until this is deployed; no checkout was created in that window.
+
 ## 0.4.174 - 2026-10-26
 
 - Pay only the shortfall, behind the switch `JR_TOPUP_SHORTFALL` (off by default; with it off, prices and every page are unchanged). When on, the minimum top-up is `JR_TOPUP_SHORTFALL_MIN_YEN` (100 JPY) and the checkout made by a 402 rounds the shortfall up to 100 JPY (68 → 100, 158 → 200, 501 → 600) instead of 500 / 1,000 JPY steps. Web, MCP and the pricing, terms and commerce pages read the same value; the estimate carries `cost.topup_yen` so the sentence before the render names the amount the 402 will ask for. The held order of a 402 still starts by itself after payment, once. A checkout created before the switch keeps its amount, and a key that has paid before is still offered 2,000 JPY.

@@ -394,13 +394,26 @@ def _credit_summary(me: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _card_line(co: dict[str, Any], starts_by_itself: bool = False) -> str:
+    """カード登録（0 円）で無料の GPU 時間が足される道を 1 行で（10/26: 案内を見た CLI の鍵 5 本が 1 本も登録しなかった。
+    人と AI が真っ先に読む stderr の行が「払え」だけで、0 円の道は JSON の中にしか無かった）。"""
+    link = co.get("link")
+    return ("free option: registering a card costs nothing and the card is not charged; it adds "
+            f"{int(co.get('bonus_yen') or 0)} JPY of free GPU time for {co.get('days') or 14} days"
+            + (f". Open {link}" if link else "")
+            + ("; the render then starts by itself" if starts_by_itself else ""))
+
+
 def cmd_balance(c: Client, args: argparse.Namespace) -> int:
     me = c.me()
     synced = c.billing_sync() if me["billing"]["enabled"] else {}
     me = c.me()
     credit = _credit_summary(me)
+    if me.get("card_offer"):
+        print(_card_line(me["card_offer"]), file=sys.stderr)
     print(_j({"balance_yen": me["balance_yen"], **credit, "free_previews_left": me["free_previews_left"],
               "billing": me["billing"], "just_credited": synced.get("credited", []),
+              **({"card_offer": me["card_offer"]} if me.get("card_offer") else {}),
               "ledger": c.ledger(args.limit)["entries"]}))
     return 0
 
@@ -421,6 +434,9 @@ def cmd_estimate(c: Client, args: argparse.Namespace) -> int:
     print(f"{est.get('human') or 'estimate'}: about {round(float(est.get('seconds') or 0))} GPU seconds, "
           + ("free" if free else f"about {cost.get('estimated_yen')} JPY (up to {cost.get('reserved_yen')} JPY held)"),
           file=sys.stderr)
+    pv = est.get("pricing") or {}
+    if pv.get("mode") in ("card_needed", "topup_needed", "purchase_required") and pv.get("en"):
+        print(pv["en"], file=sys.stderr)      # 10/26: カードで足りる（0 円）か、いくら払うか、を払う前に
     print(_j({"scene_id": sid, **est}))
     if args.max_yen is not None and cost.get("within_max_yen") is False:
         print(f"over budget: this job may hold {cost.get('reserved_yen')} JPY, above --max-yen {args.max_yen}", file=sys.stderr)
@@ -823,7 +839,14 @@ def main(argv: list[str] | None = None) -> int:
         if pay:
             print(f"payment required: {exc.detail}", file=sys.stderr)
             order = (pay.get("resume") or {}).get("order_id")
-            if order:
+            if pay.get("card_offer"):
+                # 10/26: 0 円で済む道を先に（Web の 402 の欄と同じ順）。カードの分で描けると、預かった仕事が自動で始まる
+                print(_card_line(pay["card_offer"], starts_by_itself=bool(order)), file=sys.stderr)
+                print(f"or pay {pay.get('topup_yen') or ''} JPY: {pay['checkout_url']}"
+                      + ("; the render then starts by itself" if order else ", then run the command again"), file=sys.stderr)
+                if order:
+                    print(f"follow it with: janction-render status {order}", file=sys.stderr)
+            elif order:
                 # 10/14: 払うと預かった仕事が自動で始まる。送り直すと同じ仕事が返る（2 本は描かない）
                 print(f"open this page in a browser and pay: {pay['checkout_url']}", file=sys.stderr)
                 print(f"the render then starts by itself (nothing to run again); follow it with: janction-render status {order}",
