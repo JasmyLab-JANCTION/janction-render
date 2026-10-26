@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.172 - 2026-10-26
+
+- Removed obsolete numeric terms from current pricing and AI-discovery documents, including correction sentences that search systems could retrieve without their surrounding negation.
+- `llms.txt`, facts, pricing and capabilities now expose only current values plus a current-source policy; historical commercial terms stay in the changelog.
+- Added the current welcome credit, metered price and frame limits directly to the ChatGPT plugin description.
+
 ## 0.4.171 - 2026-10-23
 
 - The pricing page now labels itself as the current authoritative terms and links directly to the same machine-readable pricing contract. Its modification date and the site-wide crawl validators were refreshed after verifying the live 100 JPY plus 400 JPY welcome-credit terms.
