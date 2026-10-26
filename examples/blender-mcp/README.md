@@ -98,5 +98,5 @@ Run on 2026-10-08 with Blender 5.2.0 and janction-render 0.4.22: the .blend prev
 
 - mcp-for-blender's README says its safe mode (`BLENDER_MCP_SAFE_MODE=1`) still allows saving and exporting, so both hand-offs should work with it on (not tested here).
 - Inputs and results are deleted 24 hours after last use. Previews are 720p by default; the final render goes up to
-  up to 3,000 frames per instruction (run as parts of 240 under one job id); 1080p on free time, up to 4K on prepaid credit.
+  up to 3,000 frames per instruction (automatically split internally under one job id); 1080p on free time, up to 4K on prepaid credit.
 - More: https://render.janction.jp/llms.txt and https://render.janction.jp/blender-mcp

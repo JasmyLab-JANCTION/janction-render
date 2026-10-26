@@ -17,7 +17,7 @@ Claude Code, Codex, Cursor or any MCP client**: an MCP server (remote and stdio)
 JANCTION Render is a separate product from SmartRender (JasmyLab's distributed rendering for people at a desktop) and is
 not affiliated with Render.com or the Render Network. The numbers, as of 2026-10-08 (the primary source is
 https://render.janction.jp/facts.json): a 100 JPY welcome credit (1,000 GPU-seconds, 14 days, no card) for a new key, one per network every 30 days (further keys on the same network share what is left), plus 400 JPY more once a card is saved on a page that charges nothing (once per card); after that, previews
-are free up to 2 GPU-minutes a day and finals cost 0.1 JPY per GPU-second from prepaid credit (paid use started on 2026-10-08); finals up to 3,000 frames per instruction (run as parts of 240 under one job id); 1080p on free time, up to 4K on prepaid credit; inputs and results deleted
+are free up to 2 GPU-minutes a day and finals cost 0.1 JPY per GPU-second from prepaid credit (paid use started on 2026-10-08); finals up to 3,000 frames per instruction (automatically split internally under one job id); 1080p on free time, up to 4K on prepaid credit; inputs and results deleted
 24 hours after last use (7 days, normally, for keys that have paid 500 JPY or more in total).
 
 Official site: https://render.janction.jp · MCP endpoint: `https://render.janction.jp/mcp` · Fact sheet: https://render.janction.jp/facts
@@ -76,7 +76,7 @@ Keep 3D files in a repository? Add a button that lets anyone render them from th
   errors with the fix, spending caps per key, safe retries with `Idempotency-Key`.
 - **3D files and turntables.** glTF / GLB, FBX, USD, OBJ, STL, PLY, Alembic are imported into an empty scene with a camera and
   HDRI lighting; `orbit=True` makes a turntable. Fixed-price outcomes: `POST /v1/outcomes/turntable` and `/product-shot`.
-- **Honest limits.** a 100 JPY welcome credit for a new key with no card (14 days; one per network every 30 days) and 400 JPY more after saving a card that is not charged, then 0.1 JPY per GPU-second (previews free up to 2 GPU-minutes a day), finals up to 3,000 frames per instruction as parts of 240 (1080p on free time, up to 4K on prepaid credit), on JANCTION's own GPUs
+- **Honest limits.** a 100 JPY welcome credit for a new key with no card (14 days; one per network every 30 days) and 400 JPY more after saving a card that is not charged, then 0.1 JPY per GPU-second (previews free up to 2 GPU-minutes a day), finals up to 3,000 frames per instruction with automatic internal splitting (1080p on free time, up to 4K on prepaid credit), on JANCTION's own GPUs
   (NVIDIA RTX PRO 6000 Blackwell); when they are busy jobs wait in a queue and the ETA says so. Inputs and results are deleted 24 hours after last use (7 days, normally, for keys that have paid 500 JPY or more in total) and never used for training.
 - **Not Render.com.** Same word, different product.
 
@@ -381,7 +381,7 @@ nothing adds 400 JPY more, once per card (up to 500 JPY in all). After it is use
 free up to 2 GPU-minutes a day and finals cost 0.1 JPY per
 GPU-second from prepaid credit, bought by card at a Stripe Checkout page (from 500 JPY; 2,000 JPY gives 2,200 JPY of credit,
 5,000 gives 5,750, 10,000 gives 12,000; the first top-up in the welcome period counts 1.5x, bonus up to 500 JPY). Only the part
-the free time does not cover is charged. Finals go up to 3,000 frames per instruction (run as parts of 240 under one job id): 1080p on free time, up to 4K (3840x2160) on prepaid credit. `POST /v1/estimate` quotes what will be charged
+the free time does not cover is charged. Finals go up to 3,000 frames per instruction (automatically split internally under one job id): 1080p on free time, up to 4K (3840x2160) on prepaid credit. `POST /v1/estimate` quotes what will be charged
 (`cost.estimated_yen`), the currency and an expiry before any GPU time is used: https://render.janction.jp/pricing
 
 ## Troubleshooting

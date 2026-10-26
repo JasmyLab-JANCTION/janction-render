@@ -63,7 +63,7 @@ A final MP4 on release:
 | `api-key` | (required) | Repository secret with the API key. |
 | `scene-file` | (required) | Path to a .blend, a .py bpy script or a 3D file, or an https link. Files a .blend references by relative path are sent with it. |
 | `kind` | `preview` | `preview` (up to 4 frames in one image, up to 1280x720) or `final`. |
-| `frames` | `1` | Preview: `1`, `1-24` or `1,8,16`. Final: a range such as `1-48` (at most 240 per job). |
+| `frames` | `1` | Preview: `1`, `1-24` or `1,8,16`. Final: a range such as `1-48` (up to 3,000 frames per instruction; long finals are split internally). |
 | `width`, `height` | `1280`, `720` | Final up to 1920x1080. |
 | `samples` | 16 / 128 | Cycles samples per pixel (preview / final). |
 | `output` | `auto` | Final: `mp4`, `png`, `exr`, `webm`, `gif` or `webp`. |

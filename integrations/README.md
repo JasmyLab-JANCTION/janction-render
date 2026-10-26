@@ -17,7 +17,7 @@ Blender's importers (USD Preview Surface, FBX Phong/PBR, OBJ/MTL); shader networ
 passes and renderer-specific nodes are not carried over. Lights rarely survive an export, so the
 tools light the scene with the `studio` HDRI preset by default.
 
-No sign-up: each new key gets up to 500 JPY of GPU time free for 14 days (100 JPY at once, 400 JPY more after saving a card on a Stripe page that charges nothing); after that, previews are free up to 2 GPU-minutes a day and finals cost 0.1 JPY per GPU-second from prepaid credit. Final renders go up to 3,000 frames per instruction (run as parts of 240 under one job id), 1080p on free time and up to 4K on prepaid credit; the live numbers are in https://render.janction.jp/v1/pricing.
+No sign-up: each new key gets up to 500 JPY of GPU time free for 14 days (100 JPY at once, 400 JPY more after saving a card on a Stripe page that charges nothing); after that, previews are free up to 2 GPU-minutes a day and finals cost 0.1 JPY per GPU-second from prepaid credit. Final renders go up to 3,000 frames per instruction (automatically split internally under one job id), 1080p on free time and up to 4K on prepaid credit; the live numbers are in https://render.janction.jp/v1/pricing.
 
 ## Files
 
@@ -139,8 +139,8 @@ key is no longer known to the service, the tools create a new one once and retry
   camera and orbits the model.
 - Frame rate comes from the app's setting (Maya time unit, `hou.fps()`, `doc.GetFps()`), rounded
   to a whole number.
-- The service takes up to 3,000 frames per instruction (run as parts of 240 under one job id) and up to 4K on prepaid credit;
-  these submit tools support one instruction of up to 3,000 frames, split by the service into parts of up to 240 frames and assembled as one result. Resolution entitlement is enforced by the server; paid-credit keys may request the currently documented higher-resolution limit. Check `/v1/capabilities` rather than copying a fixed limit into an integration.
+- The service takes up to 3,000 frames per instruction (automatically split internally under one job id) and up to 4K on prepaid credit;
+  these submit tools support one instruction of up to 3,000 frames, split internally by the service and assembled as one result. Resolution entitlement is enforced by the server; paid-credit keys may request the currently documented higher-resolution limit. Check `/v1/capabilities` rather than copying a fixed limit into an integration.
 
 ## Manual fallback from any application
 

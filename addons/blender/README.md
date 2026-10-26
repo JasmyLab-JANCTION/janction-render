@@ -87,8 +87,8 @@ An unsaved file uses a temporary folder; the path is shown in the panel.
 
 - Preview: up to 4 frames, up to 1280x720, up to 32 samples. The scene's
   resolution and samples are used and clamped.
-- Final: up to 3,000 frames per instruction (the service runs it as parts of
-  240 under one job id and joins them into one video), 1080p (1920x1080) on
+- Final: up to 3,000 frames per instruction (the service automatically splits
+  long finals internally under one job id and joins them into one video), 1080p (1920x1080) on
   free time and up to 4K (3840x2160) on prepaid credit; the service decides
   the resolution from the key (add-on 0.1.8 and later send the scene as it is).
   Live numbers: https://render.janction.jp/v1/pricing. Samples: the scene's Cycles samples capped at 128, or your own

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.173 - 2026-10-26
+
+- Removed the internal 240-frame part size from current public guidance, plugin instructions and integration metadata after a live Claude search answer misread it as the user-facing job limit. The supported limit remains 3,000 frames per instruction, with automatic internal splitting under one job id.
+- Corrected the GitHub Action metadata that still described finals as limited to 240 frames per job.
+
 ## 0.4.172 - 2026-10-26
 
 - Removed obsolete numeric terms from current pricing and AI-discovery documents, including correction sentences that search systems could retrieve without their surrounding negation.

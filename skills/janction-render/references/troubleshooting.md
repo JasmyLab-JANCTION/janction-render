@@ -26,8 +26,8 @@ also has `failure` with `code`, `category`, `reason`, `recommended_action` (a se
 
 ## Input
 
-- `JOB_TOO_LARGE`: over 3,000 frames in one instruction (longer finals are split into parts of 240 under one job id
-  automatically), over 1920x1080 on free time (up to 4K on prepaid credit) or over 10 GPU-hours. Split the frame range.
+- `JOB_TOO_LARGE`: over 3,000 frames in one instruction (long finals within that limit are split automatically under one job id),
+  over 1920x1080 on free time (up to 4K on prepaid credit) or over 10 GPU-hours. Split the frame range.
 - `SCRIPT_BLOCKED`: the script uses something the sandbox refuses (subprocesses, sockets, network imports such as urllib or
   requests, absolute paths). Keep the script to building the scene; pass web files in `asset_urls`.
 - `MISSING_ASSET`: a texture, `.bin` or `.mtl` is missing or points outside the upload. Pass it in `asset_urls` (https) or

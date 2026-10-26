@@ -17,7 +17,7 @@ inputs:
     required: false
     default: preview
   frames:
-    description: "Preview: 1, 1-24 or 1,8,16 (up to 4 frames). Final: a range such as 1-48 (at most 240 per job)."
+    description: "Preview: 1, 1-24 or 1,8,16 (up to 4 frames). Final: a range such as 1-48 (up to 3,000 frames per instruction; long finals are split internally)."
     required: false
     default: "1"
   width:
