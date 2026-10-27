@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.4.185 - 2026-10-27
+
+- The stdio MCP server (`uvx janction-render`, `npx -y janction-render`) now tells the service which app started it: the `clientInfo.name` from the MCP handshake goes into `X-Client` as `mcp/<app> <version>` (it was `mcp <version>` for every app). Nothing else changes.
+- Usage counts: keys labelled `dsh…` (DeepSeek Harness connected with an API key, whose requests carry only a Node user agent) count as DeepSeek Harness, and Sesame is named in the public usage stats.
+- The per-key usage spike alert leaves out keys that paid on a Stripe checkout page in the last 24 hours (a person paying is not a stolen key); automatic top-ups still count. On 10/27 it fired for a new customer from Cursor who had paid twice.
+- The setup guides for Kimi Code, OpenCode, Qwen Code and Copilot CLI also show the way without uv (`pip install janction-render`, then `janction-render connect <app>`). OpenCode 1.19.4 was checked on a real install: `opencode mcp auth` and `opencode mcp list` (connected).
+
+## 0.4.184 - 2026-10-27
+
+- **A script that opens a file that was not sent now asks for the file.** A script stopped by `FileNotFoundError` (or a bpy loader's "Cannot read file") used to come back as a generic script error to fix, which could lead an agent to drop the loading step. It is now `MISSING_TEXTURE` (category `MISSING_ASSET`) with subcode `SCRIPT_FILE_NOT_SENT`, `missing_file` (the name in the script), the line, `fix_by: user`, and how to send the file (asset_urls, `POST /v1/files/{id}/assets`, `janction-render upload` or /upload). It is no longer offered for automatic script fixes.
+
 ## 0.4.183 - 2026-10-27
 
 - **A partial .blend export is charged like other work.** The time of an export saved partway (0.4.182) comes out of the free allowance first; time past it is charged at the usual rate from the balance, only as far as the balance goes (no hold is taken when the export starts, it never goes negative, and keys without a balance still get the file). A finished export stays free.

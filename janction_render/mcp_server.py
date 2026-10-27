@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import sys
 from pathlib import Path
 from typing import Annotated, Any, Optional
@@ -85,6 +86,38 @@ mcp = MCPServer(
         "GPU rendering. Do not use it for modeling without rendering or for non-Blender workloads."
     ),
 )
+
+
+# どのアプリから呼ばれたか（10/27）: 握手（initialize）でアプリが名乗る clientInfo.name を受付への X-Client に載せる。
+# 前は全部「mcp <版>」で、統計の「MCP (other apps)」30 日 59 件のうち 29 件がこの stdio 版だった（Claude Desktop か Cline かが分からない）。
+# SDK の版で取り出し方が違うので、取れなければ今までどおり「mcp」（道具の動きは変えない）
+_HOST = {"name": ""}
+
+
+def _host_name(context: Any) -> str:
+    try:
+        if context is None and hasattr(mcp, "get_context"):   # mcp 1.x の FastMCP は道具の呼び出しに context を渡さない
+            context = mcp.get_context()
+        params = getattr(getattr(context, "session", None), "client_params", None)
+        info = getattr(params, "clientInfo", None) or getattr(params, "client_info", None)
+        name = str(getattr(info, "name", "") or "")
+    except Exception:  # noqa: BLE001 — 名乗りが取れないだけで道具は動かす
+        return ""
+    return re.sub(r"[^a-z0-9._-]+", "-", name.lower()).strip("-")[:40]
+
+
+_call_tool = mcp.call_tool
+
+
+async def _call_tool_noting_host(*args: Any, **kwargs: Any) -> Any:
+    context = kwargs.get("context", args[2] if len(args) > 2 else None)
+    name = _host_name(context)
+    if name:
+        _HOST["name"] = name
+    return await _call_tool(*args, **kwargs)
+
+
+mcp.call_tool = _call_tool_noting_host  # type: ignore[method-assign]
 
 # 引数の説明はリモートと共通（janction_render/mcp_common.py、10/12）
 _D = mcp_common.docs("stdio")
@@ -167,7 +200,8 @@ def _log(msg: str) -> None:
 
 
 def _client() -> Client:
-    return Client(client="mcp")
+    # 「mcp/<アプリ> <版>」（受付の scorecard が mcp/claude-code 0.4.19 の形で読む）。分からなければ「mcp <版>」
+    return Client(client=f"mcp/{_HOST['name']}" if _HOST["name"] else "mcp")
 
 
 def _out_root() -> Path:
