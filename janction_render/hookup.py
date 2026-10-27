@@ -148,6 +148,8 @@ def clients(server: Optional[str] = None, home: Optional[Path] = None,
                     "argv": [exe_path, *steps[-1]], "show": " && ".join(" ".join([exe, *a]) for a in steps)})
     for key, label, cfg, top, entry in (
         ("cursor", "Cursor", home / ".cursor" / "mcp.json", "mcpServers", {"url": mcp_url(server, "cli-cursor")}),
+        ("kimi", "Kimi Code", Path(os.environ.get("KIMI_CODE_HOME") or (home / ".kimi-code")) / "mcp.json", "mcpServers",
+         {"url": mcp_url(server, "cli-kimi")}),
         ("windsurf", "Windsurf", home / ".codeium" / "windsurf" / "mcp_config.json", "mcpServers",
          {"serverUrl": mcp_url(server, "cli-windsurf")}),
         ("vscode", "VS Code", _app_config_dir(home) / "Code" / "User" / "mcp.json", "servers",

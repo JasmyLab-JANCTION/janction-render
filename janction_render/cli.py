@@ -10,7 +10,7 @@
     janction-render estimate scene.blend --frames 1-48       # 時間と値段だけ（描かない）
     janction-render doctor                                # つながるか・鍵・残高・AI アプリの接続を点検
     janction-render login                                 # 鍵を確かめてこの PC に覚える（貼った鍵は履歴に残さない）
-    janction-render connect [claude-code|codex|gemini|cursor|windsurf|vscode|all]   # ほかの AI につなぐ
+    janction-render connect [claude-code|codex|gemini|kimi|cursor|windsurf|vscode|all]   # ほかの AI につなぐ
     janction-render init                                  # このプロジェクトのエージェントに使い方を書く
     janction-render upload scene.blend                    # AI アプリに渡すリンクを作る（scene_url に貼る、大きいものは分けて送る）
 """
@@ -808,7 +808,7 @@ def build_parser() -> argparse.ArgumentParser:
     s.set_defaults(fn=cmd_shots, scene_id=None)
 
     s = sub.add_parser("connect", help="connect your AI apps (Claude Code, Codex, Gemini CLI, Cursor, Windsurf, VS Code) to JANCTION Render")
-    s.add_argument("client", nargs="?", default="", help="claude-code, codex, gemini, cursor, windsurf, vscode or all (empty: list only)")
+    s.add_argument("client", nargs="?", default="", help="claude-code, codex, gemini, kimi, cursor, windsurf, vscode or all (empty: list only)")
     s.add_argument("--yes", action="store_true", help="needed with 'all'")
     s.set_defaults(fn=cmd_connect)
 

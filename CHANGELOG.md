@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.180 - 2026-10-27
+
+- Kimi Code (Kimi K3 and other models): `kimi.plugin.json` at the repository root makes this repository a Kimi Code plugin. `/plugins install https://github.com/JasmyLab-JANCTION/janction-render` adds the MCP server (`?src=kimi-plugin`) and the workflow skill. Without the plugin: a `url` entry in `~/.kimi-code/mcp.json`, then `/mcp-config login janction-render` (OAuth).
+- `janction-render connect kimi` writes that entry (`$KIMI_CODE_HOME/mcp.json` when set).
+- New guide /kimi-code-blender (also /kimi, /integrations/kimi), and Kimi Code rows in the connection tables, llms.txt and README.
+- Keys and jobs from Kimi Code are counted as `kimi-code` (its OAuth name is `kimi-code (<server name>)`), and "Kimi" is a choice for where you heard about the service.
+
 ## 0.4.179 - 2026-10-27
 
 - Previews and finals without an `engine` now use the scene's own engine (read by scene_info): an EEVEE .blend renders with EEVEE instead of Cycles. Pass `engine='cycles'` or `engine='eevee'` to choose. On 10/27 an EEVEE scene from /start was previewed with Cycles and ran out of its 120 seconds; it would also have looked different from the scene. Preflight's `ENGINE_DIFFERS` now appears only when Cycles is asked for an EEVEE scene.

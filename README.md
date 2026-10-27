@@ -253,6 +253,7 @@ in Claude Code: try_janction_render, render_my_scene, turntable_video, product_s
 | Claude Code | `claude mcp add --transport http janction-render https://render.janction.jp/mcp`, then `/mcp` to authenticate |
 | Codex | `codex mcp add janction-render --url https://render.janction.jp/mcp` |
 | Gemini CLI / Antigravity CLI | `gemini extensions install https://github.com/JasmyLab-JANCTION/janction-render` (this repository carries `gemini-extension.json`) |
+| Kimi Code (Kimi K3 and other models) | `/plugins install https://github.com/JasmyLab-JANCTION/janction-render` (this repository carries `kimi.plugin.json`: the MCP server and the workflow skill), or `~/.kimi-code/mcp.json`: `{"mcpServers": {"janction-render": {"url": "https://render.janction.jp/mcp"}}}`, then `/mcp-config login janction-render` (OAuth) |
 | Grok (grok.com) | Connectors → New Connector → Custom → paste the URL |
 | Perplexity (Pro / Max / Enterprise), Le Chat (workspace admin) | Add a custom remote MCP connector with the URL |
 | Notion Agent (Business / Enterprise) | Settings → Connections → Discover → Add Custom MCP → paste the URL, then sign in (the button shows when a workspace admin allows custom MCP servers) |
