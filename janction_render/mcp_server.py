@@ -201,6 +201,9 @@ def _log(msg: str) -> None:
 
 def _client() -> Client:
     # 「mcp/<アプリ> <版>」（受付の scorecard が mcp/claude-code 0.4.19 の形で読む）。分からなければ「mcp <版>」
+    if not _HOST["name"]:
+        # mcp 1.x の FastMCP は起動のときに call_tool を握るので、上の包みが効かない。道具の中なら get_context() で読める（10/27）
+        _HOST["name"] = _host_name(None)
     return Client(client=f"mcp/{_HOST['name']}" if _HOST["name"] else "mcp")
 
 

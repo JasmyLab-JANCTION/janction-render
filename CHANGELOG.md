@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.186 - 2026-10-27
+
+- Dependencies (dependabot #101, which also covers #81): mcp / mcp-types 2.3.0, fastapi 0.162.0, starlette 1.9.0, anthropic 2.3.0 (the /start script fixer's `beta.messages.create` arguments and the response fields it reads are unchanged in 2.3.0), and patch updates.
+- The stdio MCP server now also reports the app that started it on the MCP SDK 1.x (FastMCP takes `call_tool` at start-up, so 0.4.185's wrapper did not run there; the name is read through `get_context()` inside the tool instead). Checked on mcp 1.28.1, 2.2.0 and 2.3.0.
+
 ## 0.4.185 - 2026-10-27
 
 - The stdio MCP server (`uvx janction-render`, `npx -y janction-render`) now tells the service which app started it: the `clientInfo.name` from the MCP handshake goes into `X-Client` as `mcp/<app> <version>` (it was `mcp <version>` for every app). Nothing else changes.
