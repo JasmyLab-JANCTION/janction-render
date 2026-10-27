@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.183 - 2026-10-27
+
+- **A partial .blend export is charged like other work.** The time of an export saved partway (0.4.182) comes out of the free allowance first; time past it is charged at the usual rate from the balance, only as far as the balance goes (no hold is taken when the export starts, it never goes negative, and keys without a balance still get the file). A finished export stays free.
+
 ## 0.4.182 - 2026-10-27
 
 - **A .blend export that runs out of time returns the scene built so far.** When the script of `output="blend"` does not finish within the time limit, the worker saves the scene as built up to about 85% of the limit and the job is done with `partial: true` and a note, instead of failing with nothing. That time counts against the free allowance (a finished export stays free). An export that times out without a save now says the scene took too long to build, not to lower samples.
