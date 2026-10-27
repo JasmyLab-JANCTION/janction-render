@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.182 - 2026-10-27
+
+- **A .blend export that runs out of time returns the scene built so far.** When the script of `output="blend"` does not finish within the time limit, the worker saves the scene as built up to about 85% of the limit and the job is done with `partial: true` and a note, instead of failing with nothing. That time counts against the free allowance (a finished export stays free). An export that times out without a save now says the scene took too long to build, not to lower samples.
+
 ## 0.4.181 - 2026-10-27
 
 - Qwen Code: `qwen-extension.json` at the repository root (read before `gemini-extension.json`) makes `qwen extensions install https://github.com/JasmyLab-JANCTION/janction-render` add the MCP server (`?src=qwen-extension`, `httpUrl`) and the workflow skill. `janction-render connect qwen` installs it (`:janction-render --consent`, falling back to `qwen mcp add --transport http`).

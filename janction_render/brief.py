@@ -500,6 +500,11 @@ def brief(j: dict[str, Any]) -> dict[str, Any]:
         out["estimate"] = estimate_brief(j["estimate"])
     if j.get("error"):
         out["error"] = j["error"]
+    inf = j.get("info") if isinstance(j.get("info"), dict) else {}
+    if inf.get("partial"):
+        # .blend の書き出しの途中保存（10/27）: done でも、組み終わっていないシーンだと AI が利用者に言えるように
+        out["partial"] = True
+        out["partial_note"] = str(inf.get("partial_note") or "")
     if j.get("failure"):
         # 失敗の中身（10/20）: 前は error の 1 文だけで、時間切れの単位・上限・案（feasibility の alternatives）が AI に届かなかった。
         # evidence は Blender の出力（利用者が書ける）なので載せない
