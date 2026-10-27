@@ -21,6 +21,9 @@ from typing import Any, Callable, Optional
 NAME = "janction-render"
 DEFAULT_BASE = "https://render.janction.jp"
 GEMINI_EXTENSION = "https://github.com/JasmyLab-JANCTION/janction-render"
+# Qwen Code の拡張（根の qwen-extension.json）。末尾の :janction-render でマーケットプレイスの選択を飛ばす（10/27、選ぶ画面は
+# 端末を読むので、出力を受け取って動かす connect では止まって見える）。--consent は確認の画面を飛ばす
+QWEN_EXTENSION = GEMINI_EXTENSION + ":janction-render"
 REPO = "JasmyLab-JANCTION/janction-render"              # Claude Code と Codex のプラグインのマーケットプレイス（公開リポ）
 PLUGIN = "janction-render@janction-render"
 MARK_START = "<!-- janction-render:start -->"
@@ -122,6 +125,13 @@ def _app_config_dir(home: Path) -> Path:
     return Path(os.environ.get("XDG_CONFIG_HOME") or (home / ".config"))
 
 
+def _opencode_config(home: Path) -> Path:
+    """OpenCode の全体の設定（どの OS でも XDG の ~/.config/opencode）。opencode.jsonc があればそちら（注釈つきなら merge_json が
+    読めずに手で足す案内になる）。"""
+    d = Path(os.environ.get("XDG_CONFIG_HOME") or (home / ".config")) / "opencode"
+    return d / "opencode.jsonc" if (d / "opencode.jsonc").exists() else d / "opencode.json"
+
+
 def clients(server: Optional[str] = None, home: Optional[Path] = None,
             which: Callable[[str], Optional[str]] = shutil.which) -> list[dict[str, Any]]:
     """つなぎ先の一覧。kind: cmd（そのアプリのコマンドを実行）/ json（設定ファイルに足す）/ manual（画面で足す）。
@@ -140,6 +150,8 @@ def clients(server: Optional[str] = None, home: Optional[Path] = None,
          [["plugin", "marketplace", "add", REPO], ["plugin", "add", PLUGIN]],
          ["mcp", "add", NAME, "--url", mcp_url(server, "cli-codex")]),
         ("gemini", "Gemini CLI", "gemini", [["extensions", "install", GEMINI_EXTENSION]], None),
+        ("qwen", "Qwen Code", "qwen", [["extensions", "install", QWEN_EXTENSION, "--consent"]],
+         ["mcp", "add", "--transport", "http", NAME, mcp_url(server, "cli-qwen")]),
     ):
         path = which(exe)
         exe_path = path or exe
@@ -150,6 +162,10 @@ def clients(server: Optional[str] = None, home: Optional[Path] = None,
         ("cursor", "Cursor", home / ".cursor" / "mcp.json", "mcpServers", {"url": mcp_url(server, "cli-cursor")}),
         ("kimi", "Kimi Code", Path(os.environ.get("KIMI_CODE_HOME") or (home / ".kimi-code")) / "mcp.json", "mcpServers",
          {"url": mcp_url(server, "cli-kimi")}),
+        ("opencode", "OpenCode", _opencode_config(home), "mcp", {"type": "remote", "url": mcp_url(server, "cli-opencode")}),
+        # Copilot CLI は tools が必須（10/27、docs.github.com の設定の説明）
+        ("copilot", "GitHub Copilot CLI", Path(os.environ.get("COPILOT_HOME") or (home / ".copilot")) / "mcp-config.json", "mcpServers",
+         {"type": "http", "url": mcp_url(server, "cli-copilot"), "tools": ["*"]}),
         ("windsurf", "Windsurf", home / ".codeium" / "windsurf" / "mcp_config.json", "mcpServers",
          {"serverUrl": mcp_url(server, "cli-windsurf")}),
         ("vscode", "VS Code", _app_config_dir(home) / "Code" / "User" / "mcp.json", "servers",

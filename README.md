@@ -254,6 +254,9 @@ in Claude Code: try_janction_render, render_my_scene, turntable_video, product_s
 | Codex | `codex mcp add janction-render --url https://render.janction.jp/mcp` |
 | Gemini CLI / Antigravity CLI | `gemini extensions install https://github.com/JasmyLab-JANCTION/janction-render` (this repository carries `gemini-extension.json`) |
 | Kimi Code (Kimi K3 and other models) | `/plugins install https://github.com/JasmyLab-JANCTION/janction-render` (this repository carries `kimi.plugin.json`: the MCP server and the workflow skill), or `~/.kimi-code/mcp.json`: `{"mcpServers": {"janction-render": {"url": "https://render.janction.jp/mcp"}}}`, then `/mcp-config login janction-render` (OAuth) |
+| OpenCode | `~/.config/opencode/opencode.json`: `{"mcp": {"janction-render": {"type": "remote", "url": "https://render.janction.jp/mcp"}}}`, then `opencode mcp auth janction-render` (OAuth) |
+| Qwen Code | `qwen extensions install https://github.com/JasmyLab-JANCTION/janction-render` (this repository carries `qwen-extension.json`: the MCP server and the workflow skill), or `qwen mcp add --transport http janction-render https://render.janction.jp/mcp` |
+| GitHub Copilot CLI | `copilot mcp add --transport http janction-render https://render.janction.jp/mcp`, then `/mcp auth janction-render` (OAuth). With the skill: `copilot plugin marketplace add JasmyLab-JANCTION/janction-render` and `copilot plugin install janction-render@janction-render` |
 | Grok (grok.com) | Connectors → New Connector → Custom → paste the URL |
 | Perplexity (Pro / Max / Enterprise), Le Chat (workspace admin) | Add a custom remote MCP connector with the URL |
 | Notion Agent (Business / Enterprise) | Settings → Connections → Discover → Add Custom MCP → paste the URL, then sign in (the button shows when a workspace admin allows custom MCP servers) |

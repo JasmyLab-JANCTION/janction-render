@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.181 - 2026-10-27
+
+- Qwen Code: `qwen-extension.json` at the repository root (read before `gemini-extension.json`) makes `qwen extensions install https://github.com/JasmyLab-JANCTION/janction-render` add the MCP server (`?src=qwen-extension`, `httpUrl`) and the workflow skill. `janction-render connect qwen` installs it (`:janction-render --consent`, falling back to `qwen mcp add --transport http`).
+- OpenCode: `janction-render connect opencode` adds a remote entry under `mcp` in `~/.config/opencode/opencode.json` (`opencode.jsonc` when present); sign in with `opencode mcp auth janction-render`.
+- GitHub Copilot CLI: `janction-render connect copilot` adds the server to `~/.copilot/mcp-config.json` (`$COPILOT_HOME` when set) with `"tools": ["*"]`; sign in with `/mcp auth janction-render`. The Claude Code marketplace in this repository also installs in Copilot CLI.
+- Guides /opencode-blender, /qwen-code-blender and /copilot-cli-blender, rows in the connection tables, llms.txt and README. The app compatibility table now lists Cursor as verified (an outside key rendered a 792-frame animation on 2026-10-27) and adds Kimi Code, Qwen Code and Copilot CLI as not yet verified by outside use.
+- Keys from Qwen Code (OAuth name `Qwen Code MCP Client`) are counted as `qwen-code`. `tools/unknown_apps.py` lists the client names behind "MCP (other apps)" in the public stats.
+
 ## 0.4.180 - 2026-10-27
 
 - Kimi Code (Kimi K3 and other models): `kimi.plugin.json` at the repository root makes this repository a Kimi Code plugin. `/plugins install https://github.com/JasmyLab-JANCTION/janction-render` adds the MCP server (`?src=kimi-plugin`) and the workflow skill. Without the plugin: a `url` entry in `~/.kimi-code/mcp.json`, then `/mcp-config login janction-render` (OAuth).
