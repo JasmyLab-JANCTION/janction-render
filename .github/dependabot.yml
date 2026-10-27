@@ -10,6 +10,15 @@ updates:
       timezone: "Asia/Tokyo"
     open-pull-requests-limit: 5
     labels: ["dependencies"]
+    # 10/26: 依存ごとの PR をやめて週 1 本にまとめる（10 月は依存ごとの PR と更新の確認で約 140 分＋各 PR のテスト。pydantic と pydantic-core のように
+    # 組でないと入らない更新が別々の PR になり、どちらも落ちていた）。セキュリティの更新も同じ 1 本にまとめる
+    groups:
+      python:
+        applies-to: version-updates
+        patterns: ["*"]
+      python-security:
+        applies-to: security-updates
+        patterns: ["*"]
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:

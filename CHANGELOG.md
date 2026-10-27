@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.179 - 2026-10-27
+
+- Previews and finals without an `engine` now use the scene's own engine (read by scene_info): an EEVEE .blend renders with EEVEE instead of Cycles. Pass `engine='cycles'` or `engine='eevee'` to choose. On 10/27 an EEVEE scene from /start was previewed with Cycles and ran out of its 120 seconds; it would also have looked different from the scene. Preflight's `ENGINE_DIFFERS` now appears only when Cycles is asked for an EEVEE scene.
+- Fixed: a .blend saved with video output (FFmpeg) stopped the worker's setup at the output format (Blender 5 accepts no PNG while the output kind is video), so the requested samples, resolution and the preview time limit were never applied and Blender rendered with the file's own settings (4096 samples on 10/27, 120-second timeout). The output kind is switched to images first (`JR_MEDIA_TYPE_IMAGE` in the log).
+- Scripts: popup and dialog calls (`window_manager.popup_menu`, `invoke_props_dialog` and similar) are skipped like the script's own render call; Blender crashes on them without a window (exit 139), and a try/except in the script cannot catch it.
+- A script that crashes Blender (exit 139 while running it) is reported as `SCRIPT_CRASHED` with what to remove, instead of `SCENE_READ_FAILED` with advice to re-save the file in Blender 5.0.
+
 ## 0.4.178 - 2026-10-26
 
 - The MCP billing tool (remote and stdio) dropped the `card_offer` of `/v1/me`: an agent asking for the balance of a key whose free time was used up never learned that registering a card (no charge) adds free GPU time. The reply now carries `card_offer` and `next` says to tell it to the user first. From 10/12 to 10/26, 8 keys that got the offer through `/v1/me` (CLI and agents) registered none.
