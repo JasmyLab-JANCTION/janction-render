@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.4.188 - 2026-10-27
+
+- Reading a scene (`kind=info`) that runs out of time: /start heads the message with `failure.reason` ("the scene took more than 120 s to build (nothing was rendered)") instead of the worker's raw "render exceeded the 120s limit", which read like a render failure; the guidance underneath was already specific. The failure is now `retryable: false`, matching its own advice that sending the same scene again times out the same way.
+- A read that has run for 20 s or more reports the time left until its limit ("still reading the scene after 90 s; it stops at the 120 s limit at the latest") instead of "about 5 seconds" until the timeout, so agents stop polling every 5 seconds.
+- On 10/27 an outside /start user sent the same heavy bpy script three times; each read stopped at 120 s (not charged).
+
+## 0.4.187 - 2026-10-27
+
+- Scripts that set a sky texture to `'NISHITA'` now render on Blender 5 with `'SINGLE_SCATTERING'`, the same sky model under its Blender 5 name (and `dust_density` becomes `aerosol_density`). Rendered side by side on 10/27, Blender 4.5 NISHITA and Blender 5.0 SINGLE_SCATTERING differ by 1 to 2 levels out of 255 in the sky's average color. Until now such scripts were rendered again on Blender 4.5, which failed when the same script also used Blender 5 material code (10/27, from ChatGPT). The earlier mapping to `'MULTIPLE_SCATTERING'` (10/19) changed the sky's color and was not used.
+- The fix also finds `sky_type = 'NISHITA'` inside statements joined with `;` on one line.
+
 ## 0.4.186 - 2026-10-27
 
 - Dependencies (dependabot #101, which also covers #81): mcp / mcp-types 2.3.0, fastapi 0.162.0, starlette 1.9.0, anthropic 2.3.0 (the /start script fixer's `beta.messages.create` arguments and the response fields it reads are unchanged in 2.3.0), and patch updates.
