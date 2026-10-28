@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.4.203 - 2026-10-29
+
+- A spending cap applies to the whole render request. The per-job cap (3,000 JPY by default) is now checked against the request's total hold, however the service splits a long final into parts internally; splitting never increases the cap and paying more does not lift it. The estimate (decision, cost.within_caps, next), the submission (403 spend_cap_exceeded before any 402) and the restart after a payment use the same rule (decision.cap_reasons). The per-part check of 0.4.195 is withdrawn.
+- robots.txt no longer disallows /mcp (the MCP endpoint is the agents' regular entrance; Cloudflare's AI Crawl Control had counted Claude-User's /mcp calls as violations) and allows the public read-only JSON under /v1 (/v1/pricing, /v1/capabilities, /v1/health, /v1/outcomes).
+- llms.txt (English and Japanese) explains how to pay: card registration through card_offer.link (nothing is charged, it adds free GPU time), top-ups through billing(topup_yen=N) and the Pay panel on /start, auto top-up and monthly plans in billing(), and what the 402 carries.
+- billing() and GET /v1/me say low_balance when the credit is below a threshold (JR_LOW_BALANCE_YEN, 100 JPY by default) after the welcome credit; the MCP reply adds one line to next.
+- Public pages and llms.txt are cacheable for 30 minutes at the CDN (public, max-age=1800, stale-while-revalidate=3600; JR_HTML_MAX_AGE); the deploy purges the cache. API responses stay no-store.
+- Every monitoring and verification tool identifies itself with User-Agent janction-internal/<tool>, so Cloudflare analytics can exclude JANCTION's own traffic with one filter.
+- The FAQ, /pricing, llms.txt, facts.json, /for-teams and the README say the same thing about caps: the cap set for a render request applies to the whole request, however it is split internally.
+
 ## 0.4.202 - 2026-10-28
 
 - Prices, limits and retention have one source: pricing.yaml in the repository. The README, the PyPI description, the extension and plugin descriptions, the skill and the stdio tool descriptions are generated from it (tools/terms_sync.py), and a CI check fails when a generated file is stale, when a published file still says 'free beta', '10 GPU-minutes', a 500 JPY welcome credit, 'from 500 JPY' or a 240-frame limit, or when the version numbers disagree. scripts/check_live.py compares the live site, PyPI and the public README with the same file and tells a stale CDN copy from a stale origin.

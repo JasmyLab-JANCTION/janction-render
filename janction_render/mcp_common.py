@@ -188,6 +188,20 @@ def _with_card_offer(out: dict[str, Any], me: dict[str, Any]) -> dict[str, Any]:
     return out
 
 
+def _with_low_balance(out: dict[str, Any], me: dict[str, Any]) -> dict[str, Any]:
+    """残高が閾値を切った印（/v1/me の billing.low_balance、10/29 要件 A-5）を billing の返事に写し、next で一言。"""
+    b = me.get("billing") or {}
+    if not b.get("low_balance"):
+        return out
+    thr = b.get("low_balance_threshold_yen")
+    out["low_balance"] = True
+    out["low_balance_threshold_yen"] = thr
+    out["next"] = (f"tell the user the credit ({me.get('balance_yen')} JPY) is below {thr} JPY: the next final past the free time may "
+                   "answer 402; they can top up from billing(topup_yen=...) or the link on the 402 when they want"
+                   + ("; " + out["next"] if out.get("next") else ""))
+    return out
+
+
 def billing_reply(me: dict[str, Any], synced: Optional[dict[str, Any]] = None) -> dict[str, Any]:
     """billing 道具の返事（GET /v1/me の形から）。無料ベータ / ようこそ / 毎日の無料枠 / 旧形 の 4 通りを両方の道具で同じに。"""
     from .brief import plan_fields, welcome_billing
@@ -202,7 +216,7 @@ def billing_reply(me: dict[str, Any], synced: Optional[dict[str, Any]] = None) -
                 **({"key_prefix": prefix} if prefix else {})}
     if q and q.get("welcome"):
         # ようこそクレジット（10/8 夜 本人の判断、docs/46）: 残りの円と期限、期間の後の試し描き、最初のチャージの特典
-        return _with_card_offer(welcome_billing(q["welcome"], me, synced), me)
+        return _with_low_balance(_with_card_offer(welcome_billing(q["welcome"], me, synced), me), me)
     if q:
         # 有料（10/8〜）: 毎日の無料枠と、超えた分を払う残高の両方
         yen = me["billing"]["yen_per_gpu_second"]
@@ -221,7 +235,7 @@ def billing_reply(me: dict[str, Any], synced: Optional[dict[str, Any]] = None) -
             out["usd_indicative"] = me["usd_indicative"]
         if prefix:
             out["key_prefix"] = prefix
-        return out
+        return _with_low_balance(out, me)
     out = {"balance_yen": me["balance_yen"], "free_previews_left": me["free_previews_left"],
            "yen_per_gpu_second": me["billing"]["yen_per_gpu_second"], "min_topup_yen": me["billing"]["min_topup_yen"],
            "billing_enabled": me["billing"]["enabled"], "just_credited": synced.get("credited", []),
