@@ -1,9 +1,5 @@
 # Changelog
 
-## 0.4.195 - 2026-10-28
-
-- New look for every page: dark background, orange accent, a fixed header (How it works, Examples, Pricing, Connect, Facts, language, Try free) and a footer with the full site map. The top page opens with a headline, the sample render, a 'works with' strip, three steps and, when the night batch has rendered them, three real examples; the detailed tables follow. /start, the OAuth consent page, the key pages, the /mcp landing page and the short error pages use the same colors. Content, URLs, structured data and llms.txt are unchanged.
-
 ## 0.4.194 - 2026-10-28
 
 - The top page (/ and /ja/) was rebuilt around what the service does today: a 4-step 'how it works' (send, preview with a verdict, estimate, final), the main apps to connect from with the full list on /blender-mcp, all 13 MCP tools including render_import_file, a free-key / paid-key table (previews, finals up to 4K, .blend size, how long files are kept) and the guarantees for an agent that pays (price before running, spending caps, Idempotency-Key, fixed-price outcomes). The long 'what is' paragraph, the wall of 60 guide links and the 20-row connect table are gone; the guides fold under one line. Table cells now wrap long commands on phones.
