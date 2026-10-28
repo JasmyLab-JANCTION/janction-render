@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "janction-render",
-  "version": "0.4.194",
+  "version": "0.4.200",
   "description": "Render Blender scenes and 3D models (GLB, FBX, USD, OBJ, STL) on cloud GPUs from your AI app: product shots, 360-degree turntables, animations and stills, with a preview and a critic first. No local GPU or Blender; no sign-up. The remote MCP connector plus a workflow skill.",
   "author": {
     "name": "JasmyLab Inc.",
@@ -24,7 +24,7 @@
       "interface": {
         "displayName": "JANCTION Render",
         "shortDescription": "Render Blender on cloud GPUs",
-        "longDescription": "JANCTION Render is a cloud GPU render farm for Blender, built for AI agents. The agent writes or receives a Blender scene as a bpy Python script or a .blend file, previews it in seconds on a JANCTION GPU, estimates how long the final render will take, then renders the frames or an MP4 and returns download links that work for 24 hours.\n\nTypical flow: scene_info reads cameras, frame range, objects, lights and missing files without rendering. render_preview returns up to 4 frames tiled in one image so the agent can check camera, lighting and materials and fix the scene before spending GPU time. render_estimate reports the expected GPU seconds, the queue wait, and whether the job fits the account's remaining GPU time. render_final renders PNG frames or an MP4 animation. render_status reports progress and the remaining time, render_download returns the links, render_cancel stops a job, and billing / render_info report the account's remaining GPU time and worker availability.\n\nIntended users: people building 3DCG with Blender who have no GPU or whose local rendering is slow, and agents that need a rendered image or video from a Blender scene. Not for non-Blender workloads such as video conversion, image generation or modeling advice.\n\nCurrent terms verified 2026-10-26: a new key receives 100 JPY of GPU credit without a card and 400 JPY more after saving a card that is not charged. After that, previews include a small daily free allowance and final renders cost 0.1 JPY per GPU-second from prepaid credit. Limits: up to 3,000 frames per instruction (automatically split internally under one job id), 1080p on free time and up to 4K on prepaid credit. Blender 5.0 with Cycles on NVIDIA GPUs. No account is needed: connecting creates a key. Inputs and results are deleted automatically after a short retention period (24 hours after last use by default) and are never used for training. Operated by JasmyLab Inc. (Tokyo, Japan).",
+        "longDescription": "JANCTION Render is a cloud GPU render farm for Blender, built for AI agents. The agent writes or receives a Blender scene as a bpy Python script or a .blend file, previews it in seconds on a JANCTION GPU, estimates how long the final render will take, then renders the frames or an MP4 and returns download links that work for 24 hours.\n\nTypical flow: scene_info reads cameras, frame range, objects, lights and missing files without rendering. render_preview returns up to 4 frames tiled in one image so the agent can check camera, lighting and materials and fix the scene before spending GPU time. render_estimate reports the expected GPU seconds, the queue wait, and whether the job fits the account's remaining GPU time. render_final renders PNG frames or an MP4 animation. render_status reports progress and the remaining time, render_download returns the links, render_cancel stops a job, and billing / render_info report the account's remaining GPU time and worker availability.\n\nIntended users: people building 3DCG with Blender who have no GPU or whose local rendering is slow, and agents that need a rendered image or video from a Blender scene. Not for non-Blender workloads such as video conversion, image generation or modeling advice. Limits: up to 3,000 frames per instruction (automatically split internally under one job id), 1080p by default and up to 4K. Blender 3.6, 4.2, 4.5, 5.0 and 5.2 with Cycles or EEVEE on NVIDIA GPUs. No account is needed: connecting creates a key. Inputs and results are deleted automatically after a short retention period (24 hours after last use by default) and are never used for training. Operated by JasmyLab Inc. (Tokyo, Japan).",
         "developerName": "JasmyLab Inc.",
         "category": "Creativity",
         "capabilities": [
@@ -45,6 +45,62 @@
           "How long would 120 frames at 1280x720 with 64 samples take to render, and what would it cost?",
           "Render my Blender scene to a 48-frame MP4 at 1280x720."
         ]
+      },
+      "review": {
+        "test_cases": {
+          "positive": [
+            {
+              "description": "Preview a scene the agent writes",
+              "prompt": "Make a red cube on a grey floor in Blender and show me a 4-frame preview.",
+              "tools_triggered": "render_preview",
+              "expected_behavior": "The agent writes a short bpy script and calls render_preview. Within about 15 seconds an image with 4 labeled tiles comes back together with a short critic verdict; the agent shows the image and asks whether it looks right before any final render."
+            },
+            {
+              "description": "Inspect a scene without rendering",
+              "prompt": "Read this Blender scene and tell me its cameras, frame range and anything missing, without rendering: https://render.janction.jp/samples/cube_scene.py",
+              "tools_triggered": "scene_info",
+              "expected_behavior": "scene_info returns the cameras, frame range, objects, lights and missing files. No image is rendered and no GPU time is used."
+            },
+            {
+              "description": "Estimate before a long render",
+              "prompt": "How long would frames 1-120 of https://render.janction.jp/samples/cube_scene.py take, and does it fit my remaining GPU time?",
+              "tools_triggered": "render_estimate",
+              "expected_behavior": "render_estimate returns the expected GPU seconds, a human-readable duration, the queue wait and whether the job fits the remaining GPU time. The agent reports this and waits for the user before rendering."
+            },
+            {
+              "description": "Final render to MP4",
+              "prompt": "Render frames 1-48 of https://render.janction.jp/samples/cube_scene.py as an MP4.",
+              "tools_triggered": "render_final, render_status, render_download",
+              "expected_behavior": "render_final returns a job id and an ETA. render_status reports progress; render_download returns PNG frame links and an MP4 link that work for 24 hours. The agent shares the MP4 link."
+            },
+            {
+              "description": "Check remaining GPU time and service status",
+              "prompt": "How much GPU time do I have left, and is a GPU online right now?",
+              "tools_triggered": "billing, render_info",
+              "expected_behavior": "billing returns the remaining GPU time and when it resets; render_info returns worker availability and queue length. Nothing is rendered."
+            }
+          ],
+          "negative": [
+            {
+              "description": "Not a Blender task",
+              "prompt": "Convert this MP4 to a GIF."
+            },
+            {
+              "description": "Question that needs no rendering",
+              "prompt": "What is the difference between Cycles and EEVEE in Blender?"
+            },
+            {
+              "description": "Request beyond the service limits",
+              "prompt": "Render 50,000 frames of https://render.janction.jp/samples/cube_scene.py at 8K right now."
+            }
+          ]
+        },
+        "demo_recording_url": "https://render.janction.jp/media/demo.mp4",
+        "commerce": false,
+        "commerce_description": "The plugin does not sell goods or process payments. When a job needs more GPU time than the account has, the tool returns a link to the JANCTION Render website, where the user can add credit; nothing is purchased inside the plugin."
+      },
+      "publication": {
+        "release_notes": "0.4.200: 13 tools on the live server (asset_search, render_share, render_unshare, render_cancel, render_import_file, billing and render_info were added since 0.4.120). Blender 3.6, 4.2, 4.5, 5.0 and 5.2 with Cycles or EEVEE. Tool descriptions and the listing no longer mention prices. Skill instructions updated to the current preview, estimate, render, download flow."
       }
     }
   }

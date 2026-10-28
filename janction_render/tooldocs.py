@@ -274,10 +274,12 @@ def descriptions(flavor: str, wait_cap_s: int = 50) -> dict[str, str]:
         "z), scale=1.0) returns the objects, jr_assets.material('<id>') builds a material and jr_assets.apply(obj, mat) assigns "
         "it, jr_assets.world_hdri('<id>', strength=1.0) lights the world. 'polyhaven:<id>@2k' fetches 2k textures (1k by "
         "default).")
+    # 10/28: 金額・特典・カードの語を道具の説明から外す（OpenAI の審査が billing の定義を「さらに審査が要る」で止めていた。
+    # 10/15 の却下と同じ規則＝説明文に料金を書かない）。数字は道具の返事（summary・tell_user）にそのまま残る
     billing = (
         "Check what this key can still render for free and its credit (no GPU time): the free GPU time left and when it "
-        f"expires or resets ({_free_offer()}), the balance in yen, the price per GPU-second, any pending checkout link, and "
-        "card_offer / autocharge_offer when they apply. Relay tell_user to the user in their language when it is present.")
+        "expires or resets, the balance, the price per GPU-second, any pending checkout link, and the offers that apply. "
+        "Relay tell_user to the user in their language when it is present.")
     # 取り消し・共有・取り下げ・接続の確認（10/13: Glama の自動評価で render_cancel C・render_unshare B。副作用・権限・戻せるか・
     # 何が残るかが書かれていなかった。実装は routes_jobs.cancel_for・routes_shares.unshare_for・shares.remove）
     cancel = (
