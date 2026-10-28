@@ -89,13 +89,20 @@ def estimate_next(est: dict[str, Any]) -> str:
     """見積もりの返事の next（エージェントへの次の一手）。上限の言い方は docs/60 BRAND-02 に合わせる。"""
     q = est.get("quota") or {}
     cost = est.get("cost") or {}
+    d = est.get("decision")
+    if d is not None and not d.get("can_execute"):
+        # 10/28: 実行可否は decision（1 か所）。払っても通らない理由があるなら、その文だけ（「チャージすれば回る」とは言わない）
+        from .decision_words import blocked_text
+        txt = blocked_text(d, "en")
+        if txt:
+            return txt
     if q and q.get("fits_size") is False:
         most = q.get("max_frames_per_instruction") or q.get("max_frames_per_job")
         return (f"too big: at most {most} frames per render_final call (longer than {q.get('max_frames_per_job')} frames runs as "
                 "parts under one job id) and 1920x1080 on free time, 3840x2160 for keys with prepaid credit; split the frame range "
                 "into several calls or lower the size")
     from .brief import pay_words
-    pay = pay_words(cost, q)
+    pay = pay_words(cost, q, decision=d)
     if pay.get("mode") == "wait":
         return pay["en"]
     if pay.get("mode") in ("credit", "card", "topup"):
@@ -134,7 +141,11 @@ def scene_info_reply(j: dict[str, Any], assets_param: str) -> dict[str, Any]:
     from .brief import scene_next, trim
     info = dict(j.get("info") or {})
     info["scene_id"] = j.get("scene_id")
-    if info.get("engine") and info["engine"] != "CYCLES":
+    if info.get("engine_source") == "default":
+        # 10/28: 台本・3D ファイルがエンジンを決めていない → 入口（scene_url / scene_id）に関係なくサービスの既定 Cycles
+        info["engine_note"] = ("the scene does not set a render engine, so JANCTION renders it with Cycles (the service default) whichever "
+                               "way it was sent; pass engine='eevee' for the real-time engine")
+    elif info.get("engine") and info["engine"] != "CYCLES":
         # 10/14（要件 AS-08）: 「Cycles でしか描かない」と言っていたが engine='eevee' も受ける
         info["engine_note"] = "JANCTION renders with the scene's own engine unless you pass engine='cycles' or engine='eevee'"
     if j.get("warnings"):

@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.4.202 - 2026-10-28
+
+- Prices, limits and retention have one source: pricing.yaml in the repository. The README, the PyPI description, the extension and plugin descriptions, the skill and the stdio tool descriptions are generated from it (tools/terms_sync.py), and a CI check fails when a generated file is stale, when a published file still says 'free beta', '10 GPU-minutes', a 500 JPY welcome credit, 'from 500 JPY' or a 240-frame limit, or when the version numbers disagree. scripts/check_live.py compares the live site, PyPI and the public README with the same file and tells a stale CDN copy from a stale origin.
+- Every estimate carries decision: can_execute, blocking_reasons, required_actions and runs_after_payment, decided in one place. cost.within_caps, the MCP next text, the payment wording, /start and the preflight checks all read it, so a render blocked by a spending cap is no longer described as 'top up and it runs'. The per-job cap applies to each part's hold and the per-day cap to the sum of the parts; decision.caps shows the arithmetic.
+- Estimates say how sure they are with one word (high / medium / low) in both calibration and uncertainty. The long max_frames_per_job_deprecated note is gone from every reply; a short note stays on /v1/pricing, facts.json and capabilities.
+- scene_url accepts GitHub and Hugging Face file pages: /blob/ links are read as the raw file, and a link that returns a web page (HTML) is refused with the reason and the fix instead of 'the GLB is damaged'.
+- A script or 3D file that does not set a render engine renders with Cycles whichever way it was sent. Before, a scene sent by scene_url rendered with Cycles and the same scene after scene_info with EEVEE (Blender's start-up value). scene_info says where the engine comes from (engine_source).
+- preset='product' and turntables frame the product: oversized companions (stands, floor boxes, environment domes), objects named like backdrops and empty objects are left out of the framing, and the camera distance follows the object's width and height instead of its bounding sphere.
+- Blender's deprecation notices (Material.use_nodes and the like) no longer appear in the text of a failed script; they come back as warnings marked as not the cause.
+- facts.json: free_tier says what is free (model) instead of status / charged_yen; release_url points at this service's changelog (the PyPI version page can lag a deploy), with pypi_url beside it.
+- Guides: Related lists five nearby guides instead of all of them, the top page groups the guides by topic, Japanese pages carry a one-line glossary (試し描き = preview, 仕上げ = final render, 鍵 = API key, 道具 = MCP tool), every page has its own OG image (/og/{lang}/{slug}.png), ChatGPT is connected the same way everywhere (Plugins > Add > Create plugin), and /products names the current MCP calls (preset='product' / 'turntable') in both languages.
+
+## 0.4.201 - 2026-10-28
+
+- A .blend export whose script runs out of time now says where the script was. When the scene built so far is returned, info.partial_at gives the line of the script that was running and how many objects had been built. When nothing could be saved because the script was inside one long operation, failure.line and failure.source_line name that line, and log.txt shows it.
+- What a .blend export script prints is kept even when the export is stopped at the time limit (it used to be lost with the rest of the output).
+- A job stopped at the time limit always has a log.txt now. When Blender printed nothing before it was stopped, log.txt says so and gives the error, instead of the download answering 404.
+
 ## 0.4.200 - 2026-10-28
 
 - The new page design and the studio layout of /start that went out with 0.4.197 are withdrawn again (they were merged, then carried into production by the 0.4.198/0.4.199 deploys): every page is back to its previous look, /start is the previous form, and the studio only appears with JR_START_V2 set. Nothing else changes.

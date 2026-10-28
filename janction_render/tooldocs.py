@@ -27,18 +27,21 @@ TOOL_ORDER = ("render_preview", "render_final", "render_review", "render_downloa
               "render_info", "asset_search", "render_share", "render_unshare", "render_cancel", "billing")
 
 # 上限（billing の既定値と同じ。tests/test_tooldocs.py が突き合わせる。stdio は手元で動くので受付の設定を読めない）
-FREE_GPU_MINUTES_PER_KEY_PER_DAY = 10
-FREE_MAX_FRAMES = 240
-RETENTION_HOURS = 24
-PAID_RETENTION_DAYS = 7       # 一度でもチャージした鍵（core.paid_ttl_seconds の既定 168 時間）
-YEN_PER_GPU_SECOND = 0.1      # 無料枠を超えた分の単価（10/8 から有料。billing.yen_per_gpu_second の既定値）
+# 10/28: 数字の出所は pricing.yaml（→ terms_defaults.py、tools/terms_sync.py が作る）。手書きの数字を持たない
+from . import terms_defaults as _TD
+
+FREE_GPU_MINUTES_PER_KEY_PER_DAY = 10          # 旧 daily の形（JR_FREE_MODEL=daily）だけで使う。本番は welcome
+FREE_MAX_FRAMES = _TD.FRAMES_PER_PART
+RETENTION_HOURS = _TD.RETENTION_HOURS
+PAID_RETENTION_DAYS = _TD.PAID_RETENTION_DAYS   # 合計 PAID_MIN_YEN 以上払った鍵（core.paid_ttl_seconds の既定 168 時間）
+YEN_PER_GPU_SECOND = _TD.YEN_PER_GPU_SECOND     # 無料枠を超えた分の単価（10/8 から有料。billing.yen_per_gpu_second の既定値）
 # ようこそクレジット（docs/46、JR_FREE_MODEL=welcome）。billing の既定値と同じ（tests/test_tooldocs.py が突き合わせる）
-WELCOME_YEN = 500                 # network の形: 新しい鍵に 500 円分
-WELCOME_DAYS = 14
-FREE_PREVIEW_MINUTES_PER_DAY = 2
+WELCOME_YEN = _TD.WELCOME_TOTAL_YEN             # network の形: 新しい鍵に 500 円分（カードの形の合計と同じ額）
+WELCOME_DAYS = _TD.WELCOME_DAYS
+FREE_PREVIEW_MINUTES_PER_DAY = _TD.PREVIEW_FREE_MINUTES_PER_DAY
 # カードの形（JR_WELCOME_MODEL=card、docs/56 の 9。本番は 2026-10-12 から）: カードなしで 100 円分、請求なしのカード登録で 400 円分
-WELCOME_CARDLESS_YEN = 100
-WELCOME_CARD_YEN = 400
+WELCOME_CARDLESS_YEN = _TD.WELCOME_CARDLESS_YEN
+WELCOME_CARD_YEN = _TD.WELCOME_CARD_BONUS_YEN
 
 
 def free_model() -> str:
@@ -108,10 +111,10 @@ def _env_int_doc(name: str, default: int) -> int:
 
 
 # 受付と同じ env から読む（10/14、要件 IF-01: 手書きの定数だと env を変えた本番と食い違う）。stdio は既定値になる
-FREE_MAX_FRAMES = _env_int_doc("JR_FREE_MAX_FRAMES", 240)
-MAX_FRAMES_PER_INSTRUCTION = max(FREE_MAX_FRAMES, _env_int_doc("JR_MAX_FRAMES_PER_INSTRUCTION", 3000))
-RETENTION_HOURS = _env_int_doc("JR_TTL_HOURS", 24)
-PAID_RETENTION_DAYS = round(_env_int_doc("JR_PAID_TTL_HOURS", 168) / 24)
+FREE_MAX_FRAMES = _env_int_doc("JR_FREE_MAX_FRAMES", _TD.FRAMES_PER_PART)
+MAX_FRAMES_PER_INSTRUCTION = max(FREE_MAX_FRAMES, _env_int_doc("JR_MAX_FRAMES_PER_INSTRUCTION", _TD.MAX_FRAMES_PER_INSTRUCTION))
+RETENTION_HOURS = _env_int_doc("JR_TTL_HOURS", _TD.RETENTION_HOURS)
+PAID_RETENTION_DAYS = round(_env_int_doc("JR_PAID_TTL_HOURS", _TD.PAID_RETENTION_DAYS * 24) / 24)
 
 
 def _wh(pixels: int) -> str:

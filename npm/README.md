@@ -6,7 +6,9 @@ Blender scenes and 3D models (GLB, FBX, USD, OBJ, STL) rendered on cloud GPUs fr
 npx -y janction-render
 ```
 
+<!-- terms:npm_consent_en -->
 The first tool call opens a consent page that creates a free key: 100 JPY of GPU time with no card, 400 JPY more after saving a card on a page that charges nothing, then 0.1 JPY per GPU-second (previews stay free up to 2 GPU-minutes a day). Details: https://render.janction.jp/pricing
+<!-- /terms:npm_consent_en -->
 
 ## Add it to your client
 
@@ -39,9 +41,13 @@ Clients that speak Streamable HTTP with OAuth (Claude.ai, ChatGPT, Codex, Cursor
 
 ## What the tools do
 
-`render_preview` (an image in seconds plus a critic verdict), `render_estimate`, `render_final` (frames or MP4, up to 3,000 frames per instruction run as parts of 240 under one job id; 1080p on free time, 4K on prepaid credit), `render_status`, `render_download`, `scene_info`, `asset_search` (CC0 models, textures and HDRIs from Poly Haven), `billing`, `render_share`. `preset='product' | 'turntable' | 'animation'` fills the camera, light, backdrop, frames and output for that purpose.
+<!-- terms:npm_tools_en -->
+`render_preview` (an image in seconds plus a critic verdict), `render_estimate`, `render_final` (frames or MP4, up to 3,000 frames per instruction run as parts of 240 under one job id; 1080p on free time, 4K on prepaid credit), `render_status`, `render_download`, `scene_info`, `asset_search` (CC0 models, textures and HDRIs from Poly Haven), `billing`, `render_share`. `preset='product' | 'turntable' | 'animation'` fills the camera, light, backdrop, frames and output for a purpose.
+<!-- /terms:npm_tools_en -->
 
-Scenes are a `.blend`, a bpy script (Blender 5.0 API) or a 3D file (glTF/GLB, FBX, USD, OBJ, STL, PLY, Alembic). Files are deleted 24 hours after last use and never used for training.
+<!-- terms:npm_retention_en -->
+Scenes are a `.blend`, a bpy script (Blender 5.0 API) or a 3D file (glTF/GLB, FBX, USD, OBJ, STL, PLY, Alembic). Files are deleted 24 hours after last use (7 days, normally, for keys that have paid 500 JPY or more in total) and never used for training.
+<!-- /terms:npm_retention_en -->
 
 ## Links
 

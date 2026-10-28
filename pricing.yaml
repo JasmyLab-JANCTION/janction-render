@@ -1,0 +1,103 @@
+# JANCTION Render: 公開している料金・上限・保持の正本（1 か所、2026-10-28）。
+#
+# ここの数字から、配布物（README・PyPI の説明・server.json・プラグインの説明・npm の README・スキル）と
+# janction_render/terms_defaults.py を `python tools/terms_sync.py --write` が作る。CI（tests/test_terms_sync.py と
+# .github/workflows/public-text.yml）は `--check` で「生成物が古い」「禁止の言い方が公開物にある」を落とす。
+# 本番との突合は `python scripts/check_live.py`（/facts.json・/v1/pricing・llms.txt・PyPI・GitHub README をここと比べる）。
+#
+# 数字を変えるときはここだけ変えて `python tools/terms_sync.py --write` → 受付の env（env_profile）も合わせる。
+# 文章に数字を直接書かない: 受付の文は server/terms.py の「決まった言い方」、配布物は <!-- terms:NAME --> の札から生成する。
+
+published_terms_date: "2026-10-26"     # 公開している条件の日付（facts.json の authority_notice と同じ）
+currency: JPY
+
+price:
+  yen_per_gpu_second: 0.1
+  pricing_version: "2026-10-08"        # 見積もり cost.pricing_version・facts.json pricing.version
+  paid_since: "2026-10-08"
+
+welcome:                               # ようこそクレジット（カードの形。本番は 2026-10-12 から）
+  model: card
+  cardless_yen: 100                    # 新しい鍵、カード不要
+  card_bonus_yen: 400                  # 請求なしのカード登録で足す分（カード 1 枚につき 1 回）
+  total_yen: 500
+  days: 14
+  network_days: 30                     # 満額は 1 回線につきこの日数に 1 本
+
+previews:
+  free_gpu_seconds_per_day: 120        # ようこその後も、試し描きは毎日この秒数まで無料（鍵ごと）
+
+limits:
+  frames_per_part: 240                 # 受付が仕上げを分ける 1 部分の大きさ（上限ではない）
+  max_frames_per_instruction: 3000     # 1 回の指示で受けるコマ数
+  free_resolution: "1920x1080"         # 無料の時間で描く仕事
+  prepaid_resolution: "3840x2160"      # 先払いのクレジットから引く仕事
+  max_job_gpu_hours: 10
+
+topup:
+  min_yen: 100                         # 最低チャージ額（JR_TOPUP_SHORTFALL の形）
+  step_yen: 100
+  packs_yen: [100, 500, 2000, 5000, 10000]
+  pack_credit_yen: [100, 500, 2200, 5750, 12000]
+  first_topup_multiplier: 1.5          # ようこそ期間中の最初のチャージ
+  first_topup_bonus_cap_yen: 500
+
+retention:
+  hours: 24                            # 最後に使ってから（入力・結果・リンク）
+  paid_days: 7                         # 合計 paid_min_yen 以上払った鍵
+  paid_min_yen: 500
+
+spend_caps:                            # 支出の上限の既定（鍵ごとに変えられる）
+  per_job_yen: 3000
+  per_day_yen: 10000
+  hard_max_yen: 100000
+
+monthly_plans:
+  - {id: starter, name: Starter, price_yen: 2980, credit_yen: 3500}
+  - {id: pro, name: Pro, price_yen: 9800, credit_yen: 12000}
+
+# これらの数字を受付で実現する環境変数（gpu004 の env/server.env と同じであること。tests/test_terms_sync.py はこの
+# 組み合わせで全公開ページを描き、上の数字と禁止の言い方を確かめる）
+env_profile:
+  JR_WELCOME_MODEL: card
+  JR_WELCOME_SECONDS_CARDLESS: "1000"
+  JR_WELCOME_CARD_BONUS_SECONDS: "4000"
+  JR_WELCOME_DAYS: "14"
+  JR_WELCOME_NETWORK_DAYS: "30"
+  JR_FREE_PREVIEW_SECONDS_PER_DAY: "120"
+  JR_YEN_PER_GPU_SECOND: "0.1"
+  JR_FREE_MAX_FRAMES: "240"
+  JR_MAX_FRAMES_PER_INSTRUCTION: "3000"
+  JR_TOPUP_SHORTFALL: "1"
+  JR_TOPUP_SHORTFALL_MIN_YEN: "100"
+  JR_TTL_HOURS: "24"
+  JR_PAID_TTL_HOURS: "168"
+  JR_PAID_MIN_YEN: "500"
+  JR_SPEND_CAP_PER_JOB_YEN: "3000"
+  JR_SPEND_CAP_PER_KEY_PER_DAY_YEN: "10000"
+
+# 公開物（描いたページ・JSON・llms.txt・配布物）に 1 件でもあれば CI が落ちる言い方（正規表現、大文字小文字は区別しない）。
+# 左に理由。数字そのものを禁じるのではなく、古い制度・古い額・上限と読める言い方を禁じる。
+forbidden_patterns:
+  - pattern: 'free[ -]beta'
+    why: "無料ベータは 2026-10-08 に終わった"
+  - pattern: '無料ベータ'
+    why: "同上"
+  - pattern: '\b10 GPU-?minutes\b'
+    why: "1 日 10 GPU 分の無料枠は 10/8 で終わった（今は試し描き 2 GPU 分）"
+  - pattern: '1 ?日 ?10 ?分|毎日 10 GPU 分|1 日 10 GPU 分'
+    why: "同上（日本語）"
+  - pattern: '\b500 JPY welcome\b'
+    why: "network の形の額。今は 100 円（カード不要）+ 400 円（カード登録）、最大 500 円と言う"
+  - pattern: '(?<!最大 )(?<!最大)500 円分?のようこそ'
+    why: "同上（日本語。「最大 500 円分のようこそクレジット」は可）"
+  - pattern: '5,000 GPU[- ]秒|5,000 GPU-seconds'
+    why: "500 円分＝5,000 GPU 秒は network の形"
+  - pattern: '\bfrom 500 JPY\b|500 円から'
+    why: "最低チャージ額は 100 円"
+  - pattern: '\b(up to|at most|max(imum)?) 240 frames\b|240 frames (per|a) job|240 コマまで|最大 240 コマ|1 回 240 コマ'
+    why: "240 は 1 部分の大きさ。上限は 1 回の指示で 3,000 コマ"
+  - pattern: '\b1,000 frames per\b|1,000 コマまで'
+    why: "1,000 コマの上限は 10/13 までの値"
+  - pattern: 'Blender 5\.0 only|5\.0 だけ'
+    why: "4.2 / 4.5 / 5.0 を受ける"

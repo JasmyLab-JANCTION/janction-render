@@ -5,15 +5,19 @@ description: Render Blender scenes, bpy scripts, 3D files (GLB, glTF, FBX, USD, 
 
 # JANCTION Render
 
-The `janction-render` MCP server (`https://render.janction.jp/mcp`) renders Blender 5.0 scenes with Cycles on JANCTION's
+<!-- terms:skill_terms_en -->
+The `janction-render` MCP server (`https://render.janction.jp/mcp`) renders Blender scenes with Cycles or EEVEE on JANCTION's
 NVIDIA GPUs. A new key gets 100 JPY of free GPU time (14 days; one per network every 30 days, further keys on the same
 network share what is left), and 400 JPY more, once per card, when the user saves a card on a Stripe page that charges
 nothing (the service offers it as `card_offer` once the 100 JPY is used up; tell the user it costs nothing). When a reply
 carries `autocharge_offer` (the credit is about to run out), ask the user once whether to turn on auto top-up and share its
 link only if they say yes; after that, previews are free up to 2 GPU-minutes a day and other renders cost 0.1 JPY per
-GPU-second from prepaid credit. Up to 3,000 frames per instruction (automatically split internally under one job id): 1920x1080 on free time, up to
-3840x2160 on prepaid credit. Inputs and results
-are deleted 24 hours after last use.
+GPU-second from prepaid credit (top-ups from 100 JPY). Up to 3,000 frames per instruction (run as parts of 240 under one job id):
+1920x1080 on free time, up to 3840x2160 on prepaid credit. Inputs and results are deleted 24 hours after last use
+(7 days, normally, for keys that have paid 500 JPY or more in total). Every estimate carries `decision` (`can_execute`,
+`blocking_reasons`, `required_actions`): when it says the job cannot run, say so and offer the listed actions; do not promise
+that a top-up alone makes it run.
+<!-- /terms:skill_terms_en -->
 
 Do not use it to edit a scene open in the user's own Blender (a local Blender MCP does that), for one still image on a machine
 with its own NVIDIA GPU, or for non-Blender video or general GPU compute.
@@ -98,7 +102,7 @@ Errors carry `code`, `retryable` and `recommended_action`. Act on the action:
 | INSUFFICIENT_CREDIT | Tell the user the price; show `checkout_url` (they pay in the browser), or make the job smaller. |
 | COST_LIMIT_EXCEEDED | The job is above the spending cap. Ask the user; offer fewer frames, lower resolution or samples. |
 | QUOTA_EXCEEDED / RATE_LIMITED | Wait until `resets_at` or `retry_after_s`; say when. |
-| JOB_TOO_LARGE | Too big for one instruction: at most 3,000 frames (automatically split internally), 1920x1080 on free time and 3840x2160 on prepaid credit; split only ranges above 3,000 frames or lower the size. |
+| JOB_TOO_LARGE | <!-- terms:skill_too_large_cell_en -->Too big for one instruction: at most 3,000 frames (run as parts of 240 under one job id), 1920x1080 on free time and 3840x2160 on prepaid credit; split only ranges above 3,000 frames or lower the size.<!-- /terms:skill_too_large_cell_en --> |
 | INVALID_SCENE / SCRIPT_BLOCKED | Fix the script (see below); do not retry the same input. |
 | MISSING_ASSET | Name the missing files; pass them in `asset_urls` or pack them into the .blend. |
 | WORKERS_UNAVAILABLE | Tell the user the wait from `eta`; offer to check later. |

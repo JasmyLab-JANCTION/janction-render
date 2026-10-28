@@ -8,17 +8,17 @@ JANCTION Render is a cloud GPU render farm for Blender that AI agents call as an
 file, a bpy script or a 3D file (glTF / FBX / USD), preview in seconds, and get frames or an MP4 back from JANCTION's
 NVIDIA GPUs. Every preview also returns a verdict on what is wrong, such as too dark, blown out, no light or an object
 out of frame, and the bpy code to fix it, so the agent can correct the scene before the final render. No local Blender
-or GPU is needed. A 100 JPY welcome credit for a new key (one per network every 30 days; further keys on the same network share what is left) and 400 JPY more for saving a card that is not charged (once per card), then 0.1 JPY per GPU-second (previews free up to 2 GPU-minutes a day);
+or GPU is needed. <!-- terms:welcome_en -->A 100 JPY welcome credit for a new key (one per network every 30 days; further keys on the same network share what is left) and 400 JPY more for saving a card that is not charged (once per card), then 0.1 JPY per GPU-second (previews free up to 2 GPU-minutes a day)<!-- /terms:welcome_en -->;
 operated by JasmyLab Inc.
 
 AI agents can render Blender projects on JANCTION GPUs without running Blender locally. Works from **Claude, ChatGPT,
 Claude Code, Codex, Cursor or any MCP client**: an MCP server (remote and stdio), an HTTP API and a CLI.
 
 JANCTION Render is a separate product from SmartRender (JasmyLab's distributed rendering for people at a desktop) and is
-not affiliated with Render.com or the Render Network. The numbers, as of 2026-10-08 (the primary source is
-https://render.janction.jp/facts.json): a 100 JPY welcome credit (1,000 GPU-seconds, 14 days, no card) for a new key, one per network every 30 days (further keys on the same network share what is left), plus 400 JPY more once a card is saved on a page that charges nothing (once per card); after that, previews
-are free up to 2 GPU-minutes a day and finals cost 0.1 JPY per GPU-second from prepaid credit (paid use started on 2026-10-08); finals up to 3,000 frames per instruction (automatically split internally under one job id); 1080p on free time, up to 4K on prepaid credit; inputs and results deleted
-24 hours after last use (7 days, normally, for keys that have paid 500 JPY or more in total).
+not affiliated with Render.com or the Render Network.
+<!-- terms:numbers_en -->
+The numbers, as of 2026-10-26 (the primary source is https://render.janction.jp/facts.json; `pricing.yaml` in this repository holds the same values): a 100 JPY welcome credit (1,000 GPU-seconds, 14 days, no card) for a new key, one per network every 30 days (further keys on the same network share what is left), plus 400 JPY more once a card is saved on a page that charges nothing (once per card); after that, previews are free up to 2 GPU-minutes a day and finals cost 0.1 JPY per GPU-second from prepaid credit (paid use started on 2026-10-08); finals up to 3,000 frames per instruction (run as parts of 240 under one job id; nothing to split by hand); 1920x1080 on free time, up to 3840x2160 on prepaid credit; inputs and results deleted 24 hours after last use (7 days, normally, for keys that have paid 500 JPY or more in total).
+<!-- /terms:numbers_en -->
 
 Official site: https://render.janction.jp · MCP endpoint: `https://render.janction.jp/mcp` · Fact sheet: https://render.janction.jp/facts
 
@@ -36,7 +36,7 @@ uvx janction-render shots model.glb --transparent   # four product shots (PNG)
 
 Rendered on 2026-10-10 on the production GPU (NVIDIA RTX PRO 6000 Blackwell) from Khronos's
 [WaterBottle](https://github.com/KhronosGroup/glTF-Sample-Assets/tree/main/Models/WaterBottle) sample (public domain, CC0);
-copy any line and it runs as is. Prices are at 0.1 JPY per GPU-second and are covered by the welcome credit of a new key.
+copy any line and it runs as is. <!-- terms:price_note_en -->Prices are at 0.1 JPY per GPU-second and are covered by the welcome credit of a new key.<!-- /terms:price_note_en -->
 
 | | Command | GPU time | Price |
 |---|---|---|---|
@@ -76,14 +76,15 @@ Keep 3D files in a repository? Add a button that lets anyone render them from th
   errors with the fix, spending caps per key, safe retries with `Idempotency-Key`.
 - **3D files and turntables.** glTF / GLB, FBX, USD, OBJ, STL, PLY, Alembic are imported into an empty scene with a camera and
   HDRI lighting; `orbit=True` makes a turntable. Fixed-price outcomes: `POST /v1/outcomes/turntable` and `/product-shot`.
-- **Honest limits.** a 100 JPY welcome credit for a new key with no card (14 days; one per network every 30 days) and 400 JPY more after saving a card that is not charged, then 0.1 JPY per GPU-second (previews free up to 2 GPU-minutes a day), finals up to 3,000 frames per instruction with automatic internal splitting (1080p on free time, up to 4K on prepaid credit), on JANCTION's own GPUs
-  (NVIDIA RTX PRO 6000 Blackwell); when they are busy jobs wait in a queue and the ETA says so. Inputs and results are deleted 24 hours after last use (7 days, normally, for keys that have paid 500 JPY or more in total) and never used for training.
+<!-- terms:honest_limits_en -->
+- **Honest limits.** A 100 JPY welcome credit for a new key with no card (14 days; one per network every 30 days) and 400 JPY more after saving a card that is not charged, then 0.1 JPY per GPU-second (previews free up to 2 GPU-minutes a day); finals up to 3,000 frames per instruction, run as parts of 240 under one job id (1080p on free time, up to 4K on prepaid credit), on JANCTION's own GPUs (NVIDIA RTX PRO 6000 Blackwell); when they are busy jobs wait in a queue and the ETA says so. Inputs and results are deleted 24 hours after last use (7 days, normally, for keys that have paid 500 JPY or more in total) and never used for training.
+<!-- /terms:honest_limits_en -->
 - **Not Render.com.** Same word, different product.
 
 ## Quick start
 
-**Claude.ai / ChatGPT (nothing to install).** Settings → Connectors → add `https://render.janction.jp/mcp` → Connect (a free key
-is created on the consent page). Then paste:
+**Claude.ai (nothing to install).** Settings → Connectors → Add custom connector → `https://render.janction.jp/mcp` → Connect (a free key
+is created on the consent page). **ChatGPT:** Plugins (left sidebar) → Add → Create plugin → the same URL (OAuth; on Business workspaces an admin adds it). Then paste:
 
 > Render a preview of https://render.janction.jp/samples/cube_scene.py
 
@@ -379,20 +380,15 @@ container with no network. More: `samples/cube_scene.py`, `samples/polyhaven_roo
 
 ## Pricing
 
-A new key starts with a 100 JPY welcome credit (1,000 GPU-seconds, 14 days, no card) that covers previews and finals; one full credit
-per network every 30 days (later keys on the same network share what is left of it). Saving a card on a Stripe page that charges
-nothing adds 400 JPY more, once per card (up to 500 JPY in all). After it is used up or expires, previews are
-free up to 2 GPU-minutes a day and finals cost 0.1 JPY per
-GPU-second from prepaid credit, bought by card at a Stripe Checkout page (from 500 JPY; 2,000 JPY gives 2,200 JPY of credit,
-5,000 gives 5,750, 10,000 gives 12,000; the first top-up in the welcome period counts 1.5x, bonus up to 500 JPY). Only the part
-the free time does not cover is charged. Finals go up to 3,000 frames per instruction (automatically split internally under one job id): 1080p on free time, up to 4K (3840x2160) on prepaid credit. `POST /v1/estimate` quotes what will be charged
-(`cost.estimated_yen`), the currency and an expiry before any GPU time is used: https://render.janction.jp/pricing
+<!-- terms:pricing_section_en -->
+A new key starts with a 100 JPY welcome credit (1,000 GPU-seconds, 14 days, no card) that covers previews and finals; one full credit per network every 30 days (later keys on the same network share what is left of it). Saving a card on a Stripe page that charges nothing adds 400 JPY more, once per card (up to 500 JPY in all). After it is used up or expires, previews are free up to 2 GPU-minutes a day and finals cost 0.1 JPY per GPU-second from prepaid credit, bought by card at a Stripe Checkout page (from 100 JPY in steps of 100; 2,000 JPY gives 2,200 JPY of credit, 5,000 gives 5,750, 10,000 gives 12,000; the first top-up in the welcome period counts 1.5x, bonus up to 500 JPY). Only the part the free time does not cover is charged. Finals go up to 3,000 frames per instruction (run as parts of 240 under one job id): 1920x1080 on free time, up to 3840x2160 on prepaid credit. Spending caps per key: 3,000 JPY per job and 10,000 JPY per day by default (`POST /v1/me/limits`). `POST /v1/estimate` quotes what will be charged (`cost.estimated_yen`), whether the job can run (`decision.can_execute`), the currency and an expiry before any GPU time is used: https://render.janction.jp/pricing
+<!-- /terms:pricing_section_en -->
 
 ## Troubleshooting
 
 | You see | What it means | What to do |
 |---|---|---|
-| `402 payment_required` | The job goes past the free credit left on the key | `tell_user` in the reply says what this render costs and what a top-up buys; pay at `checkout_url` (from 500 JPY) and send the same job again, or render fewer frames / a lower resolution |
+| `402 payment_required` | The job goes past the free credit left on the key | <!-- terms:topup_cell_en -->`tell_user` in the reply says what this render costs and what a top-up buys; pay at `checkout_url` (from 100 JPY) and send the same job again, or render fewer frames / a lower resolution<!-- /terms:topup_cell_en --> |
 | `script_blocked` | The bpy script uses something the sandbox refuses (network, processes, ctypes) | The GPU worker has no network: pass files from the web in `asset_urls=[...]` (MCP) or `POST /v1/files/{scene_id}/assets/urls`, then open them with `jr_assets.path('<name>')`. A script refused only for `urllib` / `requests` does not count toward revoking the key |
 | `script_path` / `scene_path` | The scene points at a file on your own computer | Send the file as an asset and reference it by name (relative path) |
 | `McpError: Timed out while waiting for response` (OpenAI Agents SDK) | The SDK waits 5 seconds for a tool by default | `MCPServerStreamableHttp(..., client_session_timeout_seconds=120)` (see "From your own agent or app") |
