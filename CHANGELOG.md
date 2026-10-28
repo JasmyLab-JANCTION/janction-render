@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.4.194 - 2026-10-28
+
+- The top page (/ and /ja/) was rebuilt around what the service does today: a 4-step 'how it works' (send, preview with a verdict, estimate, final), the main apps to connect from with the full list on /blender-mcp, all 13 MCP tools including render_import_file, a free-key / paid-key table (previews, finals up to 4K, .blend size, how long files are kept) and the guarantees for an agent that pays (price before running, spending caps, Idempotency-Key, fixed-price outcomes). The long 'what is' paragraph, the wall of 60 guide links and the 20-row connect table are gone; the guides fold under one line. Table cells now wrap long commands on phones.
+
+## 0.4.193 - 2026-10-28
+
+- A preview or final of a scene whose last run already failed in a way that repeats every time (a script error, a Blender API change, a check in the script, a missing file, an unreadable file) is refused before it reaches a GPU, with 422 `scene_failed_before` (agent code `INVALID_SCENE` / `FIX_INPUT`), the earlier `failure` and the job id. Nothing is queued or charged. It goes through when the scene has rendered before with the same Blender version, when files were added to the scene after the failure, with another `blender` version, after 24 hours, or with `rerender=true`. Time-outs, memory limits, camera errors and failures on our side are not refused. On 10/28 a /start user's scene failed to be read three times (a GLB that was not sent) and two finals of the same scene were then started and failed at the same line.
+- The remote MCP passes `failure`, `failed_job` and a next step for this refusal.
+
+## 0.4.192 - 2026-10-28
+
+- Estimates (`/v1/estimate`, `render_estimate`) and the pre-render check (`preflight`, also inside `scene_info`) now compare a long final that runs as parts with the per-job spending cap part by part, which is how the render itself is checked. They used to compare the hold for the whole range, so a 1,688-frame 1080p animation that the service then rendered as 7 parts was reported as `SPEND_CAP` "blocked". The per-day cap is still compared with the hold for all parts.
+
+## 0.4.191 - 2026-10-28
+
+- A bpy script that loads a file that was not sent with it is now reported as `MISSING_TEXTURE` / `SCRIPT_FILE_NOT_SENT` (send the file; do not remove the loading step) in two more cases: `bpy.ops.import_scene.gltf` answering "Please select a file" because the path does not exist, and `bpy.data.images.load` answering "Cannot read 'name.png': No such file or directory" (without the word "file"). On 10/28 six /start jobs from two outside users failed this way; the first was reported as a generic script error and sent to the automatic script fixer, the second as "Blender could not open the scene file".
+- Every failure seen in production so far (184 jobs) and a set of likely ones were run through the failure classifier, and the cases that got generic, wrong or raw text now say what to change: scripts that the sandbox stops, operators that need Blender's window (`poll() failed, context is incorrect`), `input()`, operators from add-ons that are not enabled, `None` objects (no active object without a window, or a material without a node tree), `MemoryError` (RAM, not GPU memory), and Blender 5 changes that were all answered with the same material advice: the compositor (`scene.node_tree`), video output (`FFMPEG`), AgX look names, `BLENDER_EEVEE_NEXT`, `action.fcurves`, node options that became input sockets, and Principled BSDF inputs renamed in 4.0. Other values that do not exist now point to the list of accepted values in the error.
+- A `.blend` saved by a newer Blender is no longer reported as "Blender crashed while reading the scene"; it suggests `blender='5.2'`. A crash in the middle of rendering is no longer called a crash while reading. A CUDA fault, frames that came back without an image, and a failed copy of the results out of the render container are explained instead of returning the raw message; as before, these three, and a full disk, are not charged.
+- The /start script fixer records an `aifix` event when it fails with an exception (for example a rejected API key), and the morning summary lists it under things to act on. On 10/28 the fixer failed three times with 401 and left only a traceback in the server log.
+- The morning summary's payment-failure line (checkout, auto-charge, subscription) read events through the failure report's filter, which keeps only five other event types, so it never appeared. It now reads those events directly.
+
 ## 0.4.190 - 2026-10-28
 
 - `scene_info` (remote MCP and stdio) no longer answers "still queued" for a read that a worker has already started. A queued read still says "still queued"; a running one says "reading the scene now", and after 20 s it carries the time left until the read limit from 0.4.188 ("still reading the scene after 50 s; it stops at the 120 s limit at the latest"). Both servers share `mcp_common.info_pending_hint`.
