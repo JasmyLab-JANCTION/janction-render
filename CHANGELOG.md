@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.4.197 - 2026-10-28
+
+- New look for every page: dark background, orange accent, a fixed header (Products, Examples, Pricing, Benchmarks, Facts, language, Try free) and a footer with the full site map. The top page follows the agreed layout: the original headline and wording, a studio still rendered on JANCTION (the script is /samples/hero_studio.py), a 'works with' strip, the four steps as cards and, when the night batch has rendered them, three real examples; the detailed tables follow. /start is now the studio layout (the same form as the jr-studio-demo mock: left rail, drop zone that previews at once, result with finishing options, works, settings); ?ui=v1 keeps the previous form and JR_START_V2=0 restores it. Content, URLs, structured data and llms.txt are unchanged.
+
+## 0.4.196 - 2026-10-28
+
+- Failed and finished jobs now keep the last part of Blender's output as the artifact log.txt (GET /v1/jobs/{id}/artifacts/log.txt), which the API reference had listed all along without it ever being written: on 10/28 an agent waiting for a .blend export asked for it 18 times and got 404 every time. A script failure now also carries source_line and source_context (the failing line of the script as received, with two lines around it) next to the line number, so an agent that rewrites its script between runs can find the line. A .blend export that runs out of time says why the partial save before the limit could not help either.
+
+## 0.4.195 - 2026-10-28
+
+- The browser page /start has a studio layout behind a flag (JR_START_V2, off by default; open /start?ui=v2 to see it, ?ui=v1 for the previous form): a left rail (Render, Works, Settings), a drop zone that starts the free preview the moment a file lands, the result on the stage with the finishing options beside it, a Works view listing this key's previews and finals, and a Settings view (key, credit and top-up, connected AIs, email on completion). The rendering engine, prices, 402 flow and measurements are the same code as before; only the layout changed.
+
 ## 0.4.194 - 2026-10-28
 
 - The top page (/ and /ja/) was rebuilt around what the service does today: a 4-step 'how it works' (send, preview with a verdict, estimate, final), the main apps to connect from with the full list on /blender-mcp, all 13 MCP tools including render_import_file, a free-key / paid-key table (previews, finals up to 4K, .blend size, how long files are kept) and the guarantees for an agent that pays (price before running, spending caps, Idempotency-Key, fixed-price outcomes). The long 'what is' paragraph, the wall of 60 guide links and the 20-row connect table are gone; the guides fold under one line. Table cells now wrap long commands on phones.
