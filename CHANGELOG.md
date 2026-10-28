@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.204 - 2026-10-29
+
+- The legal notice (Act on Specified Commercial Transactions, /legal and /ja/legal) states the unit of the per-job spending cap: it applies to the whole render request, however the service splits it internally, and a request above the cap is not accepted and no fee is charged for it (wording approved on 2026-10-29).
+
 ## 0.4.203 - 2026-10-29
 
 - A spending cap applies to the whole render request. The per-job cap (3,000 JPY by default) is now checked against the request's total hold, however the service splits a long final into parts internally; splitting never increases the cap and paying more does not lift it. The estimate (decision, cost.within_caps, next), the submission (403 spend_cap_exceeded before any 402) and the restart after a payment use the same rule (decision.cap_reasons). The per-part check of 0.4.195 is withdrawn.
