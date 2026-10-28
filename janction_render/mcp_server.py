@@ -446,7 +446,7 @@ def scene_info(scene_path: Annotated[str, D("scene_path", "")] = "",
         return _j(_fail(exc))
     if j["status"] != "done":
         b = _brief(j)
-        b["hint"] = (_gated_hint(j, "scene_info(scene_id)") or "still queued (a GPU worker may be busy); call scene_info again in a moment") \
+        b["hint"] = (_gated_hint(j, "scene_info(scene_id)") or mcp_common.info_pending_hint(j, "call scene_info again")) \
             if j["status"] in ("queued", "running") else "fix the scene and try again"
         return _j(b)
     info = mcp_common.scene_info_reply(j, "assets=[...]")

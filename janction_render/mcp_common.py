@@ -154,6 +154,16 @@ def scene_info_reply(j: dict[str, Any], assets_param: str) -> dict[str, Any]:
     return info
 
 
+def info_pending_hint(j: dict[str, Any], again: str) -> str:
+    """読み取り（info）がまだ終わらないときの一文。again は呼び直し方（remote と stdio で書き方が違う）。
+    10/28: 走っている読み取りにも「still queued」と言っていたので、待ちと読み取り中を分け、読み取り中は eta の文
+    （20 秒を超えたら上限までの残り、0.4.188）を添える。"""
+    if j.get("status") == "running":
+        human = str((j.get("eta") or {}).get("human") or "")
+        return "reading the scene now" + (f" ({human})" if human.startswith("still reading") else "") + f"; {again} in a moment"
+    return f"still queued (a GPU worker may be busy); {again} in a moment"
+
+
 def _with_card_offer(out: dict[str, Any], me: dict[str, Any]) -> dict[str, Any]:
     """/v1/me の card_offer（カード登録 0 円で無料の GPU 時間が足される、無料分を使い切った鍵だけ）を billing の返事にも載せ、
     まずそれを利用者に伝えるよう next で言う（10/26: 案内を受けた AI・CLI の鍵 8 本が 1 本も登録しなかった。billing の返事が案内を落としていた）。"""

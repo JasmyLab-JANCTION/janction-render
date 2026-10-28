@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.190 - 2026-10-28
+
+- `scene_info` (remote MCP and stdio) no longer answers "still queued" for a read that a worker has already started. A queued read still says "still queued"; a running one says "reading the scene now", and after 20 s it carries the time left until the read limit from 0.4.188 ("still reading the scene after 50 s; it stops at the 120 s limit at the latest"). Both servers share `mcp_common.info_pending_hint`.
+- The operator's daily scorecard now ends each day at the day's end: jobs and keys created after it (the next morning, before the report is sent) were counted in the previous day.
+- The operator's morning report and the daily scorecard line show top-ups (what customers paid) separately from the credit used by renders; they used to show only the latter as "sales".
+- 0.4.189 is used by a separate change in progress.
+
 ## 0.4.188 - 2026-10-27
 
 - Reading a scene (`kind=info`) that runs out of time: /start heads the message with `failure.reason` ("the scene took more than 120 s to build (nothing was rendered)") instead of the worker's raw "render exceeded the 120s limit", which read like a render failure; the guidance underneath was already specific. The failure is now `retryable: false`, matching its own advice that sending the same scene again times out the same way.
