@@ -3,7 +3,7 @@
   "name": "io.github.JasmyLab-JANCTION/janction-render",
   "title": "JANCTION Render",
   "description": "Blender and GLB/FBX/USD/STL rendered on cloud GPUs for AI agents: product shots, turntables, MP4",
-  "version": "0.4.204",
+  "version": "0.4.205",
   "websiteUrl": "https://render.janction.jp",
   "repository": {
     "url": "https://github.com/JasmyLab-JANCTION/janction-render",
@@ -13,7 +13,7 @@
     {
       "registryType": "pypi",
       "identifier": "janction-render",
-      "version": "0.4.204",
+      "version": "0.4.205",
       "runtimeHint": "uvx",
       "transport": {
         "type": "stdio"

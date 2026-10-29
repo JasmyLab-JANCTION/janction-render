@@ -419,7 +419,7 @@ def param_docs(flavor: str, wait_cap_s: int = 50) -> dict[str, str]:
         "include_script": "True also publishes the bpy script on the share page.",
         "listed": "True asks for the page to appear in the public gallery after the operator reviews it.",
         "prompt": "What the user asked you, in their words (shown as 'what the user asked the agent').",
-        "topup_yen": "0 = just report the quota / balance; > 0 (minimum 500) = create a Stripe checkout link for that amount in yen.",
+        "topup_yen": "0 = just report the quota / balance; > 0 = create a Stripe checkout link for that amount in yen (an amount below the minimum top-up is refused and the reply says the minimum).",
     }
 
 

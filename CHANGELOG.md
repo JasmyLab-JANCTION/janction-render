@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.205 - 2026-10-29
+
+- A .blend export (output="blend") on a key with credit (any balance) has 900 s to build the scene; keys without credit keep 600 s. The estimate (note, time_limit_seconds), the job (time_limit) and a timeout (failure.reason, limit_seconds) say which limit applied and that credit raises it.
+- The billing tool's topup_yen parameter description no longer states an outdated minimum top-up (the minimum is 100 JPY; registries such as Glama copied the old text from the tool schema). It carries no number now: an amount below the minimum is refused and the reply says the minimum. The published-wording check also reads tool parameter descriptions.
+- IndexNow sends are logged one URL per line (time, URL, HTTP status, accepted, retry needed), and /facts.json is sent when its verified date changes.
+- Weekly AIO measurement (scripts/aio): 5 recommendation questions and 1 pricing question, Japanese and English, three AI services, three runs each; pricing answers are scored against the live /v1/pricing. A daily check reports only changed RED / UNKNOWN items.
+
 ## 0.4.204 - 2026-10-29
 
 - The legal notice (Act on Specified Commercial Transactions, /legal and /ja/legal) states the unit of the per-job spending cap: it applies to the whole render request, however the service splits it internally, and a request above the cap is not accepted and no fee is charged for it (wording approved on 2026-10-29).

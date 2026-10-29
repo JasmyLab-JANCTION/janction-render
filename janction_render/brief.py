@@ -42,7 +42,7 @@ def estimate_brief(e: dict[str, Any] | None) -> dict[str, Any] | None:
     if not e:
         return None
     keep = ("human", "seconds", "wall_seconds", "queue_wait_seconds", "per_frame_seconds", "frames", "chunks",
-            "workers_online", "basis", "basis_note", "note", "quota", "cost", "gate", "uncertainty", "calibration", "feasibility", "decision")
+            "workers_online", "basis", "basis_note", "note", "time_limit_seconds", "quota", "cost", "gate", "uncertainty", "calibration", "feasibility", "decision")
     return {k: e[k] for k in keep if e.get(k) is not None}
 
 
@@ -508,6 +508,8 @@ def brief(j: dict[str, Any]) -> dict[str, Any]:
         out["estimate"] = estimate_brief(j["estimate"])
     if j.get("error"):
         out["error"] = j["error"]
+    if j.get("time_limit"):
+        out["time_limit"] = j["time_limit"]      # .blend の書き出しの上限（10/29: 残高のある鍵 900 秒・ほか 600 秒）
     inf = j.get("info") if isinstance(j.get("info"), dict) else {}
     if inf.get("partial"):
         # .blend の書き出しの途中保存（10/27）: done でも、組み終わっていないシーンだと AI が利用者に言えるように

@@ -185,7 +185,7 @@ P: dict[str, str] = {
     "include_script": "True also publishes the bpy script on the share page.",
     "listed": "True asks for the page to appear in the public gallery after the operator reviews it.",
     "prompt": "What the user asked you, in their words (shown as 'what the user asked the agent').",
-    "topup_yen": "0 = just report the quota / balance; > 0 (minimum 500) = create a Stripe checkout link for that amount in yen.",
+    "topup_yen": "0 = just report the quota / balance; > 0 = create a Stripe checkout link for that amount in yen (an amount below the minimum top-up is refused and the reply says the minimum).",
     "preset": "Purpose preset: 'product' (4 studio shots at 0/90/180/270 deg on a plain backdrop; final = 4 PNGs), 'turntable' (360-degree MP4, studio light, plain backdrop), 'animation' (the scene's own camera, lights and frame range), or '' (none). Fills what you do not pass.",
 }
 
@@ -888,7 +888,7 @@ def billing(topup_yen: Annotated[int, D("topup_yen", 0)] = 0) -> str:
     """Check the free GPU time left and the credit. With topup_yen = 0 it confirms any payment the user just
     made and returns what this key can still render for free (a new key's welcome credit, or the free daily
     amount) and when it resets or expires, the balance (yen) and the price per GPU second; with topup_yen > 0
-    (minimum 500) it returns a Stripe checkout URL to show to the user. Jobs the free time covers cost nothing;
+    it returns a Stripe checkout URL to show to the user. Jobs the free time covers cost nothing;
     beyond it only the extra GPU seconds are charged, and only for frames that actually rendered. Also shows auto
     top-up and monthly plan status, with links the user can open to turn them on."""
     c = _client()

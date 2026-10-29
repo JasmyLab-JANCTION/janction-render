@@ -95,6 +95,8 @@ forbidden_patterns:
     why: "500 円分＝5,000 GPU 秒は network の形"
   - pattern: '\bfrom 500 JPY\b|500 円から'
     why: "最低チャージ額は 100 円"
+  - pattern: '\bminimum 500\b|最低 ?500 ?円|最低チャージ額?は ?500'
+    why: "最低チャージ額は 100 円（10/29: MCP の billing の topup_yen の説明に残り、Glama がそれを写していた）"
   - pattern: '\b(up to|at most|max(imum)?) 240 frames\b|240 frames (per|a) job|240 コマまで|最大 240 コマ|1 回 240 コマ'
     why: "240 は 1 部分の大きさ。上限は 1 回の指示で 3,000 コマ"
   - pattern: '\b1,000 frames per\b|1,000 コマまで'
