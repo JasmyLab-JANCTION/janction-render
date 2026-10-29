@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "janction-render"
-version = "0.4.206"
+version = "0.4.209"
 description = "Cloud GPU rendering for Blender scenes and 3D models (GLB, FBX, USD, OBJ, STL), built for AI agents: MCP server (remote + stdio), HTTP API and CLI. Product shots, 360-degree turntables, animations and stills; preview in seconds with a critic; no local Blender or GPU. Free welcome credit for a new key. Current pricing and limits: https://render.janction.jp/pricing"
 readme = "README.md"
 license = "MIT"

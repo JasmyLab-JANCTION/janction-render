@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.4.209 - 2026-10-29
+
+- A bpy script that calls jr_assets.material, import_model or world_hdri with a literal name, sent without any file under that name, is refused at submit (400 bad_asset, code MISSING_ASSET, recommended_action ADD_ASSETS) with missing_assets and the asset_urls to send, instead of failing on the GPU with FileNotFoundError. Calls inside try and names held in variables are left alone. JR_ASSET_PRECHECK=0 turns the check off.
+
+## 0.4.208 - 2026-10-29
+
+- Each new key records where it came from (origin: test, external or unknown, with a reason), and a revoked key records why (self, abuse, reissued, operator), so usage numbers can count outside use without counting the operator's tests, and without dropping people who revoked their own key.
+- For a key's first 24 hours the service notes which kind of call it made (method, path shape with IDs hidden, status class), once per kind, so the weekly report can show where a new user stopped. A 404 that answered with did_you_mean is marked as such.
+
+## 0.4.207 - 2026-10-29
+
+- Missing external files (MISSING_FILES): the /start page now gives the steps in order (Blender: File > External Data > Pack Resources, File > Save, send the .blend again; or export a .glb, which carries its textures) and no longer repeats the same check in English on the Japanese page. The preflight check returned to API and MCP clients carries the same steps.
+- A .blend export (output="blend") that is queued or running reports export_progress: the stage, elapsed seconds, the time limit and the most time left, when scene.blend and log.txt appear (when the job ends; until then 404 not_ready) and how often to poll. The MCP reply carries it too.
+- A request to a /v1 path that does not exist answers with did_you_mean when it looks like a common mistake (for example GET /v1/files/{id}/url or POST /v1/billing/topup), naming the call to use instead.
+- Creating a second key from the same network within 24 hours returns reuse_hint: keys do not expire, so keep one and send it on every call.
+
 ## 0.4.206 - 2026-10-29
 
 - Asking for a file of a job that is still queued or rendering (log.txt, a frame not drawn yet) returns 404 with error not_ready (code NOT_READY, recommended_action WAIT_AND_RETRY, retryable, retry_after_s) and points at GET /v1/jobs/{id}, instead of "no such artifact". A missing file of a finished job is still not_found.

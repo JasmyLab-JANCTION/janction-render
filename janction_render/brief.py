@@ -510,6 +510,8 @@ def brief(j: dict[str, Any]) -> dict[str, Any]:
         out["error"] = j["error"]
     if j.get("time_limit"):
         out["time_limit"] = j["time_limit"]      # .blend の書き出しの上限（10/29: 残高のある鍵 900 秒・ほか 600 秒）
+    if j.get("export_progress"):
+        out["export_progress"] = j["export_progress"]   # 書き出しの経過・上限までの残り・ファイルがいつ取れるか（10/29）
     inf = j.get("info") if isinstance(j.get("info"), dict) else {}
     if inf.get("partial"):
         # .blend の書き出しの途中保存（10/27）: done でも、組み終わっていないシーンだと AI が利用者に言えるように
