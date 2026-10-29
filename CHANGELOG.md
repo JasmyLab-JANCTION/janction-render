@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.206 - 2026-10-29
+
+- Asking for a file of a job that is still queued or rendering (log.txt, a frame not drawn yet) returns 404 with error not_ready (code NOT_READY, recommended_action WAIT_AND_RETRY, retryable, retry_after_s) and points at GET /v1/jobs/{id}, instead of "no such artifact". A missing file of a finished job is still not_found.
+- The package description (README and the PyPI summary) now starts by pointing to https://render.janction.jp/pricing and https://render.janction.jp/facts.json for current pricing, free credits and limits, and states amounts only once, in the dated Pricing section.
+
 ## 0.4.205 - 2026-10-29
 
 - A .blend export (output="blend") on a key with credit (any balance) has 900 s to build the scene; keys without credit keep 600 s. The estimate (note, time_limit_seconds), the job (time_limit) and a timeout (failure.reason, limit_seconds) say which limit applied and that credit raises it.
