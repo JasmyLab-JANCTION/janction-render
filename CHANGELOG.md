@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.211 - 2026-10-30
+
+- A script may load a font with bpy.data.fonts.load for 3D text. It was refused before as something rendering never needs. Send the font file as an asset and load it from JR_ASSETS_DIR (jr_assets.path('<name>')); a path on your own computer gets the same advice as an image path. Loading text, sound and movie-clip files is still refused.
+
+## 0.4.210 - 2026-10-30
+
+- A final animation with 1 to 12 isolated black frames is no longer failed outright: those frames are rendered again on another worker. A frame that comes back with a picture replaces the black one; a frame that is black again is part of the scene (for example the camera passing through a wall), so the job finishes and the video is delivered with a warning naming the frame. The second render is not charged. More than 12 isolated black frames still fail the quality gate.
+
 ## 0.4.209 - 2026-10-29
 
 - A bpy script that calls jr_assets.material, import_model or world_hdri with a literal name, sent without any file under that name, is refused at submit (400 bad_asset, code MISSING_ASSET, recommended_action ADD_ASSETS) with missing_assets and the asset_urls to send, instead of failing on the GPU with FileNotFoundError. Calls inside try and names held in variables are left alone. JR_ASSET_PRECHECK=0 turns the check off.
