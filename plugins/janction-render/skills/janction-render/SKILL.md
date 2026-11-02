@@ -30,6 +30,11 @@ authenticated yet. Say so plainly and give the step for the user's app; never sa
 - Claude Code: run `/mcp`, choose janction-render, press Authenticate, then Connect in the browser (creates a free key).
 - Codex: `codex mcp login janction-render`. Gemini CLI: `/mcp auth janction-render`.
 - ChatGPT and Claude.ai: open the connector settings and connect again.
+- A cloud sandbox (Claude Code on the web, `CLAUDE_CODE_REMOTE=true`) may block `render.janction.jp` (its proxy answers 403
+  to CONNECT, or `curl` fails). The service is not down. Use the JANCTION Render tools from a claude.ai connector if this
+  session has them (pass a bpy script as `scene_script`, a web file as `scene_url`); otherwise ask the user to add
+  `render.janction.jp` to the environment's Allowed domains (Network access -> Custom; a running session follows within
+  about a minute): https://render.janction.jp/claude-code-blender#cloud-sessions. Do not retry until they have.
 
 The first call `render_preview(scene_url="https://render.janction.jp/samples/cube_scene.py", environment="compare")` checks the
 connection in a few seconds.
@@ -106,6 +111,7 @@ Errors carry `code`, `retryable` and `recommended_action`. Act on the action:
 | INVALID_SCENE / SCRIPT_BLOCKED | Fix the script (see below); do not retry the same input. |
 | MISSING_ASSET | Name the missing files; pass them in `asset_urls` or pack them into the .blend. |
 | WORKERS_UNAVAILABLE | Tell the user the wait from `eta`; offer to check later. |
+| NETWORK_BLOCKED | This environment's proxy blocks the service; retrying will not help. Follow `possible_fix` (connector tools, or allow the domain). |
 | JOB_FAILED | Read `failure` (`code`, `recommended_action`, `fix_by`) and `log_tail`, fix, preview again. |
 
 More cases: [references/troubleshooting.md](references/troubleshooting.md). Prompts that work: [references/examples.md](references/examples.md).

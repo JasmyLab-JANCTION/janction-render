@@ -280,7 +280,10 @@ class ClientError(RuntimeError):
         out = {k: x[k] for k in ("code", "retryable", "recommended_action", "possible_fix", "retry_after_s", "resets_at_iso")
                if x.get(k) is not None}
         if "code" not in out:
-            if self.error == "server_unreachable" or self.status >= 500:
+            if self.error == "network_blocked":   # 11/2: 箱のプロキシが断った。待っても通らないので、道を替える
+                out.update({"code": "NETWORK_BLOCKED", "retryable": False, "recommended_action": "SWITCH_ROUTE",
+                            "possible_fix": x.get("hint")})
+            elif self.error == "server_unreachable" or self.status >= 500:
                 out.update({"code": "WORKERS_UNAVAILABLE" if self.error == "server_unreachable" else "INTERNAL_ERROR",
                             "retryable": True, "recommended_action": "WAIT_AND_RETRY"})
             else:
@@ -330,10 +333,42 @@ class _Session(requests.Session):
             raise unreachable_error(self._server, url, exc) from exc
 
 
+CLOUD_SANDBOX_GUIDE = f"{DEFAULT_SERVER}/claude-code-blender#cloud-sessions"
+
+
+def network_blocked(exc: BaseException) -> bool:
+    """この環境のプロキシが宛先を断った（11/2）。Claude Code の Web 版などのクラウドの箱は、許可リストに無い宛先への CONNECT に
+    403 を返す。受付が落ちているのではなく、待っても通らないので、ほかの「届かない」と分ける。"""
+    if not isinstance(exc, requests.exceptions.ProxyError):
+        return False
+    text = str(exc)
+    return ("403" in text or "Forbidden" in text or "not allowed" in text.lower()
+            or os.environ.get("CLAUDE_CODE_REMOTE") == "true")
+
+
+def _blocked_hint(host: str) -> str:
+    return (f"The request did not leave this environment: its network proxy refused {host} (a sandbox allowlist, "
+            "not an outage of the render service), so retrying will not help. "
+            "Fix, in this order: (1) if this session has the JANCTION Render tools from a claude.ai connector, use those "
+            "instead (they do not go through this proxy; pass a bpy script as scene_script, a file on the web as scene_url). "
+            "If it does not, tell the user the one-time setup: on claude.ai, Settings -> Connectors -> Add custom connector -> "
+            f"{DEFAULT_SERVER}/mcp -> Connect (creates a free key); no network setting changes. "
+            f"(2) Only for a .blend that exists only in this sandbox: the user allows {host} in the environment's network "
+            "settings (Claude Code on the web: Network access -> Custom -> Allowed domains, keeping the defaults; a running "
+            "session follows within about a minute), then try once more. "
+            f"Steps: {CLOUD_SANDBOX_GUIDE}")
+
+
 def unreachable_error(server: str, url: str, exc: BaseException) -> ClientError:
     """requests の接続系の例外を、向き先と直し方の付いた ClientError にする。"""
     parts = urlsplit(url)
     target = f"{parts.scheme}://{parts.netloc}" if parts.netloc else server
+    if network_blocked(exc):
+        host = parts.hostname or urlsplit(server).hostname or server
+        hint = _blocked_hint(host)
+        return ClientError(0, "network_blocked", f"could not reach {target}: {hint}",
+                           extra={"server": server, "url": url, "retryable": False, "hint": hint,
+                                  "guide": CLOUD_SANDBOX_GUIDE})
     if isinstance(exc, (requests.exceptions.InvalidURL, requests.exceptions.MissingSchema, requests.exceptions.InvalidSchema)):
         code, hint = "bad_server_url", f"JANCTION_RENDER_SERVER must be an http(s) URL, got {server!r}"
     elif server.rstrip("/") == LOCAL_SERVER:
@@ -415,6 +450,10 @@ class Client:
     def _raise(r: requests.Response) -> None:
         if r.status_code < 400:
             return
+        if r.status_code == 403 and r.headers.get("x-deny-reason") == "host_not_allowed":
+            # 11/2: 箱のプロキシが TLS を開いて 403 を返す形（Claude Code の Web 版の説明: x-deny-reason: host_not_allowed）
+            raise unreachable_error(DEFAULT_SERVER, r.url or DEFAULT_SERVER,
+                                    requests.exceptions.ProxyError("403 Forbidden (x-deny-reason: host_not_allowed)"))
         try:
             body = r.json()
         except ValueError:

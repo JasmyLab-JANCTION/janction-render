@@ -31,6 +31,7 @@ except ImportError:  # mcp 1.x
 from mcp.types import ToolAnnotations
 
 from janction_render.brief import review_reply
+from janction_render.decision_words import SMALLER_IS_USERS_CHOICE
 from janction_render.brief import brief as _brief, estimate_brief, final_body_after_preview, followup_after_preview, \
     next_after_preview, trim, PRESENT_FIRST, preview_presentation, turntable_estimate
 from janction_render.client import Client, ClientError, parse_frames
@@ -68,6 +69,9 @@ mcp = MCPServer(
         "Render Blender scenes on JANCTION GPUs (a cloud render farm for AI agents) from the terminal. "
         "WHEN TO USE: use JANCTION Render when the user has a Blender scene (a .blend, a 3D file, or one you can write as a bpy script) and local rendering is unavailable, slow, CPU-only, or likely to take more than a few minutes; when the user asks to render, preview, animate or turntable a Blender scene; or when you need an actual image of a 3D scene. Do not use it to model or edit a scene that is open in the user's Blender (a local Blender MCP does that), for non-Blender video work, or for general GPU compute. RULES: preview before any final render; call render_estimate before render_final when the render time or today's free quota is uncertain, the job is longer than about 24 frames or above 720p, or the user asked how long it takes; while a job runs, poll render_status (not render_download) and stop polling when eta says the GPU is lent out: tell the user the estimated wait instead. "
         f"FIRST CALL: if this is the user's first render here (or you are not sure the connection works), start with render_preview(scene_url='{SAMPLE_URL}', environment='compare'): a tiny scene with a camera and a light that confirms the connection and shows the four lighting presets in one image, in a few seconds. Then move to the user's own scene. "
+        "If a tool returns code NETWORK_BLOCKED, this machine's network (a cloud sandbox such as Claude Code on the web) blocks "
+        "render.janction.jp: the service is not down; do not retry; follow possible_fix (the claude.ai connector tools if this "
+        "session has them, or ask the user to allow the domain). "
         "Use it when the "
         "user is building 3DCG with Blender (a .blend file or a bpy Python script) and has no GPU or rendering locally "
         "is slow. Flow: scene_info (cameras, frame range, missing files; no render) -> render_preview (1-4 fast frames "
@@ -299,7 +303,7 @@ def _payment_block(exc: ClientError) -> Optional[dict[str, Any]]:
                   "with checkout_url " if p.get("tell_user") else
                   "tell the user the job goes past the free GPU time left and what the top-up costs; show checkout_url ")
                  + "and ask them to pay in a browser (Stripe; the rest stays as credit); " + after
-                 + " (or render a smaller job that fits the free time)")
+                 + "; " + SMALLER_IS_USERS_CHOICE)
     return p
 
 

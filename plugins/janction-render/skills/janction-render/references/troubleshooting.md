@@ -13,6 +13,14 @@ also has `failure` with `code`, `category`, `reason`, `recommended_action` (a se
   call and `codex exec` cannot ask, so the call never reaches the service. Run Codex interactively and let the user allow
   each call when Codex asks.
 - The browser page says "unknown app": the app's redirect address is not one the service knows. Use the official app.
+- `NETWORK_BLOCKED`, or `curl`/fetch to render.janction.jp fails with a proxy 403 ("Tunnel connection failed: 403", or
+  the header `x-deny-reason: host_not_allowed`): the
+  request never left a cloud sandbox (Claude Code on the web and similar). The render service is not down and waiting does
+  not help. If the session has the JANCTION Render tools from a claude.ai connector, use them: scripts go as `scene_script`,
+  web files as `scene_url`, and the user opens the result links in their browser. Otherwise the user adds
+  `render.janction.jp` to the environment's Allowed domains (Network access -> Custom, keep the defaults; a running session
+  follows within about a minute): https://render.janction.jp/claude-code-blender#cloud-sessions. A `.blend` that exists only inside the sandbox needs the
+  allowed domain (or a public https link).
 
 ## Money
 

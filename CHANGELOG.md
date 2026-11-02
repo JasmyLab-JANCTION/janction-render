@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.4.214 - 2026-11-02
+
+- When the credit does not cover a render, the agent is told to show the user both choices: keep the settings for the price, or a smaller render that stays free and what it loses. Agents are told not to make the render smaller on their own or to set max_yen lower than the user said.
+- A finished final render now says, in after_final, that the next version renders with the same settings (same_settings), when its files are deleted, and, for keys that have not topped up enough, that a top-up keeps the files 7 days.
+- Payment links go through render.janction.jp first and then to the Stripe page. An expired payment page is made again for the same amount; a paid one says so.
+- Behind a server switch (off by default): when a final of two or more frames would answer 402, the frames that fit the free GPU time render now at no charge, and the rest becomes an order that starts by itself after the top-up (partial_first).
+
+## 0.4.213 - 2026-11-02
+
+- In a cloud sandbox whose network proxy refuses render.janction.jp (Claude Code on the web with the default network setting answers 403 to CONNECT, or 403 with x-deny-reason: host_not_allowed), the janction-render command and the local MCP server no longer report server_unreachable / WORKERS_UNAVAILABLE ("wait and retry"). They return network_blocked (code NETWORK_BLOCKED, retryable false, recommended_action SWITCH_ROUTE) with possible_fix: use the JANCTION Render connector from claude.ai, whose traffic does not go through the sandbox, or add render.janction.jp to the environment's Allowed domains. render_info's diagnose says the same instead of "try again in a minute".
+- The remote MCP instructions, the stdio MCP instructions, the plugin skill (Is it connected?, the error table and troubleshooting) and llms.txt (English and Japanese) say how to work from a cloud sandbox: scripts as scene_script, web files as scene_url, result links opened in the browser.
+- The Claude Code guide (/claude-code-blender, /ja/claude-code-blender) has a section "Claude Code on the web (cloud sessions)" (#cloud-sessions): three steps to add the claude.ai connector (no network setting to change), and allowing the domain only for a .blend that exists only in the session; plus an FAQ entry. The connect tables of the guides and the connect lines on /pricing and /facts gain a row for Claude Code on the web. The NETWORK_BLOCKED hint gives the connector setup first.
+
 ## 0.4.211 - 2026-10-30
 
 - A script may load a font with bpy.data.fonts.load for 3D text. It was refused before as something rendering never needs. Send the font file as an asset and load it from JR_ASSETS_DIR (jr_assets.path('<name>')); a path on your own computer gets the same advice as an image path. Loading text, sound and movie-clip files is still refused.
