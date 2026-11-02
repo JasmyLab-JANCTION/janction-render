@@ -11,6 +11,8 @@ from __future__ import annotations
 import os
 from typing import Any, Optional
 
+from .decision_words import SMALLER_IS_USERS_CHOICE
+
 PURPOSE_PRESETS = ("product", "turntable", "animation")
 FINAL_TOOL_DEFAULTS = {"width": 1920, "height": 1080, "samples": 128, "output": "auto"}
 
@@ -109,12 +111,12 @@ def estimate_next(est: dict[str, Any]) -> str:
         # 有料の鍵（10/8〜）: 無料の分を超えた仕上げは、残高 / カード登録の分 / チャージ、の 3 通りで言う（10/23）。
         # 「今日は入らない、リセットを待て」とは言わない（仕上げは残高から描ける）
         return "this goes past the free GPU time: " + pay["en"] + (
-            "; a smaller job (fewer frames, lower resolution or samples) may stay free" if pay["mode"] != "credit" else "")
+            "; " + SMALLER_IS_USERS_CHOICE if pay["mode"] != "credit" else "")
     if q and not q.get("fits_today", True) and q.get("mode") == "free_allowance" and cost.get("estimated_yen") is not None:
         # 古い受付の cost（free の欄が無い）: 額と残高だけ言う
         return (f"this goes past the free GPU time left: about {cost.get('estimated_yen')} JPY would be charged from credit "
                 f"(balance {cost.get('balance_yen')} JPY). Tell the user the time and the price and ask before "
-                "render_final; a smaller job (fewer frames, lower resolution or samples) may stay free")
+                "render_final; " + SMALLER_IS_USERS_CHOICE)
     if q and not q.get("fits_today", True) and not cost:
         return ("this does not fit today's remaining free GPU time; propose fewer frames, lower resolution or samples, "
                 "or wait until resets_at")

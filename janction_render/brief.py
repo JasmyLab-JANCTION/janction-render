@@ -504,6 +504,12 @@ def brief(j: dict[str, Any]) -> dict[str, Any]:
         out["credit_hint"] = j["credit_hint"]["text"]      # 最初の試し描きの直後の 1 行（無料の残り・カード登録の分、10/14）
     if j.get("next_render"):
         out["next_render"] = j["next_render"]["text"]      # 仕上げをまだ描いていない鍵の次の一手（10/14、docs/73）
+    if j.get("partial_first"):
+        # 402 の代わりに、無料に収まる先頭のコマを先に描いた（11/2）。残りのコマ・決済ページ・預かりと人に伝える一言
+        out["partial_first"] = j["partial_first"]
+    if j.get("after_final"):
+        # 仕上げの後: 同じ設定で次の版・ファイルの残る時刻・チャージで延びること（11/2）。same_settings は render_final の引数
+        out["after_final"] = {"text": j["after_final"]["text"], "same_settings": j["after_final"].get("same_settings")}
     if j.get("estimate"):
         out["estimate"] = estimate_brief(j["estimate"])
     if j.get("error"):

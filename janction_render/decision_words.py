@@ -38,3 +38,11 @@ def blocked_text(decision: Optional[dict[str, Any]], lang: str = "en") -> str:
     why = "; ".join(f"{r.get('message')} ({r.get('fix')})" for r in hard)
     tail = "; paying alone would not change that" if needs_pay else ""
     return f"this cannot run as asked: {why}{tail}. Ask the user which to change; nothing was queued or charged"
+
+
+# 払う場面で AI が黙って画質を落とさない（11/2）。10/26〜11/2 の本番で、残高不足（402）や上限（403）に当たった AI が利用者に聞かずに
+# 288x162・8 サンプルまで縮めて無料に収めた（jr_b0e058b）・残り 0 円に収まるまで縮めた（jr_43d5aed）。「チャージか、小さくして出し直す」を
+# 同じ重さで並べていたため。小さくするのは利用者が選ぶ道として、何を失うかと一緒に出させる。stdio の MCP・受付の両方がこの文を使う。
+SMALLER_IS_USERS_CHOICE = ("do not make the render smaller on your own to avoid paying: show the user both choices, keep these settings "
+                           "for the price above, or a smaller render (fewer frames, lower resolution or samples) that stays free, "
+                           "saying what the smaller one loses, and do what they pick")

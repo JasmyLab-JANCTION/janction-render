@@ -31,6 +31,7 @@ except ImportError:  # mcp 1.x
 from mcp.types import ToolAnnotations
 
 from janction_render.brief import review_reply
+from janction_render.decision_words import SMALLER_IS_USERS_CHOICE
 from janction_render.brief import brief as _brief, estimate_brief, final_body_after_preview, followup_after_preview, \
     next_after_preview, trim, PRESENT_FIRST, preview_presentation, turntable_estimate
 from janction_render.client import Client, ClientError, parse_frames
@@ -302,7 +303,7 @@ def _payment_block(exc: ClientError) -> Optional[dict[str, Any]]:
                   "with checkout_url " if p.get("tell_user") else
                   "tell the user the job goes past the free GPU time left and what the top-up costs; show checkout_url ")
                  + "and ask them to pay in a browser (Stripe; the rest stays as credit); " + after
-                 + " (or render a smaller job that fits the free time)")
+                 + "; " + SMALLER_IS_USERS_CHOICE)
     return p
 
 
