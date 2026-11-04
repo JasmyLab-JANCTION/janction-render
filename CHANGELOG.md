@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.237 - 2026-11-04
+
+- Scenes with Grease Pencil strokes render again in Cycles with the same look.
+
+## 0.4.236 - 2026-11-04
+
+- Maintenance of the service status endpoints; no change to what they return today.
+
 ## 0.4.235 - 2026-11-04
 
 - Job replies from the local MCP server carry the new fields the service returns: the place in line (queue_position), when to look again (poll_after_s), the settings the render actually used (effective_settings), files about to be deleted (expiring_soon) and, while the GPU is lent out, when it is expected back (gate_until).
