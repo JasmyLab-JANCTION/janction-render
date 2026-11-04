@@ -204,6 +204,48 @@ def _with_low_balance(out: dict[str, Any], me: dict[str, Any]) -> dict[str, Any]
     return out
 
 
+def _jst_clock(ts: Any) -> str:
+    try:
+        import time as _t
+        return _t.strftime("%H:%M JST", _t.gmtime(float(ts) + 9 * 3600))
+    except (TypeError, ValueError):
+        return ""
+
+
+def _with_available(out: dict[str, Any], me: dict[str, Any]) -> dict[str, Any]:
+    """11/3 Phase 2 UX-BILL-02: 3 つの枠（ようこその無料分・残高・今日の試し描きの無料）を「今使える額」1 つの数（available_yen）に
+    まとめ、今日あと何分無料・残高・次に引かれるのはどんな時を英日 1 文ずつ（tell_user・tell_user_ja）。今の欄はそのまま。"""
+    w = out.get("welcome") or {}
+    welcome_yen = int(w.get("yen_left") or 0) if w.get("in_welcome") else 0
+    balance = int(me.get("balance_yen") or 0)               # 並んでいる仕事の押さえを引いた後（held_yen は別）
+    out["available_yen"] = welcome_yen + balance
+    if out.get("mode") == "welcome_credit":
+        pv_s = float(w.get("preview_free_seconds_left_today") or 0)
+    else:
+        pv_s = float(out.get("gpu_seconds_left_today") or 0)
+    mins = int(pv_s // 60)
+    resets = _jst_clock(out.get("resets_at") or (me.get("quota") or {}).get("resets_at"))
+    if welcome_yen:
+        en = (f"You can use {out['available_yen']:,} JPY now ({welcome_yen:,} JPY of free welcome credit + {balance:,} JPY prepaid). "
+              f"Renders use the free credit first; prepaid credit is charged only after it runs out.")
+        ja = (f"今使えるのは {out['available_yen']:,} 円です（無料のようこそ分 {welcome_yen:,} 円＋チャージ {balance:,} 円）。"
+              "描くと無料分から使い、チャージの残高から引くのは無料分が無くなってからです。")
+    else:
+        en = (f"Free previews today: {mins} GPU-minute{'s' if mins != 1 else ''} left" + (f" (resets at {resets})" if resets else "")
+              + f". Prepaid credit: {balance:,} JPY. Only GPU time beyond the free time is charged, from the prepaid credit.")
+        ja = (f"今日の試し描きの無料はあと {mins} 分" + (f"（{resets} に戻ります）" if resets else "")
+              + f"。チャージの残高は {balance:,} 円です。引かれるのは無料の時間を超えた GPU の時間の分だけで、チャージの残高から引きます。")
+    out["tell_user"], out["tell_user_ja"] = en, ja
+    # 11/3 Phase 3 UX-BILL-04: 払うと開くもの（まだ払っていない鍵だけ）。plan（GET /v1/me）の条件と数字から
+    plan = me.get("plan") or {}
+    if plan and not plan.get("paid") and plan.get("unlock"):
+        un = plan["unlock"]
+        out["unlocks"] = {"after_paying_yen": un.get("paid_min_yen"), "how": un.get("how"),
+                          "gives": ["files kept 7 days after the last use (now " + str(plan.get("keep_hours")) + " hours)",
+                                    "larger .blend uploads", "resolution up to 3840x2160 with prepaid credit"]}
+    return out
+
+
 def billing_reply(me: dict[str, Any], synced: Optional[dict[str, Any]] = None) -> dict[str, Any]:
     """billing 道具の返事（GET /v1/me の形から）。無料ベータ / ようこそ / 毎日の無料枠 / 旧形 の 4 通りを両方の道具で同じに。"""
     from .brief import plan_fields, welcome_billing
@@ -218,7 +260,7 @@ def billing_reply(me: dict[str, Any], synced: Optional[dict[str, Any]] = None) -
                 **({"key_prefix": prefix} if prefix else {})}
     if q and q.get("welcome"):
         # ようこそクレジット（10/8 夜 本人の判断、docs/46）: 残りの円と期限、期間の後の試し描き、最初のチャージの特典
-        return _with_low_balance(_with_card_offer(welcome_billing(q["welcome"], me, synced), me), me)
+        return _with_available(_with_low_balance(_with_card_offer(welcome_billing(q["welcome"], me, synced), me), me), me)
     if q:
         # 有料（10/8〜）: 毎日の無料枠と、超えた分を払う残高の両方
         yen = me["billing"]["yen_per_gpu_second"]
@@ -237,7 +279,7 @@ def billing_reply(me: dict[str, Any], synced: Optional[dict[str, Any]] = None) -
             out["usd_indicative"] = me["usd_indicative"]
         if prefix:
             out["key_prefix"] = prefix
-        return _with_low_balance(out, me)
+        return _with_available(_with_low_balance(out, me), me)
     out = {"balance_yen": me["balance_yen"], "free_previews_left": me["free_previews_left"],
            "yen_per_gpu_second": me["billing"]["yen_per_gpu_second"], "min_topup_yen": me["billing"]["min_topup_yen"],
            "billing_enabled": me["billing"]["enabled"], "just_credited": synced.get("credited", []),

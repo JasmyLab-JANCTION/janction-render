@@ -490,7 +490,15 @@ def brief(j: dict[str, Any]) -> dict[str, Any]:
         "gpu_seconds": j["gpu_seconds"],
         "device": j["device"],
         "expires_at": iso(j.get("expires_at")) or j.get("expires_at"),
+        # 11/3 Phase 3: 列の何番目か（UX-WAIT-01）・次に見に来る秒（UX-FILE-03）・実際の設定（UX-FLOW-04）
+        **({"queue_position": p["queue_position"]} if p.get("queue_position") else {}),
+        **({"poll_after_s": (j.get("eta") or {})["poll_after_s"]} if (j.get("eta") or {}).get("poll_after_s") else {}),
+        **({"effective_settings": j["effective_settings"]} if j.get("effective_settings") else {}),
     }
+    if j.get("expiring_soon"):
+        out["expiring_soon"] = j["expiring_soon"]                  # 11/3 UX-FILE-02: ファイルが消えるまで短い
+    if (j.get("eta") or {}).get("gate_until"):
+        out["gate_until"] = j["eta"]["gate_until"]                  # 11/3 UX-WAIT-01: GPU が戻る見込みの時刻
     prm = j.get("params") or {}
     if prm.get("compare"):
         # 10/23: 比較は「同じ 1 コマを 4 つの光で」。frames に 1〜4 の仮の番号を出すと 4 コマのアニメに見えた（初見の指摘）
@@ -500,6 +508,9 @@ def brief(j: dict[str, Any]) -> dict[str, Any]:
                                 "the final takes one of them as environment=<name>")
     if j.get("eta"):
         out["eta"] = eta_brief(j["eta"])
+    if j.get("first_run"):
+        # 11/3 Phase 2 UX-ONB-01: 鍵の最初の仕事だけ。無料の残り・カード保存の分・今日の試し描きの残り・見本の URL
+        out["first_run"] = {k: v for k, v in j["first_run"].items() if k != "text_ja"}
     if j.get("credit_hint"):
         out["credit_hint"] = j["credit_hint"]["text"]      # 最初の試し描きの直後の 1 行（無料の残り・カード登録の分、10/14）
     if j.get("next_render"):
@@ -534,7 +545,9 @@ def brief(j: dict[str, Any]) -> dict[str, Any]:
         # line・nothing_rendered・auto_fix・check は 10/23 から（SCENE_QA_FAILED: 台本の自分の検査の文と行。check は利用者の台本の文）
         out["failure"] = {k: f[k] for k in ("code", "subcode", "reason", "recommended_action", "retryable", "fix_by", "charged_yen",
                                             "unit", "limit_seconds", "gpu_seconds_counted", "cameras", "line", "nothing_rendered",
-                                            "auto_fix", "check", "missing_file", "source_line", "source_context") if k in f}
+                                            "auto_fix", "check", "missing_file", "source_line", "source_context",
+                                            # 11/3 Phase 2 UX-ERR-01: 4 つの分類と手がかり、分けた仕上げのどの部分か
+                                            "error_class", "limit", "blender_version", "part") if k in f}
         if f.get("alternatives"):
             out["failure"]["alternatives"] = [{k: a[k] for k in ("action", "change", "unit_seconds", "fits", "note") if k in a}
                                               for a in f["alternatives"]]
@@ -580,6 +593,10 @@ def brief(j: dict[str, Any]) -> dict[str, Any]:
         c = j["cost"]
         out["cost"] = ("free" if c["free"] else
                        (f"{c['charged_yen']} yen charged" if c["settled"] else f"up to {c['reserved_yen']} yen reserved"))
+        # 11/3 Phase 2 UX-BILL-01: 数で読める内訳（cost の文字列は前の形のまま残す）。古い受付は欄が無いので出さない
+        detail = {k: c[k] for k in ("charge_yen_max", "free_covered_yen", "final_yen", "reserved_yen") if c.get(k) is not None}
+        if "charge_yen_max" in detail:
+            out["cost_detail"] = detail
     out["artifacts"] = [a["name"] for a in j["artifacts"]][:50]
     # 案内（10/12）: 要約で落ちていた公開のお礼と、クレジットが尽きそうなときのオートチャージ。結果を見せたあとに 1 回だけ聞く
     asks = []

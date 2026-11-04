@@ -2,7 +2,7 @@
 
 Reproduce: render_final(scene_url="https://render.janction.jp/samples/ex01_product_bottle.py",
                         width=1440, height=1440, samples=128, environment="studio")
-The receptionist sets resolution, samples, denoising and the GPU; this script only builds the scene,
+The service sets resolution, samples, denoising and the GPU; this script only builds the scene,
 the camera and the frame range.
 """
 import math
@@ -48,9 +48,14 @@ def look_at(ob, target):
     ob.rotation_euler = (Vector(target) - ob.location).to_track_quat("-Z", "Y").to_euler()
 
 
-def camera(location, target, lens=50.0):
+def camera(location, target, lens=50.0, sensor_fit="AUTO"):
     data = bpy.data.cameras.new("Camera")
     data.lens = lens
+    # VERTICAL keeps the same vertical framing at any aspect: the square final (1440x1440) and the 16:9 preview (1280x720)
+    # both show the whole bottle (AUTO fitted the width, so the wide preview cut off the cap)
+    data.sensor_fit = sensor_fit
+    if sensor_fit == "VERTICAL":
+        data.sensor_height = 24.0
     cam = bpy.data.objects.new("Camera", data)
     scene.collection.objects.link(cam)
     cam.location = location
@@ -101,4 +106,4 @@ smooth(label)
 
 light("Key", "AREA", (3.0, -3.0, 4.0), 450, target=(0, 0, 1.2), size=2.5)
 light("Rim", "AREA", (-3.0, 3.0, 3.0), 250, target=(0, 0, 1.4), size=1.5, color=(0.9, 0.95, 1.0))
-camera((0.0, -7.8, 1.5), (0.0, 0.0, 1.4), lens=70)
+camera((0.0, -7.8, 1.5), (0.0, 0.0, 1.45), lens=50, sensor_fit="VERTICAL")

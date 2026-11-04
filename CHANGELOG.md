@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.4.235 - 2026-11-04
+
+- Job replies from the local MCP server carry the new fields the service returns: the place in line (queue_position), when to look again (poll_after_s), the settings the render actually used (effective_settings), files about to be deleted (expiring_soon) and, while the GPU is lent out, when it is expected back (gate_until).
+- The first job of a new key carries first_run: what is free, what saving a card adds and a sample to try.
+- Failures pass on error_class, limit, blender_version and, for a final split into parts, which part failed.
+- cost keeps its sentence and adds cost_detail with numbers: the most the job can charge (charge_yen_max), what the free time covered, the final amount and what is held.
+- billing adds available_yen (welcome credit plus prepaid credit in one number), one sentence in English and Japanese to tell the user (tell_user, tell_user_ja) and, for keys that have not paid yet, what paying unlocks (unlocks).
+- Spending caps: none by default; prepaid credit is the limit. Each key can still set a per-request and a per-day cap, and a request can carry max_yen.
+- The bottle sample keeps the same vertical framing for square and wide renders.
+
 ## 0.4.214 - 2026-11-02
 
 - When the credit does not cover a render, the agent is told to show the user both choices: keep the settings for the price, or a smaller render that stays free and what it loses. Agents are told not to make the render smaller on their own or to set max_yen lower than the user said.

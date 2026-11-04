@@ -32,8 +32,8 @@ FIRST_TOPUP_BONUS_CAP_YEN = 500
 RETENTION_HOURS = 24
 PAID_RETENTION_DAYS = 7
 PAID_MIN_YEN = 500
-SPEND_CAP_JOB_YEN = 3000
-SPEND_CAP_DAY_YEN = 10000
+SPEND_CAP_JOB_YEN = 100000
+SPEND_CAP_DAY_YEN = 100000
 SPEND_CAP_HARD_MAX_YEN = 100000
 MONTHLY_PLANS = [{'id': 'starter', 'name': 'Starter', 'price_yen': 2980, 'credit_yen': 3500}, {'id': 'pro', 'name': 'Pro', 'price_yen': 9800, 'credit_yen': 12000}]
 # 公開物に 1 件でもあれば CI が落ちる言い方（正規表現、大文字小文字を区別しない）と、その理由
@@ -67,6 +67,6 @@ ENV_PROFILE: dict[str, str] = {
     'JR_TTL_HOURS': '24',
     'JR_PAID_TTL_HOURS': '168',
     'JR_PAID_MIN_YEN': '500',
-    'JR_SPEND_CAP_PER_JOB_YEN': '3000',
-    'JR_SPEND_CAP_PER_KEY_PER_DAY_YEN': '10000',
+    'JR_SPEND_CAP_PER_JOB_YEN': '100000',
+    'JR_SPEND_CAP_PER_KEY_PER_DAY_YEN': '100000',
 }

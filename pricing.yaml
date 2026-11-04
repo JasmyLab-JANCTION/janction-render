@@ -48,8 +48,8 @@ retention:
   paid_min_yen: 500
 
 spend_caps:                            # 支出の上限の既定（鍵ごとに変えられる）
-  per_job_yen: 3000
-  per_day_yen: 10000
+  per_job_yen: 100000                 # 11/2 本人「1 仕事の上限 3,000 円は撤回していい」→ 既定はハードの上限と同じ（実質なし）。1 日の上限と鍵ごとの上限（POST /v1/me/limits）は残す
+  per_day_yen: 100000                 # 11/2 本人「全部進めて」: 1 日の既定も撤回（ハードの上限と同じ＝実質なし）。前払いの残高が歯止め。鍵ごとの上限・max_yen・オートチャージの月の上限と 1 日 3 回は残す
   hard_max_yen: 100000
 
 monthly_plans:
@@ -73,8 +73,8 @@ env_profile:
   JR_TTL_HOURS: "24"
   JR_PAID_TTL_HOURS: "168"
   JR_PAID_MIN_YEN: "500"
-  JR_SPEND_CAP_PER_JOB_YEN: "3000"
-  JR_SPEND_CAP_PER_KEY_PER_DAY_YEN: "10000"
+  JR_SPEND_CAP_PER_JOB_YEN: "100000"          # 11/2 本人「1 仕事の上限 3,000 円は撤回」。本番の server.env もこの値に（残すと撤回が効かない）
+  JR_SPEND_CAP_PER_KEY_PER_DAY_YEN: "100000"
 
 # 公開物（描いたページ・JSON・llms.txt・配布物）に 1 件でもあれば CI が落ちる言い方（正規表現、大文字小文字は区別しない）。
 # 左に理由。数字そのものを禁じるのではなく、古い制度・古い額・上限と読める言い方を禁じる。
