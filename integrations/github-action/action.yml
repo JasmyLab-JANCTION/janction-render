@@ -55,7 +55,7 @@ inputs:
   cli-version:
     description: Version of the janction-render package on PyPI to use.
     required: false
-    default: "0.4.41"
+    default: "0.4.237"
   server:
     description: Service URL.
     required: false
