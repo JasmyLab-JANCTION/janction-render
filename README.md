@@ -432,7 +432,7 @@ As of 2026-10-26 (the current values are always at https://render.janction.jp/fa
   `jr_assets.apply(floor, jr_assets.material('wood_floor_deck', scale=2))` (diff / normal / roughness / metal wired into a
   Principled BSDF), `jr_assets.world_hdri('studio_small_09')`. See `samples/polyhaven_room.py`.
 - A render you choose to share (`render_share`) gets a public page (`/r/<id>`, OGP for X and Discord) that stays until you unshare it.
-- Blender 5.0, Cycles on GPU (`blender="5.2"` selects Blender 5.2 when the worker has it; `render_info` lists what is available).
+- Blender 3.6, 4.2, 4.5, 5.0 and 5.2, Cycles on GPU (and EEVEE). By default a `.blend` opens with the version it was saved in and other scenes with 5.0; `blender="5.2"` (or `"4.5"`, `"4.2"`, `"3.6"`) picks one, and a script that stops on Blender 5 because of an older API is rendered again on an older version automatically. `render_info` lists what is available.
 
 ## Blender add-on and DCC tools (for people, not agents)
 
