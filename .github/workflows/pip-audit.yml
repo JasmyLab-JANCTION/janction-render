@@ -10,6 +10,12 @@ on:
     paths:
       - "requirements*.txt"
       - ".github/workflows/pip-audit.yml"
+  # 11/3 リファクタリング要件 Phase 3 SEC-OPS-02: PR でも、依存の固定が変わったときだけ（毎 PR の全試験は Actions の枠で止めたまま）。
+  # pyproject.toml は版を上げるたびに変わるので入れない（tests/test_ci_minutes_1019.py）
+  pull_request:
+    paths:
+      - "requirements*.txt"
+      - ".github/workflows/pip-audit.yml"
 jobs:
   audit:
     runs-on: ubuntu-latest

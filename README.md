@@ -84,7 +84,7 @@ Keep 3D files in a repository? Add a button that lets anyone render them from th
 
 ## Quick start
 
-**Claude.ai (nothing to install).** Settings → Connectors → Add custom connector → `https://render.janction.jp/mcp` → Connect (a free key
+**Claude.ai (nothing to install).** Plugins (older menu: Customize → Connectors) → Add custom connector → `https://render.janction.jp/mcp` → Connect (a free key
 is created on the consent page). **ChatGPT:** Plugins (left sidebar) → Add → Create plugin → the same URL (OAuth; on Business workspaces an admin adds it). Then paste:
 
 > Render a preview of https://render.janction.jp/samples/cube_scene.py
@@ -250,7 +250,8 @@ in Claude Code: try_janction_render, render_my_scene, turntable_video, product_s
 
 | client | how |
 |---|---|
-| Claude.ai (web, desktop, mobile) | Settings → Connectors → Add custom connector → paste the URL → Connect |
+| Claude.ai (web, desktop, mobile) | Plugins (older menu: Customize → Connectors) → Add custom connector → paste the URL → Connect |
+| Claude Team / Enterprise | An owner adds the URL under Organization settings → Connectors; members press Connect. If the org turns Skills off, Claude Desktop blocks plugins from November 30, so use the connector URL |
 | ChatGPT | Settings → Connectors → Advanced → Developer mode → Create → paste the URL (OAuth) |
 | Claude Code | `claude mcp add --transport http janction-render https://render.janction.jp/mcp`, then `/mcp` to authenticate |
 | Codex | `codex mcp add janction-render --url https://render.janction.jp/mcp` |
@@ -324,6 +325,15 @@ Options on `render_preview` / `render_final`: `environment` (`studio`, `sunset`,
 `blender` (`"5.2"`), and `assets` (stdio: local files sent with the scene, found in the script through `os.environ["JR_ASSETS_DIR"]`;
 a `.blend`'s external files are collected automatically with `pip install janction-render[blend]`) or `asset_urls` (remote).
 
+Options for creators (2026-11-05; guide: https://render.janction.jp/blender-render-options):
+`render_preview(variations=[...])` renders 2-8 looks of one frame in one labelled sheet, and `render_final(colors={...})` renders the chosen one;
+`compare_to=<earlier final job_id>` adds `compare.mp4` / `.gif` / `.png` / `.json` (before / after);
+`deliver=["x", "vertical", "square"]` adds `social_x.mp4`, `social_vertical.mp4` (1080x1920) and `social_square.mp4` (1080x1080) from the same frames, with no extra GPU time;
+`passes=[...]` (Cycles) writes one multilayer EXR per frame, and `output="prores4444"` a ProRes 4444 .mov with alpha;
+`auto_samples=True` (finals of 100 frames or more) tests one frame and renders with the fewest samples that look the same.
+Every final also carries a delivery check, `report.json` and `report_sheet.png`, made without GPU time.
+These arguments are on the remote server (`/mcp`). The terminal (stdio) server lists them when `JR_VARIATIONS`, `JR_COMPARE_VIDEO`, `JR_SOCIAL_EXPORT`, `JR_RENDER_PASSES` and `JR_AUTO_SAMPLES` are set to `1` in its environment.
+
 CLI: `janction-render inspect|preview|render|status|download|share|unshare|cancel|jobs|balance|topup|limits|outcomes|info`.
 
 ## API
@@ -375,7 +385,7 @@ sun = bpy.data.objects.new("Sun", bpy.data.lights.new("Sun", "SUN"))
 scene.collection.objects.link(sun)
 ```
 
-Cycles by default; `engine="eevee"` for cheaper animations (about half the per-frame cost after ~7 s of shader compilation per job).
+Cycles by default; `engine="eevee"` for animations (about two-thirds of the Cycles cost per frame, after ~7 s of shader compilation per job; same scene, 720p, 120 frames: 142 vs 223 GPU-seconds on 2026-11-06).
 In Blender 5.0 materials always use nodes: set the Principled BSDF Base Color, not `diffuse_color`. Scripts run in an isolated
 container with no network. More: `samples/cube_scene.py`, `samples/polyhaven_room.py`. Measured timings: https://render.janction.jp/benchmarks
 

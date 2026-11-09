@@ -103,3 +103,7 @@ forbidden_patterns:
     why: "1,000 コマの上限は 10/13 までの値"
   - pattern: 'Blender 5\.0 only|5\.0 だけ'
     why: "4.2 / 4.5 / 5.0 を受ける"
+  - pattern: '3,?000 JPY (per|a) (render )?(request|job)|(per-job|per job|per-request) cap[^.]{0,20}3,?000 JPY|3,?000 JPY by default|1 依頼 ?3,?000 ?円|既定 ?3,?000 ?円'
+    why: "既定の 1 依頼の上限は 2026-11-02 に撤回した（今は既定なし、鍵ごとに自分で決める）"
+  - pattern: '10,?000 JPY (per|a) day by default|(per-day|per day) cap[^.]{0,20}10,?000 JPY|1 日 ?10,?000 ?円の上限'
+    why: "既定の 1 日の上限も 2026-11-02 に撤回した（オートチャージの月 10,000 円は別の話）"

@@ -52,19 +52,26 @@ connection in a few seconds.
 5. For an animation, render at least 10 contiguous frames through the intended final path before the full job. Verify that
    every frame exists and inspect for black, corrupt, duplicate-looking or visibly degraded frames. This short final still
    requires the approval in step 7 unless the user already authorized final rendering.
-6. `render_estimate` - GPU seconds, wall time (`human`), queue wait, `calibration.final_path_measured`, and `cost` (`free`,
-   `estimated_yen`, `reserved_yen`, `balance_yen`, `within_caps`). Tell the user the time and the price in yen. After the
-   contiguous test, always estimate again. If final-path calibration is false, label the estimate preliminary.
+6. `render_estimate` - GPU seconds, wall time (`human`), queue wait, `calibration.final_path_measured`, `cost` (`free`,
+   `estimated_yen`, `reserved_yen`, `balance_yen`, `within_caps`) and `tell_user` / `tell_user_ja`, the one sentence for the
+   user (time and price). Give the user that sentence, nothing more. After the contiguous test, always estimate again. If
+   `final_path_measured` is false the sentence says it is an unmeasured figure: never present it as the time the final will
+   take, and do not quote the preview's `final_estimate` as the final's time either.
 7. Ask before every final, even a free one: say the time and the price (0 yen when `cost.free` is true) and wait for a yes.
    Skip the question only when the user already said "render the final" in this conversation. If they set a budget, keep
    the job inside it (`reserved_yen` from `render_estimate`); on the terminal server or the HTTP API, also pass it as
    `max_yen`.
 8. `render_final` - returns `job_id`. Tell the user how long it will take.
 9. `render_status(job_id)` - report `eta.human`. If it says the GPU is lent out, tell the user the wait and stop polling.
-10. `render_download(job_id)` - links that need no key and work for about 24 hours.
+10. `render_download(job_id)` - on the remote server, links that need no key and work for about 24 hours. On the terminal
+    server the files land in the job's folder and the video of a final is also delivered to the user's Downloads folder
+    (`JANCTION_RENDER_DELIVER` changes it; a given `out_dir` is used as is).
 11. Verify delivery before claiming success: contiguous frame numbering, decoded frame count, resolution, FPS, duration and
     black frames. Report requested and actual totals separately. A completed job or critic `ok` alone is not proof of fidelity.
-12. Show the image inline, give the MP4 link, or save it locally when the user wants a file.
+12. When a final is done, `render_status` and `render_download` carry `tell_user` / `tell_user_ja`: the measured time, the
+    charge and the file (the delivered path on the terminal server, the link on the remote one). Give the user that one
+    sentence as soon as the job is done, without waiting for them to ask; do not read out the job's own folder, and never
+    invent a local path on the remote server (the user saves the link to their Downloads themselves).
 
 For a model the user wants seen from all sides, pass `orbit=True`: the preview shows four angles and
 `render_final(orbit=True)` renders one full turn (24 frames) as an MP4. "A turntable preview" means
@@ -78,6 +85,14 @@ Purpose presets fill the camera, light, backdrop, frames and output for a purpos
 lights and frame range; the scene is read first when the range is not known). For product shots of something the user
 has no model for: `asset_search("<item>")`, then
 `render_preview(scene_script='import jr_assets; jr_assets.import_model("<id>")', asset_urls=["polyhaven:<id>"], preset="product")`.
+
+Options for creators, only when the user wants them (preview replies suggest the ones that fit in `next_actions`):
+`render_preview(variations=[...])` shows 2-8 looks of one frame in one sheet; let the user pick, then pass that variant's
+`render_final` args (`colors` sets object colours). On `render_final`: `compare_to=<earlier final job_id>` adds a before/after
+video, `deliver=["x", "vertical", "square"]` adds social cuts of an animation, `passes=[...]` (Cycles) gives multilayer EXR
+and `output="prores4444"` a ProRes 4444 .mov, `auto_samples=True` (100 frames or more) picks the fewest samples that look the
+same. Every final carries a delivery check (`report.json`, `report_sheet.png`): read its verdict before step 11. Lowering
+samples is a look-affecting change: ask before using `auto_samples` on the user's scene.
 
 A script that does not run is a failed job, not a result: a script that does not parse is refused at once
 (`script_syntax_error` with `line` and `source_line`, no GPU time), and a script that raises fails with

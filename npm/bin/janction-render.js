@@ -5,6 +5,7 @@
  *   npx -y janction-render                 OAuth: the first call opens a consent page that creates a free key
  *   npx -y janction-render --key jr_...    a key you already have (or JANCTION_RENDER_API_KEY in the environment)
  *   npx -y janction-render --local         the Python stdio server through uv (sends local files; needs uv)
+ *   npx -y janction-render key|try|preview|final|status|download ...   render from a terminal (lib/cli.js, Node only)
  *
  * The remote bridge is mcp-remote (stdio <-> Streamable HTTP with OAuth). This launcher only fixes the URL,
  * tags the key with its source, keeps the key out of the process list and passes the rest of the arguments through.
@@ -22,9 +23,10 @@ const DEFAULT_URL = `${SITE}/mcp?src=npm`;
 
 function usage() {
   return [
-    `janction-render ${PKG.version} (npm launcher for the JANCTION Render MCP server)`,
+    `janction-render ${PKG.version} (JANCTION Render: the MCP server launcher, and terminal commands)`,
     "",
     "Usage: janction-render [--key jr_...] [--url https://render.janction.jp/mcp] [--local] [-- <mcp-remote args>]",
+    "       janction-render <key|try|preview|final|status|download> [options] [--json]",
     "",
     "  (no options)      bridge stdio to the remote MCP server with OAuth; the first call opens a consent page",
     "                    that creates a free key (100 JPY of GPU time with no card, 400 JPY more after saving a card)",
@@ -35,6 +37,8 @@ function usage() {
     "",
     "Claude Desktop / Cursor / Windsurf (mcpServers): { \"janction-render\": { \"command\": \"npx\", \"args\": [\"-y\", \"janction-render\"] } }",
     "Claude Code: claude mcp add janction-render -- npx -y janction-render",
+    "",
+    require("../lib/cli").cliHelp(),
     "",
     `Docs: ${SITE}/llms.txt   Pricing: ${SITE}/pricing`,
   ].join("\n");
@@ -141,7 +145,15 @@ function forward(child, cleanup = []) {
 }
 
 function main() {
-  const opts = parse(process.argv.slice(2));
+  const argv = process.argv.slice(2);
+  const cli = require("../lib/cli");
+  if (cli.findCommand(argv)) {
+    // a subcommand (key, try, preview, final, status, download): render from the terminal; no subcommand stays the MCP launcher
+    cli.main(argv).then((code) => { process.exitCode = code; },
+      (err) => { process.stderr.write(`janction-render: ${err && err.stack ? err.stack : err}\n`); process.exitCode = 2; });
+    return;
+  }
+  const opts = parse(argv);
   if (opts.help) {
     process.stdout.write(usage() + "\n");
     return;

@@ -173,8 +173,8 @@ def instructions(flavor: str) -> str:
         return " ".join([head, _WHEN, _DONT, _FIRST, flow, _presets(flavor), _limits(), _SCRIPTS, _more()])
     head = ("JANCTION Render: Blender rendering on cloud GPUs for AI agents, from the terminal (no local GPU or Blender; key "
             "made on first use).")
-    local = "LOCAL FILES: scene_path (.blend, .py or 3D file); results in ~/janction-render/<job_id>."
-    flow = ("FLOW: render_preview (image saved and shown + critic verdict with fix code; fix, repeat) -> ask the user "
+    local = "LOCAL FILES: scene_path (.blend, .py or 3D file); files in ~/janction-render/<job_id>, a final's MP4 in Downloads."
+    flow = ("FLOW: render_preview (image + critic verdict with fix code; fix, repeat) -> ask the user "
             "-> render_estimate when long or the quota is uncertain -> render_final -> render_status (tell eta.human) "
             "-> render_download(job_id, only='mp4'); GPU lent out? say the wait, do not poll.")
     return " ".join([head, _WHEN, _DONT, _FIRST, local, flow, _presets(flavor), _limits(), _SCRIPTS, _more()])
@@ -225,8 +225,8 @@ def descriptions(flavor: str, wait_cap_s: int = 50) -> dict[str, str]:
         + ("Returns job_id and estimate.human at once (short jobs return the links directly); then call "
            "render_download(job_id, wait_seconds=45). " if remote else
            "Returns job_id and estimate.human at once; then render_status until done, and render_download(job_id, only='mp4') "
-           "for the video. ")
-        + "Use the same environment and blender as the approved preview. Render only what the user approved at the shown "
+           "for the video; relay tell_user. ")
+        + "Use the preview's environment and blender. Render only what the user approved at the shown "
           "price (max_yen caps it). "
         # 10/13: ここが「240 コマ・1080p まで」のままで、AI が長いアニメや 4K を断っていた（受付は 3,000 コマ・先払いは 4K）
         f"Limits: up to {MAX_FRAMES_PER_INSTRUCTION:,} frames per call (over {FREE_MAX_FRAMES} runs as parts under one job id); "
@@ -246,8 +246,10 @@ def descriptions(flavor: str, wait_cap_s: int = 50) -> dict[str, str]:
         f"(estimate.human, e.g. 'about 3 minutes') and whether it fits {_free_left()} and the size limits. Call it before "
         "render_final when the time or quota is uncertain, the job is longer than about 24 frames or above 720p, or the user "
         "asks how long it takes; tell the user the result. With scene_id the estimate uses measured render times and returns "
-        "calibration.final_path_measured. If false, treat it as preliminary: run a short contiguous final-path test and "
-        "estimate again before the full animation. It also says when to split a job.")
+        "calibration.final_path_measured and tell_user / tell_user_ja, the one sentence to give the user (time and price). If "
+        "final_path_measured is false the sentence says it is an unmeasured figure: do not present it as the time the final "
+        "will take; run a short contiguous final-path test and estimate again before the full animation. It also says when to "
+        "split a job.")
     status = (
         "Check a render job: status (queued / running / done / failed / canceled), frames done, the ETA (eta.human, including "
         "queue wait), files ready, Blender warnings, and the error with the log tail if it failed. Use it to report progress "
@@ -267,9 +269,12 @@ def descriptions(flavor: str, wait_cap_s: int = 50) -> dict[str, str]:
             "'all'.")
     else:
         download = (
-            "Download a job's files to out_dir (default ~/janction-render/<job_id>) and return the local paths. only picks the "
-            "files: 'all' (default), 'mp4' (just the video; use it when the user wants the video, to skip hundreds of frames), "
-            "'frames', 'sheet' or 'output'. wait_seconds > 0 first waits that long for the job to finish.")
+            "Download a job's files to out_dir (default: the job's folder ~/janction-render/<job_id>) and return the local paths. "
+            "The video of a finished final is also delivered to the user's Downloads folder (JANCTION_RENDER_DELIVER changes "
+            "it; a given out_dir is used as is), and the reply's tell_user / tell_user_ja carries the measured time, the charge "
+            "and that one file: give it to the user as is, without waiting for them to ask. only picks the files: 'all' "
+            "(default), 'mp4' (just the video; use it when the user wants the video, to skip hundreds of frames), 'frames', "
+            "'sheet' or 'output'. wait_seconds > 0 first waits that long for the job to finish.")
     assets = (
         "Find free CC0 3D models, PBR textures or HDRIs on Poly Haven by words ('wooden chair', 'forest hdri') to furnish a "
         f"scene without uploading files; no GPU time. {product_recipe(flavor)} Each result has a spec 'polyhaven:<id>' to pass in {a}, its size in "
@@ -316,6 +321,11 @@ def descriptions(flavor: str, wait_cap_s: int = 50) -> dict[str, str]:
         # 10/14 IF-10: 端末の無い人の診断
         "diagnose.tell_user says in plain words whether the connection, the key, the free credit and the GPUs are fine and "
         "what the last failed render said; relay it when the user asks why something does not work.")
+    from .mcp_common import opt_in
+    # 旗つきの引数の 1 文（11/5、mcp_common.OPT_IN。旗が OFF なら何も足さない）
+    preview += opt_in("render_preview")[1]
+    estimate += opt_in("render_estimate")[1]
+    final += opt_in("render_final")[1]
     return {"render_preview": preview, "render_final": final, "scene_info": scene_info, "render_estimate": estimate,
             "render_status": status, "render_download": download, "asset_search": assets, "billing": billing,
             "render_review": review_description(flavor), "render_cancel": cancel, "render_share": share,
@@ -407,6 +417,9 @@ def param_docs(flavor: str, wait_cap_s: int = 50) -> dict[str, str]:
         "fps": "Frames per second of the video output (default 24).",
         "output": "'auto' (mp4 for a frame range, png for one frame) | 'png' | 'exr' (16-bit linear frames for compositing) | 'mp4' (H.264) | 'webm' (VP9) | 'prores' (Apple ProRes 422 HQ .mov, for editing) | 'gif' | 'webp' (animated, at most 960 px wide; good for chat and web).",
         "notify_url": "Optional https URL that receives one JSON POST when the final render finishes (job.done / job.failed, with download links), so nobody has to poll.",
+        "compare_to": "job_id of an earlier final render of this key to compare with: when this render finishes, compare.mp4 shows before / after side by side (frames matched by number), with compare.gif and compare.json (most changed frames).",
+        "passes": "Render passes for compositing (Cycles, final only): 'depth', 'mist', 'normal', 'diffuse', 'glossy', 'emission', 'ao', 'shadow_catcher', 'crypto_object', 'crypto_material'. Each frame becomes one multilayer OpenEXR (beauty denoised as usual plus those passes); output must be 'exr' or 'auto'.",
+        "deliver": "Extra MP4s for posting an animation, made from the rendered frames at no extra GPU time: 'x' (H.264 with a silent AAC track that fits X: up to 2 min 20 s and 512 MB, 1920x1080 or 1280x720), 'vertical' (1080x1920) and 'square' (1080x1080), the whole frame on a blurred fill with nothing cropped.",
         "kind": "'final' (frame_start..frame_end at width x height, samples) or 'preview' (frames like '1-24').",
         "job_id": "The job_id returned by render_preview or render_final (j_...; a long final split into parts is b_...). Only this key's jobs; in render_status, leave it empty to list them.",
         "wait_seconds": (f"Wait for the job to finish before returning the links (0 = do not wait). The service waits at most {wait_cap_s} s per call; call again while the job is still running."

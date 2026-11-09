@@ -174,7 +174,7 @@ def clients(server: Optional[str] = None, home: Optional[Path] = None,
         out.append({"key": key, "label": label, "kind": "json", "found": cfg.parent.exists(), "path": cfg, "top": top,
                     "entry": entry, "show": f"{cfg}: \"{top}\": {{\"{NAME}\": {json.dumps(entry)}}}"})
     for key, label, how in (
-        ("claude-app", "Claude.ai / Claude Desktop", f"Settings > Connectors > Add custom connector > {url}"),
+        ("claude-app", "Claude.ai / Claude Desktop", f"Plugins (older menu: Customize > Connectors) > Add custom connector > {url}"),
         ("chatgpt", "ChatGPT", f"Plugins > Add > Create plugin > {url}"),
         ("grok", "Grok", f"Connectors > New Connector > Custom > {url}"),
         ("notion", "Notion Agent", f"Settings > Connections > Discover > Add Custom MCP > {url}"),
@@ -268,6 +268,10 @@ def agents_section(server: Optional[str] = None) -> str:
         "render_status, render_download.\n"
         "- Flow: render_preview first (an image in seconds and a critic verdict with fix code), apply the fixes, then "
         "render_estimate, ask the user, and only then render_final.\n"
+        "- An estimate whose calibration.final_path_measured is false is an unmeasured figure: say so, and for an animation "
+        "render 10 contiguous frames on the final path first, then estimate again. When the final is done, give the user the "
+        "reply's tell_user from render_status or render_download (the measured time, the charge and the saved file, which the "
+        "terminal server puts in their Downloads folder) without waiting to be asked.\n"
         "- Without MCP, from a terminal: `uvx janction-render preview <scene>`, then "
         "`uvx janction-render render <scene> --frames 1-48 --output mp4 --wait` (`uvx janction-render try` renders a "
         "sample first).\n"

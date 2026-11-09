@@ -63,10 +63,57 @@ def job_params(environment: str, environment_strength: float, environment_visibl
     return out
 
 
+# ------------------------------------------------------------------ サンプル数の自動（11/5、旗 JR_AUTO_SAMPLES、既定 OFF）
+
+AUTO_SAMPLES_DOCS = {
+    "auto_samples": ("True (final, Cycles): a small test render of one frame picks the lowest samples, up to samples, that "
+                     "looks the same as samples; billed like a preview. render_estimate with it shows the test's cost and "
+                     "the saving."),
+    "probe_frame": "With auto_samples: the frame to test (0 = the middle frame).",
+}
+
+
+def auto_samples_on() -> bool:
+    """旗 JR_AUTO_SAMPLES（受付の server/auto_samples.enabled と同じ名前）。OFF なら道具に引数を見せず、本文にも入れない。"""
+    return flag_on("JR_AUTO_SAMPLES")
+
+
+def auto_samples_body(auto_samples: bool, probe_frame: int) -> dict[str, Any]:
+    """道具の引数から本文へ（旗が OFF か auto_samples=False なら何も足さない＝今までと同じ本文）。"""
+    if not (auto_samples and auto_samples_on()):
+        return {}
+    out: dict[str, Any] = {"auto_samples": True}
+    if probe_frame:
+        out["probe_frame"] = int(probe_frame)
+    return out
+
+
+def auto_samples_next(j: dict[str, Any]) -> str:
+    """render_final の返事の next に足す 1 文（試しを出したとき・出さなかったとき）。auto_samples が無ければ空。"""
+    a = j.get("auto_samples") or {}
+    if a.get("state") == "probing":
+        return ("; samples are picked by a test render of one frame first (auto_samples.probe_job_id, billed like a preview): "
+                "tell the user, and that the final starts right after it")
+    if a.get("state") in ("skipped", "fallback") and a.get("summary"):
+        return "; tell the user auto_samples.summary (the final uses the requested samples)"
+    return ""
+
+
+def auto_samples_estimate_next(est: dict[str, Any]) -> str:
+    """見積もりの next に足す 1 文: 試しの GPU 秒と、減るかもしれない分を、描く前に人に言う。"""
+    a = est.get("auto_samples")
+    if not isinstance(a, dict):
+        return ""
+    if a.get("skipped"):
+        # 試しを出さない仕上げ（短い・減らない・試せるワーカーがいない）: 試しの額と節約は言わない（11/5 夜）
+        return "; also tell the user auto_samples.tell_user (tell_user_ja in Japanese): no test render, the final uses the requested samples"
+    return "; also tell the user auto_samples.tell_user (tell_user_ja in Japanese): the test render's cost and the possible saving"
+
+
 # ------------------------------------------------------------------ 見積もりとシーンの読み取りの返事（両方の道具で同じ）
 
 def estimate_body(kind: str, scene_id: str, frames: str, frame_start: int, frame_end: int, width: int, height: int, samples: int,
-                  cameras: Any, preset: str) -> tuple[dict[str, Any], bool]:
+                  cameras: Any, preset: str, variations: Any = None) -> tuple[dict[str, Any], bool]:
     """render_estimate の引数から受付への本文を作る。戻り値は (本文, シーンの読み取りが先に要るか)。
     preset='animation' でコマの指定が無ければ、呼ぶ側が scene_info を済ませてから見積もる。"""
     from .client import parse_frames
@@ -75,6 +122,12 @@ def estimate_body(kind: str, scene_id: str, frames: str, frame_start: int, frame
         body["scene_id"] = scene_id
     if kind == "preview":
         body["frames"] = parse_frames(frames) if (frames or not preset) else None
+        if variations:
+            body["variations"] = list(variations)     # 見比べ（11/5）: GPU 秒は全部の通りの合計
+            if (width, height) == (1920, 1080):
+                # 11/6: 見積もりの既定（仕上げの 1920x1080）のままなら、render_preview の既定（1280x720 のシート）で見積もる。
+                # チャージ済みの鍵はシートを 1 通り 1280x720 まで大きくできるので、1920x1080 のままだと既定の試し描きより高く出る
+                body["width"], body["height"] = 1280, 720
     else:
         body.update({"frame_start": frame_start, "frame_end": frame_end})
     if cameras:
@@ -523,6 +576,37 @@ _POLYHAVEN_DOC = {
 }
 
 
+# 見比べ（variations）と物の色（colors）（11/5、旗 JR_VARIATIONS、既定 OFF）。旗が OFF の間は道具の引数にも説明にも出さない
+VARIATIONS_DOC = (" variations=[{label, environment, environment_strength, camera, colors}, ...] (2-8): the same frame once per "
+                  "variant, rendered in parallel and tiled in one sheet labelled A, B, ...; anything a variant leaves out uses this "
+                  "call's settings. colors maps an object name to '#rrggbb' (or [r, g, b, a], 0-1) for its material's Principled "
+                  "Base Color. GPU time is the sum of the variants. Show the sheet, ask the user to pick one, then call render_final "
+                  "with that variant's render_final args. Not with cameras, orbit or environment='compare'.")
+COLORS_DOC = (" colors={'Body': '#cc2233'}: object name -> colour for its material's Principled Base Color (copied for this "
+              "render; the scene file is unchanged). A variations preview gives each variant's render_final args.")
+
+
+try:  # pydantic は Python 3.11 では typing_extensions の TypedDict を求める（mcp と一緒に入っている）
+    from typing_extensions import TypedDict as _TypedDict
+except ImportError:  # pragma: no cover
+    from typing import TypedDict as _TypedDict
+
+
+class Variant(_TypedDict, total=False):
+    # 見比べの 1 通り（道具の引数の形）。書かない項目は呼び出しの設定のまま。下の 1 文は道具のスキーマに出る
+    """One variant; anything left out uses the call's own settings."""
+    label: str
+    environment: str
+    environment_strength: float
+    camera: str
+    colors: dict[str, Any]
+
+
+def variations_enabled() -> bool:
+    """旗 JR_VARIATIONS（11/5）。リモートは受付の env、stdio は手元の env で読む（既定 OFF）。受付の jobs.variations_enabled と同じ判定。"""
+    return flag_on("JR_VARIATIONS")
+
+
 def docs(flavor: str) -> dict[str, str]:
     """{ENV_DOC, POLYHAVEN_DOC, ORBIT_DOC, CAMERAS_DOC, OUTPUT_DOC, TRANSPARENT_DOC, ENGINE_DOC}。ENV_DOC は POLYHAVEN_DOC を含む。"""
     f = "remote" if flavor == "remote" else "stdio"
@@ -574,3 +658,194 @@ def file_stamp(path: str) -> str:
         return f"{os.path.abspath(os.path.expanduser(path))}:{st.st_size}:{int(st.st_mtime)}"
     except OSError:
         return path
+
+
+# ------------------------------------------------------------------ 届け先（docs/101 RCV-03、stdio の MCP）
+
+def deliver_dir() -> str:
+    """利用者が開くファイル（仕上げの動画）の届け先。JANCTION_RENDER_DELIVER があればそれ、無ければそのユーザーの Downloads
+    （Windows は USERPROFILE の下の Downloads）。ジョブの保管場所（JANCTION_RENDER_OUT / ~/janction-render/<job_id>）とは別。"""
+    from pathlib import Path
+    env = (os.environ.get("JANCTION_RENDER_DELIVER") or "").strip()
+    return env or str(Path.home() / "Downloads")
+
+
+def deliver_name(scene_name: Optional[str], width: Any, height: Any, frames: Any, ext: str, job_id: str) -> str:
+    """届けるファイルの名前 {シーン名}_{幅}x{高さ}_{コマ数}f.<ext>。シーン名はファイル名に使えない文字を除く。無ければ render_<job_id>。"""
+    import re
+    from pathlib import Path
+    stem = Path(str(scene_name or "").replace("\\", "/")).name
+    stem = stem.rsplit(".", 1)[0] if "." in stem else stem
+    stem = re.sub(r'[<>:"/\|?*\x00-\x1f]+', "_", stem).strip(" ._-")[:80]
+    ext = (ext or "mp4").lstrip(".")
+    if not stem:
+        return f"render_{job_id}.{ext}"
+    try:
+        size = f"{int(width)}x{int(height)}"
+    except (TypeError, ValueError):
+        size = ""
+    try:
+        n = f"{int(frames)}f"
+    except (TypeError, ValueError):
+        n = ""
+    return "_".join(x for x in (stem, size, n) if x) + f".{ext}"
+
+
+def unique_path(path: Any) -> Any:
+    """同名があれば上書きせず " (2)" から空いている番号を付ける。"""
+    from pathlib import Path
+    p = Path(path)
+    if not p.exists():
+        return p
+    n = 2
+    while True:
+        cand = p.with_name(f"{p.stem} ({n}){p.suffix}")
+        if not cand.exists():
+            return cand
+        n += 1
+
+
+# ------------------------------------------------------------------ 旗つきの道具の引数（11/5、作り手向けの 6 つの機能の共通の仕組み）
+
+def flag_on(name: str) -> bool:
+    """旗（環境変数）が ON か（1 / true / on / yes）。11/5 の旗（JR_VARIATIONS・JR_COMPARE_VIDEO・JR_RENDER_PASSES・JR_SOCIAL_EXPORT・
+    JR_DELIVERY_REPORT・JR_AUTO_SAMPLES）の、起動時に決める形（MCP の道具の一覧・OpenAPI）はこれで読む。3 つ目の値 ops（運営の鍵
+    だけ ON）はここでは OFF（公開の形は main と同じ）。依頼・仕事のときの判定は server/flags.feature_on（ops を鍵で決める）。"""
+    return (os.environ.get(name) or "").strip().lower() in ("1", "true", "on", "yes")
+
+
+# 旗つきの道具の引数: (旗, 道具, 引数, 道具の説明に足す 1 文)。旗が OFF の引数は道具の一覧（tools/list の inputSchema）に出さず、
+# 説明も足さない（審査中の道具の形を main と同じに保つ）。リモートは受付の env、stdio は手元の env で、起動時に読む（旗を変えたら
+# 起こし直す）。受付の本文の欄は schemas.FLAGGED_RENDER_FIELDS（OpenAPI）と各機能の normalize（旗が OFF なら読まない・断る）
+OPT_IN: tuple[tuple[str, str, str, str], ...] = (
+    ("JR_VARIATIONS", "render_preview", "variations", VARIATIONS_DOC),
+    ("JR_VARIATIONS", "render_estimate", "variations", ""),
+    ("JR_VARIATIONS", "render_final", "colors", COLORS_DOC),
+    ("JR_COMPARE_VIDEO", "render_final", "compare_to",
+     " compare_to=<job_id of an earlier final of this key>: when this render finishes, also returns compare.mp4 (before / after "
+     "side by side), compare.gif and compare.json (most changed frames)."),
+    ("JR_RENDER_PASSES", "render_final", "passes",
+     " passes=['depth','mist','normal','diffuse','glossy','emission','ao','shadow_catcher','crypto_object','crypto_material'] "
+     "(Cycles): each frame becomes one multilayer OpenEXR with those passes (output 'exr'); output='prores4444' gives a "
+     "ProRes 4444 .mov (alpha with transparent=True)."),
+    ("JR_SOCIAL_EXPORT", "render_final", "deliver",
+     " deliver=['x','vertical','square'] (animations): also returns social_x.mp4 (fits X: up to 2:20, 512 MB, 1080p or 720p), "
+     "social_vertical.mp4 (1080x1920) and social_square.mp4 (1080x1080); the whole frame on a blurred fill, no cropping."),
+    ("JR_AUTO_SAMPLES", "render_final", "auto_samples", ""),
+    ("JR_AUTO_SAMPLES", "render_final", "probe_frame", ""),
+    ("JR_AUTO_SAMPLES", "render_estimate", "auto_samples", ""),
+    ("JR_AUTO_SAMPLES", "render_estimate", "probe_frame", ""),
+)
+# 旗が ON の引数の説明（stdio の P と、説明の無いリモートの引数に付ける。新版の tooldocs.param_docs に長い文があればそちらが勝つ）
+OPT_IN_PARAM_DOCS: dict[str, str] = {
+    "variations": ("2-8 variants of the same frame, each {label, environment, environment_strength, camera, colors}; rendered in "
+                   "parallel and tiled in one sheet labelled A, B, ... Leave empty for a normal preview."),
+    "colors": ("Object name -> colour ('#cc2233' or [r, g, b, a] 0-1) for its material's Principled Base Color, e.g. a variant's "
+               "render_final args."),
+    "compare_to": "job_id of an earlier final of this key: when this render finishes, compare.mp4 shows before / after side by side.",
+    "passes": ("Render passes for compositing (Cycles, final only): 'depth', 'mist', 'normal', 'diffuse', 'glossy', 'emission', "
+               "'ao', 'shadow_catcher', 'crypto_object', 'crypto_material'; each frame becomes one multilayer EXR."),
+    "deliver": ("Extra videos for social posts from an animation: 'x' (fits X's limits), 'vertical' (1080x1920), 'square' "
+                "(1080x1080); the whole frame on a blurred fill, nothing cropped."),
+    **AUTO_SAMPLES_DOCS,
+}
+
+
+def opt_in(tool: str) -> tuple[list[str], str]:
+    """道具ごとの (道具の一覧に出さない引数, 道具の説明に足す文)。旗が OFF なら ([...], "")。"""
+    hidden = [param for flag, t, param, _ in OPT_IN if t == tool and not flag_on(flag)]
+    return hidden, "".join(doc for flag, t, _, doc in OPT_IN if t == tool and doc and flag_on(flag))
+
+
+def final_opt_in() -> tuple[list[str], str]:
+    """render_final の (隠す引数, 説明に足す文)。"""
+    return opt_in("render_final")
+
+
+OPT_IN_TOOLS = ("render_preview", "render_estimate", "render_final")
+
+
+def opt_in_snapshot() -> dict[str, tuple[list[str], str]]:
+    """起動時の旗で決めた、道具ごとの (隠す引数, 説明に足す文)。リモートと stdio はこれを 1 回だけ読んで道具を登録する
+    （OPT_IN_NOW。試験は登録された道具の形をこれと突き合わせる）。"""
+    return {t: opt_in(t) for t in OPT_IN_TOOLS}
+
+
+# 試し描きの返事の next_actions で勧める機能（11/5、server/feature_offers.py）: 機能 → (道具, 引数)。勧めるのは、その引数が
+# この道具の一覧に出ているとき（起動時の旗が ON）だけ。ops の旗は道具の一覧に出さない（hide_params が引数を捨てる）ので、呼べない
+# 引数を勧めないよう、リモートでは勧めない。受付の判定（その鍵で旗が ON か）は受付が鍵ごとに重ねる
+OFFER_FEATURES: dict[str, tuple[str, str]] = {
+    "variations": ("render_preview", "variations"),
+    "deliver": ("render_final", "deliver"),
+    "compare_to": ("render_final", "compare_to"),
+    "auto_samples": ("render_final", "auto_samples"),
+}
+
+
+def offerable(snapshot: dict[str, tuple[list[str], str]]) -> list[str]:
+    """起動時の道具の形（opt_in_snapshot の結果）で呼べる、勧められる機能の名前。旗が OFF・ops なら空。"""
+    return [f for f, (tool, param) in OFFER_FEATURES.items() if tool in snapshot and param not in snapshot[tool][0]]
+
+
+def opt_in_values(**values: Any) -> dict[str, Any]:
+    """render_final に渡された旗つきの引数のうち、空でないものだけ（list と dict は写す）。旗が OFF なら hide_params が既定値で
+    呼ぶので空になり、受付への本文は main と同じ。"""
+    out: dict[str, Any] = {}
+    for name, v in values.items():
+        if v is None or v == "" or (isinstance(v, (list, tuple, dict)) and not v):
+            continue
+        out[name] = list(v) if isinstance(v, (list, tuple)) else dict(v) if isinstance(v, dict) else v
+    return out
+
+
+def apply_opt_in_schema(server: Any) -> None:
+    """登録の後（tooldocs.apply の後）の道具の一覧の仕上げ。旗が OFF の引数が一覧に残っていれば外し（ふつうは登録の前の
+    hide_params で外れている）、ON の引数で説明が無いもの（リモートの道具）に OPT_IN_PARAM_DOCS の説明を付ける。"""
+    for flag, tool_name, param, _ in OPT_IN:
+        try:
+            tool = server._tool_manager.get_tool(tool_name)   # noqa: SLF001 — SDK に公開の差し替え口が無い
+        except Exception:  # noqa: BLE001
+            tool = None
+        props = (tool.parameters.get("properties") or {}) if tool is not None else {}
+        if param not in props:
+            continue
+        if not flag_on(flag):
+            props.pop(param, None)
+            if "required" in tool.parameters:
+                tool.parameters["required"] = [r for r in tool.parameters["required"] if r in props]
+        elif isinstance(props[param], dict) and not props[param].get("description") and OPT_IN_PARAM_DOCS.get(param):
+            props[param]["description"] = OPT_IN_PARAM_DOCS[param]
+
+
+def hide_params(fn: Any, *names: Any) -> Any:
+    """道具の引数のうち names（文字か、文字の並び）を道具の一覧（tools/list の inputSchema）に出さない包み（11/5）。旗が OFF の
+    新しい引数を隠して、道具の形（審査中の形）を今までと同じに保つ。呼ばれたら元の関数をそのまま呼ぶ（隠した引数は渡されても捨て、
+    既定値のまま）。元の関数は引数を全部持つので、直に呼ぶ試験や受付の中の呼び出しは今までどおり。SDK は __signature__ を読むので、
+    引数の型は評価した形で入れ直す（from __future__ import annotations の文字のままにしない）。"""
+    import functools
+    import inspect
+    import typing
+
+    hidden: set[str] = set()
+    for n in names:
+        if isinstance(n, str):
+            if n:
+                hidden.add(n)
+        else:
+            hidden.update(x for x in (n or ()) if x)
+    if not hidden:
+        return fn
+    sig = inspect.signature(fn)
+    hints = typing.get_type_hints(fn, include_extras=True)
+    params = [p.replace(annotation=hints.get(p.name, p.annotation)) for p in sig.parameters.values() if p.name not in hidden]
+
+    @functools.wraps(fn)
+    def run(*args: Any, **kwargs: Any) -> Any:
+        for n in hidden:
+            kwargs.pop(n, None)
+        return fn(*args, **kwargs)
+
+    run.__signature__ = sig.replace(parameters=params,  # type: ignore[attr-defined]
+                                    return_annotation=hints.get("return", sig.return_annotation))
+    run.__annotations__ = {k: v for k, v in hints.items() if k not in hidden}
+    return run

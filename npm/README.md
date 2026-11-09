@@ -30,6 +30,22 @@ claude mcp add janction-render -- npx -y janction-render
 
 Clients that speak Streamable HTTP with OAuth (Claude.ai, ChatGPT, Codex, Cursor) do not need this package: give them `https://render.janction.jp/mcp` directly.
 
+## Render from a terminal
+
+Agents that can run shell commands but have no MCP, Python or uv can render with Node 18+ alone:
+
+```
+npx -y janction-render key                       # create a free key (no sign-up); prints only its prefix
+npx -y janction-render try                       # render a sample scene and print the image link
+npx -y janction-render preview scene.blend       # a fast preview; a .blend, a bpy script, a 3D file or an https link
+npx -y janction-render final scene.blend --frames 1-24 [--max-yen 100]
+npx -y janction-render final model.glb --preset turntable    # or product | animation
+npx -y janction-render status <job_id>
+npx -y janction-render download <job_id> --out renders
+```
+
+Add `--json` to any of them for machine-readable output (progress goes to stderr). Local files are uploaded first (large ones in parts that resume). `final` returns the job id at once; add `--wait` to wait and download. The key is saved in `~/.janction-render.json`, shared with the Python CLI; a key already saved there is never replaced. Exit codes: 0 ok, 1 job failed or not done, 2 error, 3 payment required (the checkout link is printed), 4 quota.
+
 ## Options
 
 | | |

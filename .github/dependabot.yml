@@ -26,3 +26,20 @@ updates:
       day: "monday"
       time: "06:00"
       timezone: "Asia/Tokyo"
+  # 11/3 リファクタリング要件 Phase 3 SEC-OPS-02: Dockerfile の基の像（digest で固定）を週 1 で上げる。ワーカーと受付で 1 本ずつ
+  - package-ecosystem: "docker"
+    directory: "/deploy/gpu004"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Asia/Tokyo"
+    labels: ["dependencies"]
+  - package-ecosystem: "docker"
+    directory: "/deploy/gpu004/user-mode"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Asia/Tokyo"
+    labels: ["dependencies"]

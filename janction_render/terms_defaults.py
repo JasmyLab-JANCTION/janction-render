@@ -50,6 +50,8 @@ FORBIDDEN_PATTERNS: list[tuple[str, str]] = [
     ('\\b(up to|at most|max(imum)?) 240 frames\\b|240 frames (per|a) job|240 コマまで|最大 240 コマ|1 回 240 コマ', '240 は 1 部分の大きさ。上限は 1 回の指示で 3,000 コマ'),
     ('\\b1,000 frames per\\b|1,000 コマまで', '1,000 コマの上限は 10/13 までの値'),
     ('Blender 5\\.0 only|5\\.0 だけ', '4.2 / 4.5 / 5.0 を受ける'),
+    ('3,?000 JPY (per|a) (render )?(request|job)|(per-job|per job|per-request) cap[^.]{0,20}3,?000 JPY|3,?000 JPY by default|1 依頼 ?3,?000 ?円|既定 ?3,?000 ?円', '既定の 1 依頼の上限は 2026-11-02 に撤回した（今は既定なし、鍵ごとに自分で決める）'),
+    ('10,?000 JPY (per|a) day by default|(per-day|per day) cap[^.]{0,20}10,?000 JPY|1 日 ?10,?000 ?円の上限', '既定の 1 日の上限も 2026-11-02 に撤回した（オートチャージの月 10,000 円は別の話）'),
 ]
 # これらの数字を受付で実現する環境変数（gpu004 の env/server.env と同じであること）
 ENV_PROFILE: dict[str, str] = {

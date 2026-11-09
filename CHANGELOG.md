@@ -1,5 +1,112 @@
 # Changelog
 
+## 0.4.259 - 2026-11-09
+
+- A Simplified Chinese entry page (/zh) and agent guide (/zh/llms.txt): how to connect from AI clients with remote MCP, stdio, the command line or OpenAPI actions, how to get a key without signing up, and package mirrors.
+- /openapi-actions.json: the render actions with API-key authentication (X-API-Key) and key creation, for platforms such as Coze and Dify that do not use OAuth.
+- The npm package (1.1.0) can render from a terminal: npx -y janction-render key, try, preview, final, status and download.
+- Connection guides show Claude's current menu (Plugins, formerly Customize > Connectors) and how Team and Enterprise owners add the connector.
+- Google Antigravity: when its sign-in page does not open, the guide shows how to add the server with a key; Antigravity's callback is recognised on the consent page.
+
+## 0.4.258 - 2026-11-09
+
+- EEVEE estimates for a scene's first final take the measured load time of each 10-frame part into account, so the shown price and the hold are closer to the actual cost (the charge was always the GPU time used).
+- When an animation does not fit the free credit, the estimate and /start also offer a free short version (up to 720p, a few seconds).
+- Keeping a job in Storage saves the main result and the delivery files first, then the input scene and the frames, so the video and report.json are kept when a job is near the size limit.
+- More groundwork for the guided final render in internal tests (comparing a render with a reference image), off by default; nothing changes for current renders.
+
+## 0.4.257 - 2026-11-06
+
+- Scene scripts can use jr_assets.look(kind, color) for ready-made materials such as gold or glass (jr_assets.apply(obj, jr_assets.look("gold"))).
+- Groundwork for a guided final render in internal tests, off by default; nothing changes for current renders.
+
+## 0.4.256 - 2026-11-06
+
+- Scripts that load bpy, mathutils, math, bmesh, random, colorsys or json with __import__("name") are rewritten to a normal import instead of being refused by the safety check.
+
+## 0.4.255 - 2026-11-06
+
+- /upload: the Copy button says Copied only after the clipboard accepts the link, and selects the link for Ctrl+C when the browser refuses.
+
+## 0.4.254 - 2026-11-06
+
+- A preview that runs out of time after drawing some frames now returns its first frame with a note, instead of nothing; the lost time is not charged.
+- Pressing the same preview again on the web pages while it is still rendering returns that preview instead of starting another.
+- A preview that already ran out of time on the same scene and settings is not sent again; the reply suggests one frame, fewer samples or a smaller size.
+
+## 0.4.253 - 2026-11-06
+
+- Paid keys can ask for a larger variations sheet (up to 1280x720 per look); unpaid keys and the default size are unchanged.
+- EEVEE estimates no longer count shader compilation as per-frame time, so the hold for an EEVEE final is close to what it costs.
+- Re-renders from JANCTION Storage keep colors, compare_to, deliver, passes and auto_samples.
+- New guide /blender-render-options; EEVEE is described as about two-thirds of the Cycles cost (same-scene measurement).
+
+## 0.4.252 - 2026-11-05
+
+- New options for creators, available to everyone: compare several looks of one frame in a single preview sheet (variations; colors on finals), a before/after video against an earlier final of the same scene (compare_to), versions for X, vertical and square cut from the same frames at no extra charge (deliver), compositing passes as one multilayer EXR per frame and ProRes 4444 with alpha (passes, Cycles), and automatic samples for finals of 100+ frames (auto_samples). Every final also comes with a delivery check (missing, black, flickering or duplicated frames, resolution, fps and length) and a contact sheet. Preview replies suggest these options where they fit.
+
+## 0.4.251 - 2026-11-05
+
+- Groundwork for upcoming options, off by default; nothing changes for current renders.
+
+## 0.4.250 - 2026-11-05
+
+- Groundwork for upcoming options in preview replies, off by default; nothing changes for current renders.
+
+## 0.4.249 - 2026-11-05
+
+- EEVEE renders run on the GPU again: about ten times faster, and the charge follows (a 120-frame 720p EEVEE clip went from 115 JPY to 15 JPY). Estimates and holds for EEVEE follow the current speed.
+- Maintenance of the render workers.
+
+## 0.4.248 - 2026-11-05
+
+- Worker-side groundwork for EEVEE renders; nothing changes for current renders.
+
+## 0.4.247 - 2026-11-05
+
+- Groundwork for an upcoming feature, off by default; nothing changes for current renders.
+
+## 0.4.246 - 2026-11-05
+
+- Billing: a job that fails or is cancelled after an automatic retry is no longer charged for the retried attempts, and saving a partial .blend export now stays within the spending limits you set.
+
+## 0.4.245 - 2026-11-05
+
+- Scheduling: a final part on a GPU shared by several workers gets proportionally more time before it is split again, and such a timeout no longer uses up the free re-split budget. Work that overflows the main GPU goes to the second GPU first and to the spare server only after a short wait.
+
+## 0.4.244 - 2026-11-05
+
+- The public success rate (/v1/stats, /status and the home page) counts failures on JANCTION's side. Failures caused by what was sent, such as an exception in the user's script or a missing file, are counted separately as input_errors, and the operator's own tests are left out.
+- A part of a render that one GPU worker cannot take is handed to another worker without using up a retry, so the job no longer fails for it.
+
+## 0.4.243 - 2026-11-05
+
+- Every finished final now carries a delivery check: frames requested and present, resolution, fps, the decoded frame count and length of the video, black frames, flicker and a rough noise estimate, with a verdict (deliverable / check / problem) in plain words, report.json and a contact sheet. It runs on the server after the render, uses no GPU time and costs nothing.
+
+## 0.4.242 - 2026-11-05
+
+- Maintenance for upcoming features. Nothing changes for current renders.
+
+## 0.4.241 - 2026-11-05
+
+- Groundwork for upcoming features. It is off by default, and nothing changes for current renders.
+- The Cursor rule and the README state the current welcome credit (100 JPY with no card, 400 JPY more after saving a card) and every supported Blender version (3.6, 4.2, 4.5, 5.0, 5.2).
+- The GitHub Action moved to JasmyLab-JANCTION/render-janction (uses: JasmyLab-JANCTION/render-janction@v1, which pins CLI 0.4.237). The old name still redirects.
+
+## 0.4.240 - 2026-11-04
+
+- Listings: Smithery is no longer linked (Smithery ended its proxy on 2026-10-31 and the listing page is gone). The LobeHub link points to the listing page, and the MCP Market listing is added. This affects the sameAs data on every page, /facts, llms.txt and the connect guides.
+
+## 0.4.239 - 2026-11-04
+
+- Every estimate carries one sentence for the user (tell_user / tell_user_ja): the time and the price when the final path has been measured, or a note that the figure is not measured on the final path yet and should not be presented as the time the final will take. The preview's final_estimate carries the same sentence.
+- A finished final answers with the measured wall time, the charge and the file (render_status and render_download, terminal and remote servers), so the agent can tell the user without being asked. On the terminal server the video of a final is also saved to the user's Downloads folder as {scene}_{width}x{height}_{frames}f.mp4 (JANCTION_RENDER_DELIVER changes the folder; a given out_dir is used as is; the job's own folder is kept).
+- The tool descriptions, the skill and the project section written by `janction-render init` say the same: an unmeasured estimate is not the final's time, and the finished file is handed to the user with its measured time and charge.
+
+## 0.4.238 - 2026-11-04
+
+- Maintenance of how render workers share a GPU with other work on the same machine; no change to how scenes render today.
+
 ## 0.4.237 - 2026-11-04
 
 - Scenes with Grease Pencil strokes render again in Cycles with the same look.
@@ -10,13 +117,166 @@
 
 ## 0.4.235 - 2026-11-04
 
-- Job replies from the local MCP server carry the new fields the service returns: the place in line (queue_position), when to look again (poll_after_s), the settings the render actually used (effective_settings), files about to be deleted (expiring_soon) and, while the GPU is lent out, when it is expected back (gate_until).
-- The first job of a new key carries first_run: what is free, what saving a card adds and a sample to try.
-- Failures pass on error_class, limit, blender_version and, for a final split into parts, which part failed.
-- cost keeps its sentence and adds cost_detail with numbers: the most the job can charge (charge_yen_max), what the free time covered, the final amount and what is held.
-- billing adds available_yen (welcome credit plus prepaid credit in one number), one sentence in English and Japanese to tell the user (tell_user, tell_user_ja) and, for keys that have not paid yet, what paying unlocks (unlocks).
-- Spending caps: none by default; prepaid credit is the limit. Each key can still set a per-request and a per-day cap, and a request can carry max_yen.
-- The bottle sample keeps the same vertical framing for square and wide renders.
+- Heavy 3D files (for example a GLB with tens of thousands of separate meshes) are imported into Blender once and kept as .blend; scene_info, previews and finals of that scene then open the .blend in seconds instead of importing it again for every part. The one-time import has its own limit (600 s, 900 s with credit), is not charged, and the estimate says how long it should take (import_seconds, import_note).
+- When even that import does not finish, the failure is IMPORT_TOO_SLOW (resource_limit, limit time) with the file's mesh, object and vertex counts and fixes that work (merge meshes, for a GLB with gltf-transform flatten and join, or send a .blend). It no longer suggests lowering samples or resolution.
+- An uploaded GLB or glTF reports import_stats (mesh, object, vertex and triangle counts and the expected import seconds). When the import is expected to run over the limit, the upload carries a warning with the counts and how to merge the meshes; the file is still accepted and can be tried.
+- A scene_info that timed out at the old 120 s reading limit on such a file can be sent again; it runs with the longer import limit instead of returning the earlier failure.
+- An upload in a format that is not accepted lists every accepted format (.blend, .py and the 3D formats) and, for common tools (Cinema 4D, 3ds Max, Maya, SketchUp, Rhino, CAD, archives), how to export a file that is.
+
+## 0.4.234 - 2026-11-04
+
+- The front page summary (English and Japanese) states the current price: the welcome credit for a new key and the price per GPU-second.
+- The fact sheet lists our press release, its republished copy and independent articles separately (facts.json `coverage`, /facts#coverage, linked from llms.txt).
+- /changelog shows the full notes of the latest 30 releases; older releases are listed by version and date (full notes stay in the Atom feed and changelog.json).
+- The English studio no longer reads as a 500 JPY minimum top-up: 500 JPY paid in total is what allows .blend files up to 5 GB.
+
+## 0.4.233 - 2026-11-04
+
+- An upload without a key that hits the daily allowance says when it resets (resets_at and Retry-After).
+- Sign-in protection now treats every way of presenting a key the same.
+
+## 0.4.232 - 2026-11-03
+
+- A queued job says its place in line (progress.queue_position), when to look again (eta.poll_after_s) and, while the GPU is lent out, when it is expected back (eta.gate_until).
+- A finished job whose files are deleted within 3 hours says so (expiring_soon), and every job says the settings it actually ran with (effective_settings).
+- billing says what paying unlocks, for keys that have not paid yet (unlocks).
+- A script published on a share page has secret-looking values (API keys, tokens, passwords) replaced, and the reply says which lines.
+- The workbench shows the key number for a browser that came back through the remembered account, and never copies the browser's own token.
+
+## 0.4.231 - 2026-11-03
+
+- Every file in a job reply says when it is deleted (expires_at, ISO 8601 and JST) and when its download link ends (link_expires_at); the remote MCP reply adds files_kept_until and links_expire_at.
+- cost adds charge_yen_max (the most this job can charge), free_covered_yen (what the free time covered) and final_yen (after settlement); the MCP reply keeps its cost sentence and adds cost_detail.
+- A failure carries error_class: scene_error, missing_asset, resource_limit (with limit), api_incompat (with blender_version), service_error or canceled. Split finals carry failure too.
+- The first job of a key carries first_run: the free amount left, what saving a card adds, today's free preview time and a sample scene.
+- When the preview check says fix, the job reply starts with next_action.
+- billing adds available_yen (free credit plus prepaid credit) and a one-line tell_user in English and Japanese.
+- POST /v1/keys/rotate issues a new key for the same account (the old key works for an hour); DELETE /v1/keys/current stops the key you call with.
+- Optional (off by default): JR_FINAL_NEEDS_ESTIMATE returns the estimate first (409 needs_estimate) for a final with no preview or estimate of the scene.
+
+## 0.4.230 - 2026-11-03
+
+- Hardened the payment, webhook, outside-link and worker boundaries (no change to how renders are requested or charged).
+- A cancelled or failed part of a split final no longer charges after the cancel, and the split final's charged_yen includes the frames those parts finished.
+- New error codes with their own guidance: too_many_active_jobs (429, only when a per-key limit is set), part_superseded and canceled (409).
+- The same Idempotency-Key with a different body answers 409 idempotency_key_reused; resending the same body returns the first result.
+- The workbench marks each "render straight from an AI" card Connected or Not yet from the apps connected with the key.
+- The workbench keeps its works list when it starts (it could shrink to the unsigned list).
+- GA4 page views are sent after the page title is set, and /ja/status counts as status_view.
+
+## 0.4.229 - 2026-11-02
+
+- The default per-key daily spending cap (10,000 JPY) is withdrawn as well. Caps set per key (POST /v1/me/limits), max_yen and the auto top-up limits stay.
+- Cycles estimates grow with resolution to the power 0.8 (JR_PIXEL_EXPONENT): on 201 first finals of the last 25 days, estimates within 0.5x to 2x of the real time went from 75% to 85%.
+- A key that has never paid can finish its first render when the shortfall is small (up to 100 JPY, JR_FIRST_SHORTFALL_GRACE_YEN): once per key, and once per network every 30 days.
+- tools/price_honesty_report.py reports keys stopped at payment, what they did next and what the service absorbed.
+- The Japanese workbench shows the preview check in Japanese (the check's English sentences were shown as they were).
+- The site's own sessions are no longer listed as connected apps (GET /v1/connections and Settings): each visit to /start added one "an MCP client".
+- Jobs made from the site's samples say which sample (input.sample), so a work keeps its name after a reload.
+- A number and its unit stay on one line in the confirm box and on the front page.
+
+## 0.4.228 - 2026-11-02
+
+- The amount asked of the user (the 402 shortfall, the spending-cap check, the estimate and its decision) is the expected cost of the part the free time does not cover, not the 1.5x hold (JR_HONEST_PRICE, on by default). The hold is still up to 1.5x the estimate, within the balance and the caps; anything above the hold is still not charged.
+- The default per-request spending cap (3,000 JPY) is withdrawn. The 10,000 JPY per day cap, caps set per key (POST /v1/me/limits) and max_yen stay.
+- Estimates: EEVEE jobs use EEVEE measurements with a unit that barely grows with resolution (JR_EEVEE_UNITS); a new scene's own preview counts for half as a floor when a key's recent finals are the base; the estimate follows the same chunk plan as the submission (max_yen equal to the estimate no longer gets a 403).
+- A request split into parts keeps one total under its cap across parts and retries; work that finishes after a cancel is not charged; the same Idempotency-Key with a different body gets 409; an optional cap on renders running at once per key (off by default).
+- The scorecard and the journey report count test keys as tests.
+
+## 0.4.227 - 2026-11-02
+
+- Reading a .blend saved on Windows no longer lists the source files of appended data as missing: Blender on Linux returns those paths as /c/Users/..., while the weak references keep the Windows form, so both are now matched in one form.
+- Japanese pages: shared sentences in polite form, date ranges written with 〜, Japanese labels in the "inspect and reproduce" tables, and Japanese labels for screen readers on the top page.
+- US spelling in human-readable English text (API values, JSON keys and critic messages are unchanged).
+
+## 0.4.226 - 2026-11-02
+
+- The sample bottle's camera keeps the whole bottle in frame at any aspect ratio (the 16:9 preview cut off the cap and the critic flagged it).
+- Workbench: the time to a final comes only from the real estimate; a finished work opens with the final in front and its button opens the file (it looped back to Works); Works cards show each work's own image; settings list the connected apps again.
+- Gallery and examples: operator examples show one title per language, no internal client names and no empty resolution; Japanese example pages read in Japanese.
+- Japanese pages wrap lines at phrase boundaries (Chrome and Edge).
+- Workbench animation finals keep the scene's frame rate (a 30 fps scene was shown as 24 FPS and assembled at 24 fps), and the time estimate refreshes when the mode or settings change.
+- Reading a .blend no longer lists the source files of appended data (ID.library_weak_reference) as missing files; only real links and files are counted.
+- Terms, legal notice, privacy, security, pricing and facts pages match the current offer (the 400 JPY card bonus, 7-day retention for keys that paid 500 JPY or more in total, contracted GPU providers at busy times).
+- Guide pages: current upload limits, tool and GPU counts, and no internal notes.
+
+## 0.4.225 - 2026-11-02
+
+- Pages that belong to one key (payment, top-up and settings links, the workbench) are never stored by the CDN; a page without its own caching rule is private by default.
+- The preview reply of the remote MCP server shows the rendered image in show_user and in the keep command (it could point at log.txt).
+- Hardened logging, redirects and the OAuth authorize step; webhook failure logs no longer carry the notify_url query.
+- API error replies carry charged_yen (0: nothing was charged).
+- An unshared page answers 410 and is removed from the CDN at once.
+
+## 0.4.224 - 2026-11-02
+
+- The workbench's key row shows the key's prefix (jr_…) for someone who came back through this browser's account; it showed the first characters of the browser token (jrt_…), taken from the mock's copy button. The mock's placeholder key on that button is no longer shipped.
+
+## 0.4.223 - 2026-11-02
+
+- A bpy script that takes long to build its scene no longer fails its preview for that reason alone: the time measured when the scene was read (the info job runs the script) is added to the time limit of each preview and final part, from 20 s up to JR_BUILD_ALLOWANCE_MAX_S (default 180 s). Only the GPU time used is counted, as before. A 200 KB city generator that took 69 s to build ran out of the 120 s preview limit on 11/2.
+- When a part still runs out of time, the error says how long the script took to build, and the failure is SCRIPT_BUILD_SLOW (category JOB_TIMEOUT, not retryable) with advice that fits: build faster or send the saved .blend; lowering samples or resolution does not help.
+- Common failures (SCRIPT_BUILD_SLOW, RENDER_TIMEOUT, SCRIPT_ERROR, OUT_OF_MEMORY, WORKER_LOST, MISSING_TEXTURE) carry reason_ja and recommended_action_ja, and the Japanese workbench shows them instead of the English text.
+- /start and the upload result page send Cloudflare-CDN-Cache-Control: no-store. 0.4.221 left the 30-minute CDN header on /start while its Cache-Control said private, so Cloudflare kept the workbench for 30 minutes and served everyone the same CSP nonce.
+
+## 0.4.222 - 2026-11-02
+
+- The workbench (/start) works again for people who rendered there before. Since 0.4.219 the removed sample-script panel left a reference behind, so restoring the last work on load stopped the page script before it connected to the API (no previews, works, settings or account). The panel is kept as an empty hidden slot and restoring the last work can no longer stop the rest.
+- A regression test checks that every element the workbench script touches without a guard is served.
+
+## 0.4.221 - 2026-11-02
+
+- Public pages and llms.txt tell browsers to revalidate every time (Cache-Control: public, max-age=0, must-revalidate) and keep the 30-minute CDN copy for Cloudflare only (Cloudflare-CDN-Cache-Control: max-age=1800, stale-while-revalidate=3600, which browsers never see). Browsers had kept pages for 30 minutes plus a stale window after a deploy. Pages that switch between HTML and Markdown (Accept) are private, no-cache instead of private, max-age=300.
+
+## 0.4.220 - 2026-11-02
+
+- HTML pages no longer send a fixed Last-Modified (the page's "updated" date). Cloudflare drops strong ETags, so browsers revalidated with If-Modified-Since only and got 304 after a deploy changed the page; the 304 carried the new CSP nonce, which did not match the old cached body, so every inline script on the page was blocked (the pay buttons fell through to /start, the theme switch did nothing). HTML now sends only a weak ETag of the body, which Cloudflare keeps; a 304 means the same body.
+
+## 0.4.219 - 2026-11-02
+
+- The workbench (/start) no longer ships the mock's sample content in its HTML: the "night city" preview image and title, the city.py input and script box, the v1–v3 history rows, the critique lines and fix code, the "9" works count. Crawlers that do not run scripts read these as page text. The unwired script box under History is removed.
+- While a scene's first preview renders, the preview area shows that sample's picture (a plain paper frame for your own file) instead of the mock's city image.
+- The workbench has one h1 (the Render view); the other views' titles are h2 with the same look.
+
+## 0.4.218 - 2026-11-02
+
+- Notion's AI is a known app on the connection page: someone who connected from Notion can continue with the same account (credit, free time left and renders) when they connect from another AI app on the same browser.
+- Stripe's payment page names the key the credit goes to ("Credit goes to key jr_…") for top-ups, auto top-up sign-ups and monthly plans.
+- Behind JR_ACCOUNT_BROWSER (off): /start, the workbench and the pricing page continue the account this browser connected from an AI app instead of making a new key; the sign-in-only email (purpose=login, no notices) behind JR_XAI_EMAIL_LOGIN.
+
+## 0.4.217 - 2026-11-02
+
+- /start and /ja/start (the workbench) are no longer cached by the CDN or the browser (Cache-Control: private, no-cache). They were public for 30 minutes plus a stale window, so a browser or Cloudflare could keep serving the page from before a deploy, and every visitor got the same CSP nonce.
+- In the 621–980 px range (a half-width window) three-column grids fold to two columns; the empty cell next to an odd last card showed the ink background as a black block (pricing cards, the Render Journal). Empty cells of the last row are now filled with paper, at three, two and four columns.
+- The workbench's top-up buttons in Settings use the same amounts as /pricing (they were 1,000 / 3,000 / 10,000 JPY from the mock).
+- The workbench no longer ships the hidden product-video and projects views and the video approval dialog (mock content that crawlers read as text).
+- The contact e-mail in the front page's credit sentence is excluded from Cloudflare's e-mail obfuscation; its decoder was blocked by the CSP, so the address showed as "[email protected]" to readers and crawlers.
+
+## 0.4.216 - 2026-11-02
+
+- The estimate tells which frames would render first on the free time (cost.partial_first) when the server renders the free frames first and keeps the rest for after a top-up.
+- /start: in that case the button says "Render frames 1-N now with your free time" and the page no longer asks to top up first; the rest of the frames are offered after the first part is shown.
+
+## 0.4.215 - 2026-11-02
+
+- New look for every page: a ruled broadsheet (paper, ink, one orange accent; Gloock headlines and DM Mono text, both served from /static, no third-party font host). Light and dark follow the OS and can be pinned with the ◐ button. Words, URLs, canonical/hreflang, JSON-LD, llms.txt, facts.json and the sitemap are unchanged.
+- Front page: the uploader (the same engine as /start) sits on the page, with a rate card, three ways to start, live usage (external use only, from /v1/stats), the connect lines, how it works, the Render Journal, a budget calculator and the guides.
+- /start is the workbench (render, works, tools, settings; the jr-studio-demo screen on the real API) in the same look. JR_START_V2=0 keeps the plain three-view page; ?ui=v1 always shows it.
+- /pricing, /examples (the Render Journal) and each example's page are rebuilt in the new look with the same numbers (billing settings, examples.json).
+- CSP gains font-src 'self'; /static/ serves the fonts and the wordmark.
+- The workbench is in English and Japanese (the language switch keeps your place) and uses the system font. Works are read from the key on the server, so a pasted key shows them on any browser; the key is shown by its prefix only.
+- The workbench keeps what /start did: the same events, the held order when the balance is short (pay or save a card and the render starts by itself), Save to Storage, the suggested next step, links and pasted scripts, a moving scene offered as a video, and an existing key.
+- After a preview, the result offers three kinds of final to choose from: still image, animation and multi-camera (a kind the scene cannot do is greyed out).
+- The Render Journal lists two reports: reading the preview before the final, and what a render costs (measured).
+- Heavy parts move to /static: the front page's engine (start.js) and the workbench's images.
+- Phones: the connect, tools and limits tables on the front page are one card per row (`table.rowcards`, the column name from `data-label`); other tables let their first column wrap and keep each column at least 4.6em, so a wide table scrolls inside its frame instead of squeezing a column to one letter a line. `code` and `pre` are never upper-cased (the MCP URL in a kicker showed as HTTPS://RENDER.JANCTION.JP/MCP). The Journal counts its cases as 件, not 号 (the numbers have gaps).
+- Workbench, checked on the local receptionist with the production CSP and the fake worker: the "See it in Works" button after a final is readable (it was ink on ink); the English page says "about 1 min to arrive" (the space was missing); the price line in the confirmation follows the page's language (the English page showed the Japanese line); the checklist after a preview no longer shows the agents' wording for a short balance (the held order handles it), and the spending and time caps get a plain line in the page's language.
+- Workbench settings are real now (they were the mock's buttons): erase everything now (DELETE /v1/me/data), revoke the key (POST /v1/keys/revoke), the spending caps can be changed and saved (POST /v1/me/limits), auto top-up turns on and off (/v1/billing/autocharge), the monthly plans (Starter / Pro) start from the page and a running plan can be cancelled, "Billing and card" opens the Stripe page, the email notice shows the address on file and can be stopped (DELETE /v1/me/email), the log lists the key's recent jobs, the share-page count is read from the server, and each connected app has a Disconnect button. A dangerous button asks once more on the button itself. Payment errors are shown in the page's language. The login row no longer promises email sign-in (it is not open yet).
+- The finished-render email links to signed /dl/ links that open without a key (the links needed X-API-Key and answered 401 from the email); log.txt is left out. The email confirm and unsubscribe pages use the paper-and-ink look.
+- Pre-release audit fixes: API keys stay in tab-scoped session storage instead of persistent local storage; connected apps are drawn once with a working two-press Disconnect action; spending-cap inputs reject signs, decimals, malformed separators and unsafe integers before calling the API; orange call-to-action text meets contrast in light and dark themes; and hidden workbench images load lazily.
+- The GPU0 overflow worker advertises 40 GB, not the physical card's 64 GB class, because it shares VRAM with the inference service; the generated worker environment keeps that safe value.
+- /pricing: the top-up card has one button per amount and the monthly card one button per plan; each opens the Stripe payment page directly (the budget calculator's button follows the chosen budget). The page uses the key of the workbench in the same tab, or makes one, and says that the credit goes to this browser's key.
+- POST /v1/billing/subscribe takes lang, so a monthly plan started from a Japanese page opens a Japanese payment page.
 
 ## 0.4.214 - 2026-11-02
 

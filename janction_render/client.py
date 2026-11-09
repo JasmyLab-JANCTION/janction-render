@@ -351,7 +351,7 @@ def _blocked_hint(host: str) -> str:
             "not an outage of the render service), so retrying will not help. "
             "Fix, in this order: (1) if this session has the JANCTION Render tools from a claude.ai connector, use those "
             "instead (they do not go through this proxy; pass a bpy script as scene_script, a file on the web as scene_url). "
-            "If it does not, tell the user the one-time setup: on claude.ai, Settings -> Connectors -> Add custom connector -> "
+            "If it does not, tell the user the one-time setup: on claude.ai, Plugins (older menu: Customize -> Connectors) -> Add custom connector -> "
             f"{DEFAULT_SERVER}/mcp -> Connect (creates a free key); no network setting changes. "
             f"(2) Only for a .blend that exists only in this sandbox: the user allows {host} in the environment's network "
             "settings (Claude Code on the web: Network access -> Custom -> Allowed domains, keeping the defaults; a running "
@@ -928,6 +928,15 @@ class Client:
         """終わった仕事の次の一手（受付の旗 JR_RET_NEXT_ACTIONS が OFF なら None）。見るだけで描かない。"""
         try:
             r = self.s.get(f"{self.server}/v1/jobs/{job_id}/next-actions", headers=self._headers(), timeout=15)
+        except Exception:  # noqa: BLE001
+            return None
+        return r.json() if r.status_code == 200 else None
+
+    def feature_offers(self, job_id: str, accepts: list[str], actions: list[dict[str, Any]]) -> Optional[dict[str, Any]]:
+        """試し描きの next_actions に、受付がこの鍵に勧める新しい機能の候補を足したもの（11/5）。古い受付・失敗なら None。見るだけ。"""
+        try:
+            r = self.s.post(f"{self.server}/v1/jobs/{job_id}/feature-offers", json={"accepts": list(accepts), "next_actions": actions},
+                            headers=self._headers(), timeout=20)
         except Exception:  # noqa: BLE001
             return None
         return r.json() if r.status_code == 200 else None

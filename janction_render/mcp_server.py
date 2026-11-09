@@ -7,7 +7,8 @@
 環境変数:
     JANCTION_RENDER_SERVER   受付の URL（既定 https://render.janction.jp。手元の受付なら http://127.0.0.1:8340）
     JANCTION_RENDER_API_KEY  API キー（無ければ一時キーを自動で取る）
-    JANCTION_RENDER_OUT      落とし先の親フォルダ（既定 ~/janction-render）
+    JANCTION_RENDER_OUT      仕事の保管の親フォルダ（既定 ~/janction-render。その下に <job_id>）
+    JANCTION_RENDER_DELIVER  利用者が開く仕上げの動画の届け先（既定 そのユーザーの Downloads。docs/101 RCV-03）
 """
 from __future__ import annotations
 
@@ -33,7 +34,8 @@ from mcp.types import ToolAnnotations
 from janction_render.brief import review_reply
 from janction_render.decision_words import SMALLER_IS_USERS_CHOICE
 from janction_render.brief import brief as _brief, estimate_brief, final_body_after_preview, followup_after_preview, \
-    next_after_preview, trim, PRESENT_FIRST, preview_presentation, turntable_estimate
+    next_after_preview, trim, PRESENT_FIRST, preview_presentation, turntable_estimate, estimate_tell, done_tell, \
+    VARIANTS_NEXT, critic_next, final_estimate_text
 from janction_render.client import Client, ClientError, parse_frames
 from janction_render import mcp_common, prompts as _prompts, tooldocs
 
@@ -176,6 +178,8 @@ P: dict[str, str] = {
     "fps": "Frames per second of the video output (default 24).",
     "output": "'auto' (mp4 for a range, png for one frame) | 'png' | 'exr' | 'mp4' | 'webm' | 'prores' | 'gif' | 'webp'.",
     "notify_url": "Optional https URL that receives one JSON POST when the final render finishes.",
+    # 旗つきの引数（11/5: variations・colors・compare_to・passes・deliver・auto_samples・probe_frame）の説明は mcp_common に 1 つ
+    **mcp_common.OPT_IN_PARAM_DOCS,
     "max_yen": "Budget for this job in JPY (-1 = none). The job is refused before it starts if it could cost more; pass what the user agreed to.",
     "idempotency_key": "Optional key (letters, digits, . _ : -). Resubmitting with the same key returns the first job instead of rendering and charging twice.",
     "kind": "'final' (frame_start..frame_end at width x height, samples) or 'preview' (frames like '1-24').",
@@ -213,6 +217,70 @@ def _client() -> Client:
 
 def _out_root() -> Path:
     return Path(os.environ.get("JANCTION_RENDER_OUT") or (Path.home() / "janction-render"))
+
+
+_SCENE_NAMES: dict[str, str] = {}
+
+
+def _scene_name_of(c: Client, scene_id: str) -> Optional[str]:
+    """届けるファイルの名前に使うシーンのファイル名（受付の GET /v1/files/{id} の name）。取れなければ None。"""
+    if not scene_id:
+        return None
+    if scene_id in _SCENE_NAMES:
+        return _SCENE_NAMES[scene_id] or None
+    try:
+        r = c.s.get(f"{c.server}/v1/files/{scene_id}", headers=c._headers(), timeout=30)
+        name = str(r.json().get("name") or "") if r.status_code == 200 else ""
+    except Exception:  # noqa: BLE001 — 名前が取れなくても届ける
+        name = ""
+    _SCENE_NAMES[scene_id] = name
+    return name or None
+
+
+def _video_output(j: dict[str, Any]) -> Optional[str]:
+    """仕上げの動画の成果物の名前（output.mp4 など）。静止画の仕上げ・試し描きは None。"""
+    names = [a["name"] for a in (j.get("artifacts") or []) if isinstance(a, dict)]
+    for n in ("output.mp4", "output.webm", "output.mov", "output.gif", "output.webp"):
+        if n in names:
+            return n
+    return None
+
+
+def _delivery_path(c: Client, j: dict[str, Any]) -> Optional[Path]:
+    """docs/101 RCV-03: 仕上げの動画の届け先（まだ番号を付けない）。動画の無い仕事は None。"""
+    vid = _video_output(j)
+    if not vid or j.get("kind") != "final":
+        return None
+    es = j.get("effective_settings") or {}
+    prm = j.get("params") or {}
+    w, h = es.get("width") or prm.get("width"), es.get("height") or prm.get("height")
+    try:
+        fs = int(es.get("frame_start") or j.get("frame_start") or 1)
+        fe = int(es.get("frame_end") or j.get("frame_end") or fs)
+        n: Optional[int] = fe - fs + 1
+    except (TypeError, ValueError):
+        n = None
+    name = mcp_common.deliver_name(_scene_name_of(c, str(j.get("scene_id") or "")), w, h, n, vid.rsplit(".", 1)[-1], j["job_id"])
+    return Path(mcp_common.deliver_dir()) / name
+
+
+def _deliver(c: Client, j: dict[str, Any], paths: list[Path]) -> Optional[Path]:
+    """落とした仕上げの動画を届け先に写す（上書きしない、同名は (2) から）。写せなければ None（仕事の保管はそのまま）。"""
+    import shutil
+    target = _delivery_path(c, j)
+    if target is None:
+        return None
+    src = next((p for p in paths if p.name == _video_output(j)), None)
+    if src is None or not src.exists():
+        return None
+    try:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target = Path(mcp_common.unique_path(target))
+        shutil.copy2(src, target)
+        return target
+    except OSError as exc:
+        _log(f"delivery to {target} skipped: {exc}")
+        return None
 
 
 def _wait_unless_gated(c: Client, job: dict[str, Any], timeout: float) -> dict[str, Any]:
@@ -411,10 +479,22 @@ def _preview_followup(c: Client, j: dict[str, Any]) -> dict[str, Any]:
     return followup_after_preview(est, {**body, "scene_id": j.get("scene_id")})
 
 
+def _add_feature_offers(c: Client, j: dict[str, Any], b: dict[str, Any]) -> None:
+    """作り手向けの新しい機能の候補（11/5）: 手元の道具の一覧に引数が出ている機能（手元の env の旗が ON）があるときだけ、受付に
+    この鍵で勧めるものを聞いて next_actions に足す。旗が OFF なら受付に聞かない（今までの返事のまま）。"""
+    accepts = mcp_common.offerable(OPT_IN_NOW)
+    if not accepts or not b.get("next_actions"):
+        return
+    r = c.feature_offers(j["job_id"], accepts, b["next_actions"])
+    if r and r.get("added") and isinstance(r.get("next_actions"), list):
+        b["next_actions"] = r["next_actions"]
+        b["next"] = (b.get("next") or "") + str(r.get("next_note") or "")
+
+
 def _turntable_followup(c: Client, j: dict[str, Any]) -> dict[str, Any]:
     """試し描きの次の一手「360 度の回転動画」の時間と値段（10/12）。回転・複数カメラの試し描きには出さない。"""
     p = j.get("params") or {}
-    if p.get("orbit") or p.get("cameras") or not j.get("scene_id"):
+    if p.get("orbit") or p.get("cameras") or p.get("variations") or not j.get("scene_id"):
         return {}
     try:
         return turntable_estimate(c.estimate(j["scene_id"], kind="final", preset="turntable"))
@@ -495,7 +575,6 @@ def asset_search(query: Annotated[str, Field(description=P["query"])],
         return _j(_fail(exc))
 
 
-@mcp.tool(annotations=_ann(WRITE, "Render preview"), structured_output=False, meta=_ui_meta(), description=RENDER_PREVIEW_DESCRIPTION)
 def render_preview(
     scene_path: Annotated[str, D("scene_path", "")] = "",
     scene_id: Annotated[str, D("scene_id", "")] = "",
@@ -521,6 +600,7 @@ def render_preview(
     engine: Annotated[str, D("engine", "")] = "",
     transparent: Annotated[bool, D("transparent", False)] = False,
     preset: Annotated[str, D("preset", "")] = "",
+    variations: Annotated[Optional[list[mcp_common.Variant]], D("variations", None)] = None,
 ) -> list[Any]:
     """Render a fast, cheap preview of a Blender scene on a JANCTION GPU and show the image. (full description on the tool)."""
     c = _client()
@@ -531,6 +611,7 @@ def render_preview(
         if preset == "animation" and frame_list is None:
             _ensure_scene_info(c, sid)
         params = dict(frames=frame_list, camera=camera or None, cameras=(list(cameras) if cameras else None),
+                      variations=(list(variations) if variations else None),
                       width=width, height=height, samples=samples, transparent=(True if transparent else None),
                       **_job_params(environment, environment_strength, environment_visible, blender, engine=engine),
                       **({"orbit": True, "orbit_frames": orbit_frames, "orbit_elevation": orbit_elevation,
@@ -558,11 +639,48 @@ def render_preview(
     brief.update(preview_presentation(j, fu, saved_to=str(show or out), turntable=_turntable_followup(c, j)))
     brief["next"] = PRESENT_FIRST + next_after_preview(fu, "edit it and call render_preview again",
                                                        "ask the user before calling render_final", critic=j.get("critic"))
+    if (j.get("params") or {}).get("variations"):
+        brief["next"] = PRESENT_FIRST + critic_next(j.get("critic")) + VARIANTS_NEXT + final_estimate_text(fu)
+    _add_feature_offers(c, j, brief)
     _attach_upload_notes(brief)
     result: list[Any] = [_j(brief)]
     if show is not None:
-        result.append(Image(data=show.read_bytes(), format="png"))
+        img = _shown_image(show)
+        if img is not None:
+            result.append(img)
+        else:
+            brief["image_note"] = f"the sheet is too large to show inline; open it at {show}"
+            result[0] = _j(brief)
     return result
+
+
+INLINE_IMAGE_MAX_BYTES = 3_500_000
+
+
+def _shown_image(path: Path) -> Optional[Any]:
+    """会話に載せる絵（11/6）。チャージ済みの鍵の見比べのシートは 3840x2160 まで大きくなるので、重いときは縮めて載せる（原寸は
+    path に残る）。Pillow が無くて縮められなければ None（呼ぶ側が場所を言う）。"""
+    data = path.read_bytes()
+    if len(data) <= INLINE_IMAGE_MAX_BYTES:
+        return Image(data=data, format="png")
+    try:
+        import io
+        from PIL import Image as PILImage
+        im = PILImage.open(io.BytesIO(data)).convert("RGB")
+        if im.width > 1920:
+            im = im.resize((1920, max(1, round(im.height * 1920 / im.width))))
+        buf = io.BytesIO()
+        im.save(buf, "JPEG", quality=88)
+        return Image(data=buf.getvalue(), format="jpeg")
+    except Exception:  # noqa: BLE001 — Pillow が無い・読めない
+        return None
+
+
+# 旗つきの引数（11/5、mcp_common.OPT_IN）: 旗が OFF の引数は道具の一覧に出さず、説明の 1 文も足さない。起動時の手元の env で 1 回読む
+OPT_IN_NOW = mcp_common.opt_in_snapshot()
+mcp.tool(annotations=_ann(WRITE, "Render preview"), structured_output=False, meta=_ui_meta(),
+         description=RENDER_PREVIEW_DESCRIPTION + OPT_IN_NOW["render_preview"][1])(
+    mcp_common.hide_params(render_preview, OPT_IN_NOW["render_preview"][0]))
 
 
 @mcp.tool(annotations=_ann(WRITE, "Review a 3D model or scene"), structured_output=False, meta=_ui_meta(),
@@ -611,7 +729,6 @@ def render_review(
     return result
 
 
-@mcp.tool(annotations=_ann(READ, "Estimate render time"))
 def render_estimate(scene_id: Annotated[str, D("scene_id", "")] = "",
                     kind: Annotated[str, D("kind", "final")] = "final",
                     frame_start: Annotated[int, D("frame_start", 1)] = 1,
@@ -621,7 +738,10 @@ def render_estimate(scene_id: Annotated[str, D("scene_id", "")] = "",
                     height: Annotated[int, D("height", 1080)] = 1080,
                     samples: Annotated[int, D("samples", 128)] = 128,
                     cameras: Annotated[Optional[list[str]], D("cameras", None)] = None,
-                    preset: Annotated[str, D("preset", "")] = "") -> str:
+                    preset: Annotated[str, D("preset", "")] = "",
+                    variations: Annotated[Optional[list[mcp_common.Variant]], D("variations", None)] = None,
+                    auto_samples: Annotated[bool, D("auto_samples", False)] = False,
+                    probe_frame: Annotated[int, D("probe_frame", 0)] = 0) -> str:
     """Estimate how long a render will take BEFORE starting it (no GPU time used): GPU seconds, queue wait,
     wall-clock time as a human-readable string ('about 3 minutes'), and whether it fits the free time left and
     the size limits. kind is 'final' (frame_start..frame_end at width x height, samples) or 'preview' (frames
@@ -631,8 +751,11 @@ def render_estimate(scene_id: Annotated[str, D("scene_id", "")] = "",
     c = _client()
     try:
         preset = _preset_of(preset)
-        params, needs_info = mcp_common.estimate_body(kind, scene_id, frames, frame_start, frame_end, width, height, samples, cameras, preset)
+        params, needs_info = mcp_common.estimate_body(kind, scene_id, frames, frame_start, frame_end, width, height, samples, cameras, preset,
+                                                      variations=variations)
         params.pop("scene_id", None)
+        if kind == "final":
+            params.update(mcp_common.auto_samples_body(auto_samples, probe_frame))     # 11/5 旗 JR_AUTO_SAMPLES
         if needs_info:
             _ensure_scene_info(c, scene_id)
         est = c.estimate(scene_id or None, **params)
@@ -640,8 +763,16 @@ def render_estimate(scene_id: Annotated[str, D("scene_id", "")] = "",
         return _j(_fail(exc))
     out = estimate_brief(est) or {}
     out["kind"] = kind
-    out["next"] = mcp_common.estimate_next(est)
+    out.update(estimate_tell(est))      # docs/101 RCV-01: 測った見積もりは壁時計と円の 1 文、未計測は「未計測の見込み」
+    nxt = mcp_common.estimate_next(est) + mcp_common.auto_samples_estimate_next(est)
+    if (est.get("calibration") or {}).get("final_path_measured") is False and kind == "final":
+        nxt = ("this estimate is not measured on the final path (tell_user says so): for an animation, render 10 contiguous "
+               "frames on the final path first, then call render_estimate again before the full job; " + nxt)
+    out["next"] = nxt
     return _j(out)
+
+
+mcp.tool(annotations=_ann(READ, "Estimate render time"))(mcp_common.hide_params(render_estimate, OPT_IN_NOW["render_estimate"][0]))
 
 
 RENDER_FINAL_DESCRIPTION = (
@@ -662,7 +793,6 @@ RENDER_FINAL_DESCRIPTION = (
 )
 
 
-@mcp.tool(annotations=_ann(WRITE, "Render final frames or video"), meta=_ui_meta(), description=RENDER_FINAL_DESCRIPTION)
 def render_final(
     scene_path: Annotated[str, D("scene_path", "")] = "",
     scene_id: Annotated[str, D("scene_id", "")] = "",
@@ -693,6 +823,12 @@ def render_final(
     max_yen: Annotated[int, D("max_yen", -1)] = -1,
     idempotency_key: Annotated[str, D("idempotency_key", "")] = "",
     preset: Annotated[str, D("preset", "")] = "",
+    compare_to: Annotated[str, D("compare_to", "")] = "",
+    passes: Annotated[Optional[list[str]], D("passes", None)] = None,
+    deliver: Annotated[Optional[list[str]], D("deliver", None)] = None,
+    colors: Annotated[Optional[dict[str, Any]], D("colors", None)] = None,
+    auto_samples: Annotated[bool, D("auto_samples", False)] = False,
+    probe_frame: Annotated[int, D("probe_frame", 0)] = 0,
 ) -> str:
     """Render the final frames (or a video) of a Blender scene on JANCTION GPUs. (full description on the tool)."""
     c = _client()
@@ -710,11 +846,15 @@ def render_final(
         if cameras:
             extra["cameras"] = list(cameras)
             frame_end = None  # type: ignore[assignment]  # カメラごとに 1 枚（frame_start のコマ）
+        # 旗つきの引数（11/5、mcp_common.OPT_IN）: 物の色・前の版と比べる・合成用のパス・SNS 向けの動画。旗が OFF なら一覧に出さず、
+        # 既定値（空）で呼ばれるので本文は今までと同じ
+        extra.update(mcp_common.opt_in_values(colors=colors, compare_to=compare_to, passes=passes, deliver=deliver))
         params = dict(frame_start=frame_start, frame_end=frame_end,
                       width=width, height=height, samples=samples, fps=fps, output=output,
                       camera=camera or None, transparent=(True if transparent else None), notify_url=notify_url or None,
                       max_yen=(max_yen if max_yen >= 0 else None), idempotency_key=idempotency_key or None,
-                      **_job_params(environment, environment_strength, environment_visible, blender, engine=engine), **extra)
+                      **_job_params(environment, environment_strength, environment_visible, blender, engine=engine), **extra,
+                      **mcp_common.auto_samples_body(auto_samples, probe_frame))     # 11/5 旗 JR_AUTO_SAMPLES
         params = _with_preset(params, preset, "final")
         if not params.get("idempotency_key"):
             # 時間切れのあとの呼び直しで 2 本描かない（10/13、mcp_common.auto_idempotency_key）
@@ -739,6 +879,7 @@ def render_final(
     else:
         brief["next"] = (f"tell the user it will take {est.get('human', 'a few minutes')}; then render_status(job_id) "
                          "until status is done, then render_download(job_id, only='mp4') for the video")
+    brief["next"] += mcp_common.auto_samples_next(j)      # 11/5 サンプル数の自動（受付の旗 JR_AUTO_SAMPLES）
     if j.get("credit_note"):
         # 無料分が残り少ない（受付の credit_note、0.4.39）: 壁に当たる前に人間に伝える
         brief["credit_note"] = j["credit_note"]
@@ -746,6 +887,12 @@ def render_final(
                           + ("the free credit expires soon but is not used up; do not push a top-up"
                              if j["credit_note"].get("reason") == "expiring" else "free credit is running low") + ")")
     return _j(_attach_upload_notes(brief))
+
+
+# 旗つきの引数（11/5、mcp_common.OPT_IN）: 旗が OFF の引数は道具の一覧に出さない（受付の旗と同じ名前。手元で ON にして試す）
+mcp.tool(annotations=_ann(WRITE, "Render final frames or video"), meta=_ui_meta(),
+         description=RENDER_FINAL_DESCRIPTION + OPT_IN_NOW["render_final"][1])(
+    mcp_common.hide_params(render_final, OPT_IN_NOW["render_final"][0]))
 
 
 @mcp.tool(annotations=_ann(READ, "Render status and ETA"), meta=_ui_meta())
@@ -775,7 +922,15 @@ def render_status(job_id: Annotated[str, Field(description=P["job_id"])] = "") -
     if j["status"] in ("queued", "running"):
         b["next"] = f"tell the user: {((j.get('eta') or {}).get('human') or 'still working')}; check again in a while"
     else:
-        _add_next_steps(_client(), j, b)
+        c = _client()
+        if j.get("kind") == "final" and j["status"] == "done":
+            # docs/101 RCV-02: 終わったことを道具が言う（実測の時間・請求・これから保存する先）。利用者が「終わった？」と聞く前に渡す
+            planned = _delivery_path(c, j)
+            b.update(done_tell(j, str(planned) if planned else None, where_pending=bool(planned)))
+            b["next"] = ("give tell_user (tell_user_ja for Japanese) to the user now, without waiting for them to ask; then "
+                         + (f"render_download(job_id='{job_id}', only='mp4') saves the video there and returns the final sentence"
+                            if planned else f"render_download(job_id='{job_id}') fetches the files"))
+        _add_next_steps(c, j, b)
     return _j(b)
 
 
@@ -819,7 +974,9 @@ def render_download(job_id: Annotated[str, Field(description=P["job_id"])],
                     out_dir: Annotated[str, D("out_dir", "")] = "",
                     wait_seconds: Annotated[int, D("wait_seconds", 0)] = 0,
                     only: Annotated[str, D("only", "all")] = "all") -> str:
-    """Download a JANCTION render job's files to out_dir (default ~/janction-render/<job_id>).
+    """Download a JANCTION render job's files to out_dir (default: the job's own folder ~/janction-render/<job_id>); the
+    video of a finished final is also delivered to the user's Downloads folder (JANCTION_RENDER_DELIVER changes that), and
+    the reply's tell_user / tell_user_ja gives the measured time, the charge and that file: pass it to the user as is.
     only: 'all' (default: every PNG frame plus output.mp4 / sheet.png), 'mp4' (just the video), 'frames'
     (just the PNG frames), 'sheet' (just the preview sheet), 'blend' (scene.blend from output='blend'), 'output' (the MP4, the sheet or scene.blend only). Pass only='mp4'
     when the user wants the video: it avoids downloading hundreds of frames. wait_seconds > 0 first waits up to
@@ -846,6 +1003,16 @@ def render_download(job_id: Annotated[str, Field(description=P["job_id"])],
     if j["status"] != "done":
         b["hint"] = "job is not finished; these are the frames ready so far"
     else:
+        if j.get("kind") == "final":
+            # docs/101 RCV-02〜04: 利用者が開くのは届け先の 1 つ。out_dir を渡した呼び出しはそのフォルダのまま
+            delivered = _deliver(c, j, paths) if not out_dir else None
+            opened = delivered or next((p for p in paths if p.name == (_video_output(j) or "")), None) \
+                or next((p for p in paths if p.suffix.lower() in (".png", ".exr", ".blend")), None)
+            if delivered is not None:
+                b["delivered"] = str(delivered)
+            b.update(done_tell(j, str(opened) if opened else None))
+            b["next"] = ("give tell_user (tell_user_ja for Japanese) to the user and stop; folder and files are the job's "
+                         "own copy for machine use, not something to read out")
         _add_next_steps(c, j, b)
     return _j(b)
 
@@ -948,7 +1115,7 @@ def render_info() -> str:
     return _j({"ok": True, "server": c.server, "diagnose": diag, "workers": health["workers"], "queue": health["queue"],
                "features": health.get("features"),
                # 10/23: /v1/me を丸ごと載せない（約 27 KB、Webhook の署名の秘密・決済のリンクまでエージェントの記録に出ていた）
-               "key": mcp_common.key_view(me), "downloads_go_to": str(_out_root()),
+               "key": mcp_common.key_view(me), "downloads_go_to": str(_out_root()), "final_videos_go_to": mcp_common.deliver_dir(),
                "first_call": f"render_preview(scene_url='{SAMPLE_URL}', environment='compare') confirms the connection in a few seconds",
                "remote_mcp": f"{c.server}/mcp (Streamable HTTP; for Claude.ai, ChatGPT, Cursor: add this URL as a connector)"})
 
@@ -966,6 +1133,8 @@ if ui_enabled():
 tooldocs.apply(mcp, "stdio")
 # よくある頼み方の型（MCP のプロンプト、10/10）。クライアントのスラッシュコマンドに出る。JR_MCP_PROMPTS=0 で止める
 _prompts.register(mcp, remote=False)
+# 旗つきの引数（11/5、mcp_common.OPT_IN）の一覧の仕上げ: OFF の引数は残さず、ON の引数で説明の無いものに説明を付ける
+mcp_common.apply_opt_in_schema(mcp)
 
 
 def main() -> None:

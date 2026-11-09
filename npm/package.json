@@ -1,7 +1,7 @@
 {
   "name": "janction-render",
-  "version": "1.0.3",
-  "description": "Blender scenes and 3D models (GLB, FBX, USD, OBJ, STL) rendered on cloud GPUs from Claude Desktop and other stdio-only MCP clients: product shots, 360-degree turntables, animations and stills. No local GPU or Blender; free to start.",
+  "version": "1.1.0",
+  "description": "Blender scenes and 3D models (GLB, FBX, USD, OBJ, STL) rendered on cloud GPUs from Claude Desktop and other stdio-only MCP clients, or from a terminal with npx (no Python): product shots, 360-degree turntables, animations and stills. No local GPU or Blender; free to start.",
   "license": "MIT",
   "homepage": "https://render.janction.jp",
   "repository": {
@@ -28,13 +28,15 @@
     "codex",
     "gltf",
     "bpy",
-    "3d-rendering"
+    "3d-rendering",
+    "cli"
   ],
   "bin": {
     "janction-render": "bin/janction-render.js"
   },
   "files": [
     "bin/",
+    "lib/",
     "README.md",
     "LICENSE"
   ],
@@ -45,6 +47,6 @@
     "mcp-remote": "^0.14.3"
   },
   "scripts": {
-    "test": "node bin/janction-render.js --help >/dev/null && node bin/janction-render.js --version"
+    "test": "node --test test/cli.test.js && node bin/janction-render.js --version"
   }
 }
