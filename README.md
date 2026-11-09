@@ -469,6 +469,13 @@ This server is listed in the official MCP registry as `io.github.JasmyLab-JANCTI
 
 mcp-name: io.github.JasmyLab-JANCTION/janction-render
 
+## Privacy and support
+
+- Privacy Policy: https://render.janction.jp/privacy (inputs and results are deleted automatically after a short retention period and are never used for training)
+- Terms of Service: https://render.janction.jp/terms
+- Support: https://render.janction.jp/support, or open an issue at https://github.com/JasmyLab-JANCTION/janction-render/issues
+- Operator: JasmyLab Inc. (Tokyo, Japan)
+
 ## Security
 
 Vulnerability reports: see [SECURITY.md](https://github.com/JasmyLab-JANCTION/janction-render/blob/main/SECURITY.md). Retention, isolation and the external tests are summarised on the [security page](https://render.janction.jp/security).

@@ -19,6 +19,11 @@ updates:
       python-security:
         applies-to: security-updates
         patterns: ["*"]
+    # 11/9: pytest 9.2 の monkeypatch は元の値を対象の __dict__ から取る。app.py の _AppModule（appmod.X を部品へ渡す互換）では
+    # 元の値が「無い」になり、undo が delattr で落ちて差し替えが次の試験へ漏れる（手元で 54 failed・68 errors）。互換を外すまで 9.1 に留める
+    ignore:
+      - dependency-name: "pytest"
+        versions: [">=9.2"]
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:

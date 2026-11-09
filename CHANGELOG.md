@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.4.263 - 2026-11-09
+
+- Kiro is listed as checked by the operator (a preview rendered from Kiro IDE over OAuth); the guide notes that Kiro shows its MCP servers once a folder is open.
+- The front page can show how many delivery checks passed, from a published summary; nothing is shown until the summary exists.
+
+## 0.4.262 - 2026-11-09
+
+- Connection guides for more AI clients: JetBrains AI Assistant and Junie, Kiro and Amazon Q Developer CLI, Microsoft Copilot Studio, LM Studio and Cherry Studio, plus Zed, Warp, Amp, Auggie, Roo Code and Continue as Streamable HTTP clients.
+- The MCP endpoint also accepts the API key in an X-API-Key header, for platforms where you type the header name and value yourself (such as Copilot Studio's API key option).
+
+## 0.4.261 - 2026-11-09
+
+- Connection guides for Codex say that the sign-in page opens when the server is added, how to sign in later (codex mcp login) and how to use an API key instead.
+- GitHub Copilot CLI is listed as verified (checked 2026-11-09 with Copilot CLI 1.0.107).
+- MCP clients on protocol revision 2026-07-28 may reuse the tool list for an hour instead of fetching it again on every turn.
+
+## 0.4.260 - 2026-11-09
+
+- Server libraries updated (anthropic, starlette, pydantic and others); rendering, prices and the tools are unchanged.
+
 ## 0.4.259 - 2026-11-09
 
 - A Simplified Chinese entry page (/zh) and agent guide (/zh/llms.txt): how to connect from AI clients with remote MCP, stdio, the command line or OpenAPI actions, how to get a key without signing up, and package mirrors.
