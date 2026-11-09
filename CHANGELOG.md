@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.4.265 - 2026-11-09
+
+- The connect guide covers the Gemini app (gemini.google.com: Settings → Connected Apps → Custom apps), Manus and MiniMax Code, and gives Perplexity's path (Settings → Connectors → Custom → Remote).
+- JANCTION Storage is labelled as a beta on the result page and in the card registration offer.
+- The 0.4.264 entry now says Cherry Studio connects and lists the tools; the preview was rendered from Microsoft Copilot Studio.
+
+## 0.4.264 - 2026-11-09
+
+- Microsoft Copilot Studio is listed as checked by the operator (a preview rendered over OAuth); its guide says to set the agent's orchestration to generative, and the consent page recognizes Copilot Studio's return address. The Cherry Studio guide shows the JSON import and says to turn the server off and on after signing in (it then lists the tools).
+- The connect table has an "Add to LM Studio" button next to Cursor and VS Code (LM Studio 0.3.17 or later).
+- For keys that keep results in JANCTION Storage, "Sign in to Storage" on the result page opens a one-time sign-in link, so the first sign-in no longer needs an invite.
+
 ## 0.4.263 - 2026-11-09
 
 - Kiro is listed as checked by the operator (a preview rendered from Kiro IDE over OAuth); the guide notes that Kiro shows its MCP servers once a folder is open.

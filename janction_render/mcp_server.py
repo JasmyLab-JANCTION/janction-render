@@ -9,6 +9,7 @@
     JANCTION_RENDER_API_KEY  API キー（無ければ一時キーを自動で取る）
     JANCTION_RENDER_OUT      仕事の保管の親フォルダ（既定 ~/janction-render。その下に <job_id>）
     JANCTION_RENDER_DELIVER  利用者が開く仕上げの動画の届け先（既定 そのユーザーの Downloads。docs/101 RCV-03）
+    JANCTION_RENDER_NOTIFY   0 で、仕上げの見張り（終わったら動画を届け先へ・デスクトップの通知）を止める（既定 1。11/9）
 """
 from __future__ import annotations
 
@@ -16,6 +17,8 @@ import json
 import os
 import re
 import sys
+import threading
+import time
 from pathlib import Path
 from typing import Annotated, Any, Optional
 
@@ -37,7 +40,7 @@ from janction_render.brief import brief as _brief, estimate_brief, final_body_af
     next_after_preview, trim, PRESENT_FIRST, preview_presentation, turntable_estimate, estimate_tell, done_tell, \
     VARIANTS_NEXT, critic_next, final_estimate_text
 from janction_render.client import Client, ClientError, parse_frames
-from janction_render import mcp_common, prompts as _prompts, tooldocs
+from janction_render import desktop_notify, mcp_common, prompts as _prompts, tooldocs
 
 PREVIEW_WAIT_S = 240.0
 INFO_WAIT_S = 150.0
@@ -184,8 +187,11 @@ P: dict[str, str] = {
     "idempotency_key": "Optional key (letters, digits, . _ : -). Resubmitting with the same key returns the first job instead of rendering and charging twice.",
     "kind": "'final' (frame_start..frame_end at width x height, samples) or 'preview' (frames like '1-24').",
     "job_id": "The job_id returned by render_preview or render_final (looks like j_…).",
-    "wait_seconds": "Wait up to this many seconds for the job to finish before downloading (0 = do not wait).",
-    "only": "'all' (every frame plus output.mp4 / sheet.png) | 'mp4' | 'frames' | 'sheet' | 'blend' (scene.blend) | 'output' (the MP4, the sheet or scene.blend only).",
+    "wait_seconds": ("Wait for the job to finish before downloading (0 = do not wait). One call waits at most 50 s; while the job "
+                     "is still running the reply says so and you call again. You do not have to keep waiting: when a final "
+                     "finishes, this server saves its video to the user's Downloads and shows a desktop notification by itself."),
+    "only": ("'auto' (default: just the video for a finished video final, every file otherwise) | 'all' (every frame plus "
+             "output.mp4 / sheet.png) | 'mp4' | 'frames' | 'sheet' | 'blend' (scene.blend) | 'output' (the MP4, the sheet or scene.blend only)."),
     "query": "Words to search Poly Haven for (name, tags, category), e.g. 'wooden chair' or 'forest hdri'.",
     "kind_assets": "'models' (default) | 'textures' | 'hdris'.",
     "title": "Title shown on the public share page (optional).",
@@ -281,6 +287,103 @@ def _deliver(c: Client, j: dict[str, Any], paths: list[Path]) -> Optional[Path]:
     except OSError as exc:
         _log(f"delivery to {target} skipped: {exc}")
         return None
+
+
+# 11/9 描き終わりの見張り: 仕上げを出したら、この手元のサーバーが終わるまで見て、動画を届け先へ置き、デスクトップに通知を出す。
+# AI が render_download を長く待って裏に回された・会話が止まった・待ち方を間違えた、のどれでも、利用者に「終わった」が届く。
+DOWNLOAD_WAIT_CAP_S = 50          # render_download が 1 回で待つ上限。多くの MCP クライアントの道具の時間切れ（60〜120 秒）より短く
+WATCH_INTERVAL_S = 15.0
+WATCH_LIMIT_S = 12 * 3600
+_DELIVERED: dict[str, Path] = {}  # job_id → 見張りが届けた動画（render_download が同じ物を (2) で写し直さない）
+_WATCHING: set[str] = set()
+_JOB_LOCKS: dict[str, threading.Lock] = {}
+_LOCKS_GUARD = threading.Lock()
+
+
+def _job_lock(job_id: str) -> threading.Lock:
+    with _LOCKS_GUARD:
+        return _JOB_LOCKS.setdefault(job_id, threading.Lock())
+
+
+def _japanese() -> bool:
+    lang = (os.environ.get("JANCTION_RENDER_LANG") or "").strip().lower()
+    if lang:
+        return lang.startswith("ja")
+    import locale
+    loc = (locale.getlocale()[0] or os.environ.get("LANG") or "").lower()
+    return loc.startswith("ja") or "japan" in loc
+
+
+def _fetch_and_deliver(c: Client, j: dict[str, Any]) -> Optional[Path]:
+    """終わった動画の仕上げを仕事の保管へ落とし、届け先に 1 回だけ写す。2 回目からは前に写した物を返す。"""
+    job_id = j["job_id"]
+    with _job_lock(job_id):
+        prev = _DELIVERED.get(job_id)
+        if prev is not None and prev.exists():
+            return prev
+        paths = c.download(job_id, _out_root() / job_id, only="mp4")
+        got = _deliver(c, j, paths)
+        if got is not None:
+            _DELIVERED[job_id] = got
+        return got
+
+
+def _finish_message(c: Client, j: dict[str, Any]) -> Optional[str]:
+    """見張りが出す通知の文。終わった仕上げは届けた動画の 1 文、失敗は短い 1 文、取り消しは出さない。"""
+    if j["status"] == "done":
+        where: Optional[str] = None
+        if _video_output(j):
+            got = _fetch_and_deliver(c, j)
+            where = str(got) if got else None
+        t = done_tell(j, where)
+        return (t.get("tell_user_ja") if _japanese() else t.get("tell_user")) or None
+    if j["status"] == "failed":
+        return (f"描画が止まりました（{j['job_id']}）。AI に render_status で理由を見てもらってください。" if _japanese()
+                else f"The render stopped ({j['job_id']}). Ask the AI to check render_status for the reason.")
+    return None
+
+
+def _watch_until_done(job_id: str, interval: float = WATCH_INTERVAL_S, limit: float = WATCH_LIMIT_S) -> Optional[str]:
+    """仕上げが終わるまで見て、動画を届け先に置き、通知を出す。出した文を返す（試験用）。どこで失敗しても描画には触れない。"""
+    deadline = time.monotonic() + limit
+    misses = 0
+    try:
+        c = _client()
+        while time.monotonic() < deadline:
+            try:
+                j = c.job(job_id)
+                misses = 0
+            except Exception:  # noqa: BLE001 — 回線の瞬断は待ち直す
+                misses += 1
+                if misses >= 20:
+                    return None
+                time.sleep(interval)
+                continue
+            if j["status"] in ("done", "failed", "canceled"):
+                msg = _finish_message(c, j)
+                if msg:
+                    desktop_notify.notify(msg)
+                return msg
+            time.sleep(interval)
+        return None
+    except Exception as exc:  # noqa: BLE001
+        _log(f"finish watch for {job_id} stopped: {exc}")
+        return None
+    finally:
+        with _LOCKS_GUARD:
+            _WATCHING.discard(job_id)
+
+
+def _start_watch(job_id: str) -> bool:
+    """仕上げ 1 本の見張りを裏で始める（同じ仕事は 1 本だけ）。止めてあれば始めない。"""
+    if not job_id or not desktop_notify.enabled():
+        return False
+    with _LOCKS_GUARD:
+        if job_id in _WATCHING:
+            return True
+        _WATCHING.add(job_id)
+    threading.Thread(target=_watch_until_done, args=(job_id,), name=f"jr-watch-{job_id}", daemon=True).start()
+    return True
 
 
 def _wait_unless_gated(c: Client, job: dict[str, Any], timeout: float) -> dict[str, Any]:
@@ -880,6 +983,12 @@ def render_final(
         brief["next"] = (f"tell the user it will take {est.get('human', 'a few minutes')}; then render_status(job_id) "
                          "until status is done, then render_download(job_id, only='mp4') for the video")
     brief["next"] += mcp_common.auto_samples_next(j)      # 11/5 サンプル数の自動（受付の旗 JR_AUTO_SAMPLES）
+    if j.get("status") not in ("done", "failed", "canceled") and _start_watch(str(j.get("job_id") or "")):
+        # 11/9: 終わったらこのサーバーが動画を Downloads に置いて通知する。AI が長く待ち続けなくても利用者に届く
+        brief["finish_watch"] = ("this server watches the job; when it finishes it saves the video to the user's Downloads "
+                                 "and shows a desktop notification, even if you are not waiting")
+        brief["next"] += ("; you do not have to keep waiting: tell the user they will get a desktop notification when it "
+                          "is done (the video goes to Downloads)")
     if j.get("credit_note"):
         # 無料分が残り少ない（受付の credit_note、0.4.39）: 壁に当たる前に人間に伝える
         brief["credit_note"] = j["credit_note"]
@@ -973,23 +1082,35 @@ if tooldocs.resume_on():
 def render_download(job_id: Annotated[str, Field(description=P["job_id"])],
                     out_dir: Annotated[str, D("out_dir", "")] = "",
                     wait_seconds: Annotated[int, D("wait_seconds", 0)] = 0,
-                    only: Annotated[str, D("only", "all")] = "all") -> str:
+                    only: Annotated[str, D("only", "auto")] = "auto") -> str:
     """Download a JANCTION render job's files to out_dir (default: the job's own folder ~/janction-render/<job_id>); the
     video of a finished final is also delivered to the user's Downloads folder (JANCTION_RENDER_DELIVER changes that), and
     the reply's tell_user / tell_user_ja gives the measured time, the charge and that file: pass it to the user as is.
-    only: 'all' (default: every PNG frame plus output.mp4 / sheet.png), 'mp4' (just the video), 'frames'
-    (just the PNG frames), 'sheet' (just the preview sheet), 'blend' (scene.blend from output='blend'), 'output' (the MP4, the sheet or scene.blend only). Pass only='mp4'
-    when the user wants the video: it avoids downloading hundreds of frames. wait_seconds > 0 first waits up to
-    that long for the job to finish. Returns the local file paths (long lists are summarised)."""
+    only: 'auto' (default: just the video of a finished video final, every file otherwise), 'all' (every PNG frame
+    plus output.mp4 / sheet.png), 'mp4' (just the video), 'frames'
+    (just the PNG frames), 'sheet' (just the preview sheet), 'blend' (scene.blend from output='blend'), 'output' (the MP4, the sheet or scene.blend only).
+    wait_seconds > 0 first waits for the job to finish, at most 50 s per call; call again while it is still running.
+    Returns the local file paths (long lists are summarised)."""
     c = _client()
     try:
-        j = c.wait(job_id, timeout=float(wait_seconds)) if wait_seconds > 0 else c.job(job_id)
+        cap = float(min(max(int(wait_seconds or 0), 0), DOWNLOAD_WAIT_CAP_S))
+        j = c.wait(job_id, timeout=cap) if cap > 0 else c.job(job_id)
         if j["status"] != "done" and not j["artifacts"]:
             b = _brief(j)
             b["hint"] = "nothing to download yet"
+            if j["status"] in ("queued", "running"):
+                # 11/9: 1 回の待ちは 50 秒まで。長い待ちでクライアントに裏へ回され、終わっても返事が来ない形にしない
+                b["next"] = (f"still rendering ({((j.get('eta') or {}).get('human') or 'a while')}); call render_download "
+                             "again with wait_seconds=45, or stop here: when it finishes the video goes to Downloads with "
+                             "a desktop notification")
             return _j(b)
         out = Path(out_dir) if out_dir else _out_root() / job_id
-        paths = c.download(job_id, out, only=only)
+        mode = (only or "auto").strip().lower()
+        if mode == "auto":
+            # 11/9: 終わった動画の仕上げは動画だけを先に（300 MB のコマを落とし終わるまで「できた」が言えない形にしない）
+            mode = "mp4" if (j["status"] == "done" and j.get("kind") == "final" and _video_output(j)) else "all"
+        with _job_lock(job_id):
+            paths = c.download(job_id, out, only=mode)
     except (ClientError, ValueError) as exc:
         return _j(_fail(exc))
     b = _brief(j)
@@ -1005,7 +1126,12 @@ def render_download(job_id: Annotated[str, Field(description=P["job_id"])],
     else:
         if j.get("kind") == "final":
             # docs/101 RCV-02〜04: 利用者が開くのは届け先の 1 つ。out_dir を渡した呼び出しはそのフォルダのまま
-            delivered = _deliver(c, j, paths) if not out_dir else None
+            delivered = None
+            if not out_dir:
+                with _job_lock(job_id):
+                    prev = _DELIVERED.get(job_id)
+                    # 見張りがもう届けた動画は写し直さない（同じ動画が (2) で増えない）
+                    delivered = prev if (prev is not None and prev.exists()) else _deliver(c, j, paths)
             opened = delivered or next((p for p in paths if p.name == (_video_output(j) or "")), None) \
                 or next((p for p in paths if p.suffix.lower() in (".png", ".exr", ".blend")), None)
             if delivered is not None:
