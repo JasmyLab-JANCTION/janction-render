@@ -1,6 +1,6 @@
 {
   "name": "janction-render",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Blender scenes and 3D models (GLB, FBX, USD, OBJ, STL) rendered on cloud GPUs from Claude Desktop and other stdio-only MCP clients, or from a terminal with npx (no Python): product shots, 360-degree turntables, animations and stills. No local GPU or Blender; free to start.",
   "license": "MIT",
   "homepage": "https://render.janction.jp",
