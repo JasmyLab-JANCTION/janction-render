@@ -401,3 +401,46 @@ test("unknown options are refused before any request", async () => {
   assert.match(r.stderr, /unknown option --bogus/);
   assert.equal(fake.state.calls.length, 0);
 });
+
+// 11/10 audit: the key goes only to the server this CLI talks to, also across redirects and for artifact links elsewhere
+
+function keyEcho() {
+  const seen = [];
+  const server = http.createServer((req, res) => {
+    seen.push({ path: req.url, key: req.headers["x-api-key"] || null });
+    const to = req.url.startsWith("/go-away") ? req.headers["x-target"] : null;
+    if (req.url.startsWith("/hop-home")) { res.writeHead(302, { Location: "/v1/landed" }); return res.end(); }
+    if (req.url.startsWith("/to-file")) { res.writeHead(302, { Location: "file:///etc/passwd" }); return res.end(); }
+    if (to) { res.writeHead(302, { Location: to }); return res.end(); }
+    res.writeHead(200, { "Content-Type": "application/octet-stream" });
+    return res.end("ok");
+  });
+  return new Promise((resolve) => server.listen(0, "127.0.0.1", () => resolve({ server, seen, url: `http://127.0.0.1:${server.address().port}` })));
+}
+
+test("the key is sent only to the server's own origin, also after a redirect", async () => {
+  const { Client, ClientError } = require("../lib/cli");
+  const home = await keyEcho();
+  const away = await keyEcho();
+  try {
+    const c = new Client({ server: home.url, key: FAKE_KEY });
+    const h = await c.headers();
+    await c.fetch("GET", `${away.url}/v1/jobs/j_1/artifacts/a.png`, { headers: h });
+    assert.equal(away.seen[0].key, null);
+    await c.fetch("GET", `${home.url}/go-away`, { headers: { ...h, "x-target": `${away.url}/stolen` } });
+    assert.equal(home.seen[0].key, FAKE_KEY);
+    assert.deepEqual(away.seen[1], { path: "/stolen", key: null });
+    const r = await c.fetch("GET", `${home.url}/hop-home`, { headers: h });
+    assert.equal(r.status, 200);
+    assert.deepEqual(home.seen.slice(-1)[0], { path: "/v1/landed", key: FAKE_KEY });
+    await assert.rejects(c.fetch("GET", `${home.url}/to-file`, { headers: h }), (e) => e instanceof ClientError && e.error === "bad_redirect");
+    // an artifact link on another host is downloaded without the key
+    const dir = tempHome();
+    await c.downloadFile(`${away.url}/dl/x.png`, path.join(dir, "x.png"));
+    assert.equal(fs.readFileSync(path.join(dir, "x.png"), "utf8"), "ok");
+    assert.deepEqual(away.seen.slice(-1)[0], { path: "/dl/x.png", key: null });
+  } finally {
+    await new Promise((r) => home.server.close(r));
+    await new Promise((r) => away.server.close(r));
+  }
+});

@@ -1,4 +1,8 @@
-"""Properties > Render > JANCTION Render panel."""
+"""Properties > Render > JANCTION Render panel.
+
+11/9（0.1.11）: 下に Files の小さなパネル（送るファイルの一覧を全部。前は警告の 3 行だけ）と、前の Blender で終わらなかった
+仕事の Resume を足した。
+"""
 import threading
 
 import bpy
@@ -7,6 +11,8 @@ from . import state
 from .prefs import WEBSITE, get_prefs, key_prefix, make_client
 
 _ICONS = {"done": 'CHECKMARK', "failed": 'ERROR', "canceled": 'CANCEL', "idle": 'INFO'}
+_DEP_ICONS = {"send": 'EXPORT', "packed": 'PACKAGE', "skip": 'ERROR'}
+FILES_ROWS = 200        # Files に並べる行の上限（残りは数だけ。Copy list で全部を貼り付けられる）
 
 
 def _quota_once(prefs) -> None:
@@ -63,6 +69,8 @@ class RENDER_PT_janction_render(bpy.types.Panel):
             right.enabled = not settings.use_scene_samples
             right.prop(settings, "samples", text="")
             col.prop(settings, "output")
+            if prefs is not None and getattr(prefs, "show_costs", False):
+                col.prop(settings, "max_yen")
 
         row = layout.row(align=True)
         row.operator("jr.preview", icon='RENDER_STILL')
@@ -78,17 +86,70 @@ class RENDER_PT_janction_render(bpy.types.Panel):
             layout.operator("wm.url_open", text="Open top-up page", icon='URL').url = snap["checkout_url"]
         for w in snap["warnings"][:3]:
             layout.label(text=w, icon='ERROR')
+        if len(snap["warnings"]) > 3:
+            layout.label(text=f"{len(snap['warnings']) - 3} more: see Files below", icon='INFO')
         if snap["result"]:
             row = layout.row(align=True)
             row.label(text=_short(snap["result"]), icon='FILE_FOLDER')
             row.operator("jr.open_results", text="", icon='FILE_FOLDER')
 
+        if prefs is not None and prefs.api_key and snap["phase"] not in state.BUSY:
+            from . import ops
+            try:
+                rows = ops.pending_jobs(prefs)
+            except Exception:  # noqa: BLE001 - 一覧が読めなくてもパネルは出す
+                rows = []
+            for r in rows[-5:]:
+                row = layout.row(align=True)
+                row.label(text=f"Unfinished {r.get('kind') or 'render'} {r.get('job_id') or '(not started)'} "
+                               f"{r.get('blend') or ''}".rstrip(), icon='TIME')
+                row.operator("jr.resume_job", text="Resume", icon='PLAY').idem = str(r.get("idem") or "")
+                row.operator("jr.forget_job", text="", icon='X').idem = str(r.get("idem") or "")
+
         layout.operator("wm.url_open", text="render.janction.jp", icon='URL').url = WEBSITE
 
 
+class RENDER_PT_janction_render_files(bpy.types.Panel):
+    """送るファイルの一覧（全部）。Check files で集め直す。"""
+    bl_label = "Files"
+    bl_idname = "RENDER_PT_janction_render_files"
+    bl_parent_id = "RENDER_PT_janction_render"
+    bl_space_type = 'PROPERTIES'
+    bl_region_type = 'WINDOW'
+    bl_context = "render"
+    bl_options = {'DEFAULT_CLOSED'}
+
+    def draw(self, context):
+        layout = self.layout
+        snap = state.snapshot()
+        row = layout.row(align=True)
+        row.operator("jr.scan_files", icon='VIEWZOOM')
+        row.operator("jr.copy_file_list", text="", icon='COPYDOWN')
+        deps = snap.get("deps") or []
+        if not deps:
+            layout.label(text="Press Check files to list what will be sent", icon='INFO')
+            return
+        if snap.get("deps_summary"):
+            layout.label(text=snap["deps_summary"])
+        col = layout.column(align=True)
+        for d in deps[:FILES_ROWS]:
+            files = f", {d['files']} files" if d.get("files", 0) > 1 else ""
+            moved = ", path rewritten" if d.get("remapped") else ""
+            col.label(text=f"{d['kind']} {d['label']}{files}{moved}", icon=_DEP_ICONS.get(d.get("status"), 'DOT'))
+            if d.get("note"):
+                col.label(text="    " + str(d["note"]))
+        if len(deps) > FILES_ROWS:
+            col.label(text=f"{len(deps) - FILES_ROWS} more (Copy list has all of them)")
+
+
+CLASSES = (RENDER_PT_janction_render, RENDER_PT_janction_render_files)
+
+
 def register() -> None:
-    bpy.utils.register_class(RENDER_PT_janction_render)
+    for cls in CLASSES:
+        bpy.utils.register_class(cls)
 
 
 def unregister() -> None:
-    bpy.utils.unregister_class(RENDER_PT_janction_render)
+    for cls in reversed(CLASSES):
+        bpy.utils.unregister_class(cls)

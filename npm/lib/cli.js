@@ -367,12 +367,44 @@ class Client {
 
   // ---- HTTP -------------------------------------------------------------
 
+  /** True when url has the same scheme, host and port as the server this CLI talks to; the key is sent only there. */
+  sameOrigin(url) {
+    try {
+      return new URL(url).origin === new URL(this.server).origin;
+    } catch (e) {
+      return false;
+    }
+  }
+
   async fetch(method, url, { headers = {}, body, timeoutMs = 30000, idle = false } = {}) {
     const ctl = new AbortController();
     let timer = setTimeout(() => ctl.abort(), timeoutMs);
-    const res = await fetch(url, { method, body, signal: ctl.signal, redirect: "follow",
-      headers: { "X-Client": this.clientHeader, ...headers } })
-      .catch((err) => { clearTimeout(timer); throw unreachable(this.server, url, err); });
+    // Redirects are followed here, not by fetch: fetch keeps X-API-Key when a redirect leaves the server, so the key is
+    // dropped on any hop to another origin (and on a request that already goes elsewhere).
+    let hdrs = { "X-Client": this.clientHeader, ...headers };
+    if (!this.sameOrigin(url)) delete hdrs["X-API-Key"];
+    let res;
+    for (let hop = 0; ; hop += 1) {
+      res = await fetch(url, { method, body, signal: ctl.signal, redirect: "manual", headers: hdrs })
+        .catch((err) => { clearTimeout(timer); throw unreachable(this.server, url, err); });
+      if (![301, 302, 303, 307, 308].includes(res.status)) break;
+      let next = null;
+      try { next = new URL(res.headers.get("location") || "", url); } catch (e) { next = null; }
+      if (!next || !/^https?:$/.test(next.protocol) || !res.headers.get("location") || hop >= 5) {
+        clearTimeout(timer);
+        throw new ClientError(res.status, "bad_redirect", `the server answered ${res.status} with a redirect that was not followed`);
+      }
+      url = next.toString();
+      if ((res.status === 303 && method !== "HEAD") || ((res.status === 301 || res.status === 302) && method === "POST")) {
+        method = "GET";
+        body = undefined;
+      }
+      if (!this.sameOrigin(url)) {
+        hdrs = { ...hdrs };
+        delete hdrs["X-API-Key"];
+      }
+      if (res.body) await res.body.cancel().catch(() => {});
+    }
     if (idle) {
       // a download keeps going as long as bytes arrive: the timer restarts on each chunk (resetIdle)
       res.resetIdle = () => { clearTimeout(timer); timer = setTimeout(() => ctl.abort(), timeoutMs); };

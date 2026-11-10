@@ -38,6 +38,22 @@ RESUMABLE_ABOVE = 64 * 1024 * 1024
 
 
 ASSET_LINK_MAX_BYTES = 128 * 1024 * 1024   # 受付の素材 1 つの上限（JR_MAX_ASSET_MB の既定値。リンクで渡しても同じ）
+# 1 回の素材の送信に入れるファイルの数（11/9）。連番・キャッシュは小さいファイルが数百〜数千あり、全部を 1 回にすると受付の
+# multipart の上限（1000 ファイル）に当たる
+ASSET_BATCH_FILES = 100
+# 受付の素材の型（server/core.py ASSET_EXTENSIONS の写し）と、旗 JR_PRO_ASSETS の受付だけが受ける型（server/pro_assets.py）。
+# 旗の無い受付は 400 unsupported を返すので、新しい型は別に送り、断られたら missing_assets に理由を書いて描画は続ける
+BASE_ASSET_EXTENSIONS = frozenset({".png", ".jpg", ".jpeg", ".exr", ".hdr", ".tif", ".tiff", ".webp", ".bmp", ".tga",
+                                   ".bin", ".mtl", ".fbx", ".glb", ".gltf", ".obj", ".usd", ".usda", ".usdc", ".usdz",
+                                   ".abc", ".mp4", ".mov", ".json", ".txt", ".csv", ".ttf", ".otf"})
+PRO_ASSET_EXTENSIONS = frozenset({".vdb", ".bphys", ".blob", ".uni", ".gz", ".avi", ".mkv", ".webm"})
+# 旗 JR_LINKED_BLEND の受付だけが受ける型（リンクした .blend、11/9 夜、server/linked_blend.py）。旗の無い受付は 400 unsupported
+LIBRARY_ASSET_EXTENSIONS = frozenset({".blend"})
+LIBRARY_FILES_MAX = 500      # リンクした .blend 1 つが読むファイルとして送る数の上限（材質の大きなライブラリで送りすぎない）
+_ASSET_NAME_RE = re.compile(r"^[A-Za-z0-9_.\-]{1,120}(/[A-Za-z0-9_.\-]{1,120}){0,4}$")
+# ワーカーは .blend を scene.blend として開くので、既定の点のキャッシュ（//blendcache_<名前>/）は blendcache_scene/ で送る
+WORKER_SCENE_STEM = "scene"
+SEQUENCE_FILES_MAX = 5000
 _FRAME_NAME_RE = re.compile(r"^(part-\d+_)?frame_")
 
 
@@ -112,72 +128,188 @@ def ref_problem(ref: str) -> Optional[str]:
     return None
 
 
-def _raw_refs(kind: str, text: str) -> list[str]:
-    """glTF（JSON）・OBJ（mtllib）・MTL（map_*）・USDA（@...@）に書かれた外部参照を、良し悪しを見ずに全部。"""
+# ------------------------------------------------------------------ glTF の JSON を読む守り（11/10 監査）
+# json.loads は "[]," の並びのような形で元の約 20 倍のメモリを使う（6 MB が 129 MB）。受付の箱は 2 GB なので、100 MB の .gltf で
+# 落ちていた。読む前に、文字の数から読んだあとの大きさを多めに見積もり、上限を超えるものは読まずに断る。data: の URI（埋め込みの
+# 中身）は参照の検査には要らないので、空にしてから読める（blank_data_uris）。深すぎる入れ子も断る（GltfJsonRefused、ValueError の仲間）。
+# 受付（refcheck・gltf_fix・importstats）とこの手元の道具が同じものを使う。
+
+class RefScanRefused(ValueError):
+    """参照の検査に回せないファイル（11/10 監査）。文は利用者にそのまま返してよい（何が問題で、どう直すか）。"""
+
+
+class GltfJsonRefused(RefScanRefused):
+    """glTF の JSON を読まずに断った（大きすぎる・入れ子が深すぎる・ほかの大きいものを読んでいて待ちきれない）。"""
+
+
+import threading as _threading  # noqa: E402
+
+REFS_MAX = 20000            # 1 つのファイルの外部参照の数の上限（ふつうは数十、多くても数千）
+GLTF_DEPTH_MAX = 128        # 入れ子の深さの上限（glTF の実物は 10 前後）
+_DATA_URI_RE = re.compile(r'"data:[^"\\]*+(?:\\.[^"\\]*+)*+"', re.S)
+_json_budget_lock = _threading.Condition()   # 同時に読んでいる見積もりの合計（受付のスレッドが並んで大きいものを読まないように）
+_json_inflight = 0
+
+
+def gltf_json_max_bytes() -> int:
+    """glTF の JSON を読むときのメモリの見積もりの上限（JR_GLTF_JSON_MAX_MB、既定 768）。プロセスの中で同時に読む分の合計も同じ上限。
+    11/4 の 502 MB の GLB（JSON 53 MB、ノード 8 万）が見積もりで 600 MB ほど。"""
+    try:
+        mb = int(os.environ.get("JR_GLTF_JSON_MAX_MB") or 768)
+    except ValueError:
+        mb = 768
+    return max(16, mb) * 1024 * 1024
+
+
+def gltf_json_cost(text: str) -> int:
+    """json.loads のあとのメモリの見積もり（バイト）。入れ物・値・キー・文字列の数を文字の数から数える（C の速さ）。
+    係数は Python 3.12 で形ごと（空の [] や {} の並び・大きい整数・重ならないキーなど）に測った実際の量を下回らないように決めた。
+    文字列の中の記号も数えるので、ふつうの glTF では実際の 2 倍ほどに出る（断る側に倒れる）。"""
+    lists, dicts = text.count("["), text.count("{")
+    values = text.count(",") + lists + dicts + 1
+    return len(text) + 48 * lists + 64 * dicts + 40 * values + 96 * text.count(":") + 24 * (text.count('"') // 2)
+
+
+def _json_reserve(cost: int, wait_s: float) -> None:
+    global _json_inflight
+    cap = gltf_json_max_bytes()
+    deadline = time.monotonic() + wait_s
+    with _json_budget_lock:
+        while _json_inflight and _json_inflight + cost > cap:
+            left = deadline - time.monotonic()
+            if left <= 0:
+                raise GltfJsonRefused("other large glTF files are being checked right now; send this file again in a minute")
+            _json_budget_lock.wait(left)
+        _json_inflight += cost
+
+
+def _json_release(cost: int) -> None:
+    global _json_inflight
+    with _json_budget_lock:
+        _json_inflight = max(0, _json_inflight - cost)
+        _json_budget_lock.notify_all()
+
+
+def load_gltf_json(text: str, *, blank_data_uris: bool = False, wait_s: float = 30.0) -> Any:
+    """glTF の JSON を、メモリの見積もりが上限に収まるときだけ読む。断るときは GltfJsonRefused、壊れた JSON は json の ValueError。
+    blank_data_uris=True は data: の URI の中身を空にしてから読む（参照を見るだけのとき）。"""
     import json as _json
+
+    if text[:1] == "﻿":
+        text = text[1:]                     # 頭の BOM（Blender は読める。json.loads は str の BOM を断る）
+    if blank_data_uris and '"data:' in text:
+        text = _DATA_URI_RE.sub('"data:"', text)
+    cost = gltf_json_cost(text)
+    cap = gltf_json_max_bytes()
+    if cost > cap:
+        raise GltfJsonRefused(f"the glTF JSON is too large or has too many entries to check (about {cost // (1024 * 1024)} MB once "
+                              f"read, the limit is {cap // (1024 * 1024)} MB); export it as .glb with the mesh data in the "
+                              "binary chunk, or split the scene")
+    _json_reserve(cost, wait_s)
+    try:
+        return _json.loads(text)
+    except RecursionError:
+        raise GltfJsonRefused("the glTF JSON is nested too deeply to read; export the file again") from None
+    except MemoryError:
+        raise GltfJsonRefused("the glTF JSON is too large to read; export it as .glb, or split the scene") from None
+    finally:
+        _json_release(cost)
+
+
+def _gltf_uris(doc: Any, strict: bool) -> list[str]:
+    """文書の順に uri の文字列を全部（buffers / images の uri が本筋。拡張の中の uri も同じに扱う）。再帰しない（深い入れ子で落ちない）。"""
+    out: list[str] = []
+    ref = object()
+    stack: list[tuple[Any, Any]] = [(doc, 0)]
+    while stack:
+        o, depth = stack.pop()
+        if depth is ref:
+            out.append(o)
+            if len(out) > REFS_MAX:
+                if strict:
+                    raise RefScanRefused(f"the file refers to more than {REFS_MAX:,} other files; merge buffers and textures")
+                return out[:REFS_MAX]
+            continue
+        if depth > GLTF_DEPTH_MAX:
+            if strict:
+                raise GltfJsonRefused(f"the glTF JSON is nested more than {GLTF_DEPTH_MAX} levels deep; export the file again")
+            continue
+        if isinstance(o, dict):
+            for k, v in reversed(list(o.items())):
+                stack.append((v, ref) if k == "uri" and isinstance(v, str) else (v, depth + 1))
+        elif isinstance(o, list):
+            stack.extend((v, depth + 1) for v in reversed(o))
+    return out
+
+
+def _raw_refs(kind: str, text: str, strict: bool = False) -> list[str]:
+    """glTF（JSON）・OBJ（mtllib）・MTL（map_*）・USDA（@...@）に書かれた外部参照を、良し悪しを見ずに全部。
+    strict=True（受付の検査）は、大きすぎる・入れ子が深すぎる・参照が多すぎるファイルを RefScanRefused で断る。False（手元の道具）は
+    読めなければ空、多すぎれば先頭の REFS_MAX 本。JSON として壊れたものはどちらも今までどおり空（読み込む側の Blender も同じ
+    json で読むので、外を指す参照は届かない。読み込みの段で失敗として返る）。"""
     import re as _re
 
     out: list[str] = []
     if kind == "gltf":
         try:
-            doc = _json.loads(text)
+            doc = load_gltf_json(text, blank_data_uris=True)
+        except RefScanRefused:
+            if strict:
+                raise
+            return out
         except ValueError:
             return out
-
-        def walk(o: Any) -> None:
-            # buffers / images の uri が本筋。拡張の中の uri も同じに扱う
-            if isinstance(o, dict):
-                for k, v in o.items():
-                    if k == "uri" and isinstance(v, str):
-                        out.append(v)
-                    else:
-                        walk(v)
-            elif isinstance(o, list):
-                for v in o:
-                    walk(v)
-
-        walk(doc)
-        return out
+        return _gltf_uris(doc, strict)
     if kind == "obj":
         for line in text.splitlines():
             parts = line.strip().split(None, 1)
             if len(parts) == 2 and parts[0].lower() == "mtllib":
                 out.extend(parts[1].split())
-        return out
-    if kind == "mtl":
+    elif kind == "mtl":
         for line in text.splitlines():
             parts = line.strip().split()
             if len(parts) >= 2 and parts[0].lower() in ("map_kd", "map_ks", "map_ka", "map_ns", "map_d", "map_bump", "bump",
                                                         "disp", "decal", "norm", "map_ke", "refl"):
                 out.append(parts[-1])
-        return out
-    if kind == "usda":
-        out.extend(m.group(1) or m.group(2) for m in _re.finditer(r"@@@(.+?)@@@|@([^@\r\n]+)@", text))
-        return out
+    elif kind == "usda":
+        for m in _re.finditer(r"@@@(.+?)@@@|@([^@\r\n]+)@", text):
+            out.append(m.group(1) or m.group(2))
+            if len(out) > REFS_MAX:
+                break
+    if len(out) > REFS_MAX:
+        if strict:
+            raise RefScanRefused(f"the file refers to more than {REFS_MAX:,} other files; merge them or pack them into one file")
+        del out[REFS_MAX:]
     return out
 
 
-def companion_refs(kind: str, text: str) -> list[str]:
+def companion_refs(kind: str, text: str, strict: bool = False) -> list[str]:
     """glTF（JSON）か OBJ の中で参照している外部ファイルの相対パス（data: URI とフォルダの外を指すものは除く）。
-    OBJ は mtllib の .mtl だけを返す（.mtl の中の画像は kind="mtl" で）。"""
+    OBJ は mtllib の .mtl だけを返す（.mtl の中の画像は kind="mtl" で）。重なりは集合で除く（11/10 監査: 一覧で探すと 2 乗だった）。"""
     out: list[str] = []
     if kind not in ("gltf", "obj", "mtl"):
         return out
-    for ref in _raw_refs(kind, text):
+    seen: set[str] = set()
+    for ref in _raw_refs(kind, text, strict):
         ref = (ref or "").strip().replace("\\", "/")
-        if not ref or ref[:5].lower() == "data:" or ref_problem(ref):
+        if not ref or ref in seen or ref[:5].lower() == "data:" or ref_problem(ref):
             continue
-        if ref not in out:
-            out.append(ref)
+        seen.add(ref)
+        out.append(ref)
     return out
 
 
-def unsafe_refs(kind: str, text: str) -> list[tuple[str, str]]:
-    """フォルダの外・絶対パス・URL などを指す参照の [(参照, 理由)]。受付とワーカーが読み込みの前に弾く。"""
+def unsafe_refs(kind: str, text: str, strict: bool = False) -> list[tuple[str, str]]:
+    """フォルダの外・絶対パス・URL などを指す参照の [(参照, 理由)]。受付とワーカーが読み込みの前に弾く。
+    受付は strict=True（読めないものは RefScanRefused）。重なりは集合で除く（11/10 監査）。"""
     out: list[tuple[str, str]] = []
-    for ref in _raw_refs(kind, text):
+    seen: set[str] = set()
+    for ref in _raw_refs(kind, text, strict):
+        if ref in seen:
+            continue
+        seen.add(ref)
         why = ref_problem(ref)
-        if why and all(r != ref for r, _ in out):
+        if why:
             out.append((ref, why))
     return out
 
@@ -197,44 +329,272 @@ def sha256_of(path: Path) -> str:
     return h.hexdigest()
 
 
-def trace_blend_assets(blend: Path) -> tuple[list[tuple[str, Path]], list[str]]:
+def is_pro_asset(name: str) -> bool:
+    """旗 JR_PRO_ASSETS の受付だけが受ける型か（.vdb・.bphys・.blob・.uni・.bobj.gz・.avi など）。"""
+    ext = Path(name).suffix.lower()
+    return ext in PRO_ASSET_EXTENSIONS and ext not in BASE_ASSET_EXTENSIONS
+
+
+def is_library_asset(name: str) -> bool:
+    """旗 JR_LINKED_BLEND の受付だけが受ける型（リンクした .blend）か。"""
+    return Path(name).suffix.lower() in LIBRARY_ASSET_EXTENSIONS
+
+
+def asset_name_problem(name: str) -> Optional[str]:
+    """受付が受けない名前・型なら理由（送らずに missing に入れる。送ると 400 で全体が止まる）。"""
+    ext = Path(name).suffix.lower()
+    if not _ASSET_NAME_RE.match(name) or ".." in name.split("/"):
+        return "the name has characters the service does not take (letters, digits, . _ - and up to 4 folders)"
+    if ext == ".gz" and not name.lower().endswith(".bobj.gz"):
+        return ".gz files other than fluid meshes (.bobj.gz) are not accepted"
+    if ext not in BASE_ASSET_EXTENSIONS and ext not in PRO_ASSET_EXTENSIONS:
+        return f"{ext or 'no extension'} files are not accepted; pack it into the .blend"
+    return None
+
+
+def _sequence_files(p: Path) -> list[Path]:
+    """blender-asset-tracer の連番（最初のコマ・* のパターン・フォルダ）を実際のファイルに（11/9）。"""
+    try:
+        from blender_asset_tracer.trace import file_sequence  # type: ignore
+        out = []
+        for f in file_sequence.expand_sequence(p):
+            out.append(Path(f))
+            if len(out) >= SEQUENCE_FILES_MAX:
+                break
+        return [f for f in out if f.is_file()]
+    except Exception:  # noqa: BLE001 — 無い・展開できない
+        return []
+
+
+def trace_blend_assets(blend: Path, asset_roots: Any = ()) -> tuple[list[tuple[str, Path]], list[str]]:
+    """trace_blend の素材と見つからなかった物だけ（リンクした .blend の付け替えの組は返さない。11/9 夜より前の形）。"""
+    found, missing, _map = trace_blend(blend, asset_roots)
+    return found, missing
+
+
+def _norm(p: Any) -> str:
+    return os.path.normcase(os.path.normpath(str(p)))
+
+
+def _under(path: Any, folder: Any) -> bool:
+    a, b = _norm(path), _norm(folder)
+    return a == b or a.startswith(b.rstrip("\\/") + os.sep)
+
+
+def _mount_of(p: Path) -> Path:
+    """p を含むいちばん深いマウント（ドライブ・UNC の共有・/mnt/nas や /Volumes/NAS など）。"""
+    q = Path(os.path.abspath(str(p)))
+    while not os.path.ismount(str(q)) and q.parent != q:
+        q = q.parent
+    return q
+
+
+def asset_root_list(asset_roots: Any) -> tuple[list[Path], list[str]]:
+    """--asset-root / asset_roots のフォルダ（絶対の道に直す）と、使わなかった物の理由。無いフォルダ・ドライブや共有の
+    まるごと・ファイルシステムの根は広すぎるので使わない（アドオンの Asset folders と同じ決まり）。"""
+    roots: list[Path] = []
+    notes: list[str] = []
+    for r in asset_roots or ():
+        raw = str(r or "").strip().strip('"')
+        if not raw:
+            continue
+        q = Path(os.path.abspath(os.path.expanduser(raw)))
+        if not q.is_dir():
+            notes.append(f"--asset-root {raw} (not a folder on this computer)")
+        elif os.path.ismount(str(q)) or q.parent == q:
+            notes.append(f"--asset-root {raw} (a whole drive or share is too wide; name the project folders)")
+        else:
+            roots.append(q)
+    return roots, notes
+
+
+def outside_problem(path: Any, base: Path, roots: list[Path]) -> Optional[str]:
+    """.blend のフォルダ（base）の外のファイルを送ってよいか（11/9 夜、アドオンと同じ安全側）。よければ None、だめなら
+    missing_assets に書く理由。外の物は利用者が --asset-root（asset_roots）で書いたフォルダの下だけ。ネットワークの共有や別の
+    マウントの上の物は、その共有・マウントの中のフォルダを書いたときだけ（上のフォルダを書いても共有の中までは広げない）。"""
+    if _under(path, base):
+        return None
+    parent = Path(os.path.abspath(str(path))).parent
+    mount = _mount_of(Path(path))
+    for root in roots:
+        if _under(path, root) and _under(root, mount):
+            return None
+    return f"outside the .blend folder, so it was not sent; send it with --asset-root {parent}"
+
+
+def _container(usage: Any) -> Optional[Path]:
+    """BAT の使い方の行が書かれている .blend（シーンか、リンクした .blend）。分からなければ None。"""
+    fp = getattr(getattr(getattr(usage, "block", None), "bfile", None), "filepath", None)
+    return Path(fp) if fp else None
+
+
+def trace_blend(blend: Path, asset_roots: Any = ()) -> tuple[list[tuple[str, Path]], list[str], Optional[dict[str, Any]]]:
     """.blend が参照する外部ファイル（画像・ライブラリなど）を手元で調べる（blender-asset-tracer があるとき）。
 
     返すのは ([(送るときの名前, 場所)], [見つからなかったパス])。名前は .blend からの相対パス（//textures/a.png → textures/a.png）。
     .blend の外（上の階層や絶対パス）にあるものは送れないので「見つからなかった」に入れる。
+    11/9: 連番（画像・VDB）・焼いたキャッシュ（点のキャッシュ・ジオメトリノードのベイク・流体）も、あるファイルを全部送る
+    （Blender のアドオンと同じ決まり。手元の Blender が無いので、使うコマだけには絞らない）。既定の点のキャッシュ
+    //blendcache_<名前>/ はワーカーの名前 blendcache_scene/ で送る。受付が受けない名前・型は送らずに理由を書く。
+    11/9 夜（受付の旗 JR_LINKED_BLEND）: リンクした .blend（入れ子も。BAT はライブラリの中までたどる）と、その中の画像などは
+    libplan（アドオンと同じファイル）で置く。.blend のフォルダの中は相対の名前のまま、外は lib/<フォルダの hash>/ に。置いた場所で
+    解けないライブラリの道は付け替えの組にして 3 つ目に返す（jr_libraries.json の中身。無ければ None）。
+    .blend のフォルダの外のライブラリとその中の物は、asset_roots（CLI の --asset-root）に書いたフォルダの下だけ送る（アドオンの
+    Asset folders と同じ安全側。ネットワークの共有は、その共有の中のフォルダを書いたときだけ）。送らなかった物は理由を書く。
     """
     try:
         from blender_asset_tracer import trace  # type: ignore
     except Exception:  # noqa: BLE001 — 入っていなければ調べない（受付の scene_info が GPU 側で知らせる）
-        return [], []
+        return [], [], None
     found: list[tuple[str, Path]] = []
     missing: list[str] = []
     seen: set[str] = set()
-    base = Path(blend).resolve().parent
+    names: set[str] = set()
+    blend = Path(blend).resolve()
+    base = blend.parent
+    cache_dir = f"blendcache_{blend.stem}/"
+
+    def take(p: Path, shown: str, point_cache: bool = False) -> None:
+        try:
+            rel = p.resolve().relative_to(base).as_posix()
+        except ValueError:
+            missing.append(f"{shown} (outside the .blend folder; cannot be sent)")
+            return
+        if point_cache and rel.startswith(cache_dir):
+            # 既定の点のキャッシュだけ（Blender が .blend の名前から道を作る）。ジオメトリノードのベイクの道は .blend に
+            # そのまま書いてあるので名前を変えない
+            rel = f"blendcache_{WORKER_SCENE_STEM}/" + rel[len(cache_dir):]
+        why = asset_name_problem(rel)
+        if why:
+            missing.append(f"{rel} ({why})")
+            return
+        if rel not in names:
+            names.add(rel)
+            found.append((rel, p))
+
+    libs: list[tuple[Path, str, Optional[Path]]] = []     # (ライブラリ, 親に書かれた道, 親の .blend。None はシーン)
+    owned: list[tuple[Any, Path]] = []                    # (使い方の行, それを持つリンクした .blend)
+    scene_key = os.path.normcase(str(blend))
     try:
-        for usage in trace.deps(Path(blend).resolve()):
+        for usage in trace.deps(blend):
             try:
                 p = Path(usage.abspath)
             except Exception:  # noqa: BLE001
+                continue
+            box = _container(usage)
+            in_lib = box is not None and os.path.normcase(str(Path(box).resolve())) != scene_key
+            if getattr(getattr(usage, "block", None), "code", b"") == b"LI":
+                libs.append((p, str(usage.asset_path), Path(box).resolve() if in_lib else None))
+                continue
+            if in_lib:
+                owned.append((usage, Path(box).resolve()))
                 continue
             key = str(p)
             if key in seen:
                 continue
             seen.add(key)
             if usage.is_sequence:
+                files = _sequence_files(p)
+                if not files:
+                    missing.append(f"{usage.asset_path} (no files of this sequence or cache were found)")
+                # blender-asset-tracer は既定の点のキャッシュを //blendcache_<名前>/<名前>_*.bphys のパターンで返す
+                shown = str(usage.asset_path)
+                pc = shown.startswith(f"//{cache_dir}") and "*" in shown and shown.endswith(".bphys")
+                for f in files:
+                    take(f, shown, point_cache=pc)
                 continue
             if not p.exists():
                 missing.append(str(usage.asset_path))
                 continue
-            try:
-                rel = p.resolve().relative_to(base)
-            except ValueError:
-                missing.append(f"{usage.asset_path} (outside the .blend folder; cannot be sent)")
+            take(p, str(usage.asset_path))
+    except Exception as exc:  # noqa: BLE001
+        if "zstandard" in str(exc).lower() or "zstd" in str(exc).lower():
+            # Blender 4.x 以降の圧縮 .blend は zstandard が無いと読めない（黙って素材なしで送っていた）
+            missing.append("textures and caches could not be listed: this .blend is compressed; "
+                           "pip install 'janction-render[blend]' (it brings zstandard)")
+        return found, missing, None
+    if not libs:
+        return found, missing, None
+    roots, notes = asset_root_list(asset_roots)
+    missing += notes
+    refused: set[str] = set()
+
+    def allowed(path: Path, shown: str) -> bool:
+        why = outside_problem(path, base, roots)
+        if why is None:
+            return True
+        if _norm(path) not in refused:
+            refused.add(_norm(path))
+            missing.append(f"{shown} ({why})")
+        return False
+    # 送る親から順に、フォルダの決まりで送れるライブラリだけ（送れない親の中の物は数えない。親の理由が出る）
+    # 手元に無いライブラリは libplan が「見つからない」と言う（フォルダの話にしない）
+    sendable: set[str] = set()
+    for _ in range(len(libs) + 1):
+        grew = False
+        for lp, ref, parent in libs:
+            if _norm(lp) in sendable or (parent is not None and _norm(parent) not in sendable):
                 continue
-            found.append((rel.as_posix(), p))
-    except Exception:  # noqa: BLE001
-        return found, missing
-    return found, missing
+            if not lp.is_file() or allowed(lp, ref):
+                sendable.add(_norm(lp))
+                grew = True
+        if not grew:
+            break
+    libs = [x for x in libs if _norm(x[0]) in sendable and (x[2] is None or _norm(x[2]) in sendable)]
+    owned = [(u, b) for u, b in owned if _norm(b) in sendable]
+    # BAT はリンクしたコレクションの中の物から先（材質の画像など）をたどらないことがある（Blender 5.2 の .blend で、コレクションを
+    # リンクしたシーンからライブラリの画像が出なかった）。ライブラリの .blend をそれぞれ調べ直して、そのファイルが読む物を足す
+    seen_owned = {(os.path.normcase(str(b)), os.path.normcase(str(u.abspath))) for u, b in owned}
+    for lib in sorted({lp.resolve() for lp, _r, _par in libs if lp.is_file() and _norm(lp.resolve()) in sendable}):
+        added = 0
+        try:
+            for usage in trace.deps(lib):
+                box = _container(usage)
+                if box is None or os.path.normcase(str(Path(box).resolve())) != os.path.normcase(str(lib)):
+                    continue
+                if getattr(getattr(usage, "block", None), "code", b"") == b"LI":
+                    continue
+                key = (os.path.normcase(str(lib)), os.path.normcase(str(usage.abspath)))
+                if key in seen_owned:
+                    continue
+                seen_owned.add(key)
+                owned.append((usage, lib))
+                added += 1
+                if added >= LIBRARY_FILES_MAX:
+                    missing.append(f"{lib.name} (this linked .blend uses more than {LIBRARY_FILES_MAX} files; only the first "
+                                   f"{LIBRARY_FILES_MAX} are sent: pack its textures into it in Blender)")
+                    break
+        except Exception:  # noqa: BLE001 — 調べられなくても、BAT が最初に返した分は送る
+            missing.append(f"{lib.name} (the files this linked .blend uses could not be listed)")
+    from . import libplan
+    plan = libplan.Plan(str(blend), sha_of=lambda x: sha256_of(Path(x)))
+    for lp, ref, parent in libs:
+        plan.add_library(str(lp), ref, str(parent) if parent is not None else None)
+    for usage, box in owned:
+        ref = str(usage.asset_path)
+        files = _sequence_files(Path(usage.abspath)) if usage.is_sequence else [Path(usage.abspath)]
+        if usage.is_sequence and not files:
+            missing.append(f"{ref} (inside a linked .blend: no files of this sequence or cache were found)")
+        files = [f for f in files if allowed(f, ref)]
+        for f in files:
+            fref = ref
+            if usage.is_sequence and ref.startswith("//"):
+                try:
+                    fref = "//" + os.path.relpath(f, box.parent).replace("\\", "/")
+                except ValueError:
+                    fref = str(f)
+            plan.add_dependency(str(f), fref, str(box))
+    plan.solve()
+    for name, ap in plan.files:
+        why = None if is_library_asset(name) else asset_name_problem(name)
+        if why:
+            missing.append(f"{name} ({why})")
+        elif name not in names:
+            names.add(name)
+            found.append((name, Path(ap)))
+    for path, why in plan.problems:
+        missing.append(f"{path} ({why})" if path else why)
+    return found, missing, plan.map_document()
 
 
 def parse_frames(spec: str, default: int = 1, count: int = 4) -> list[int]:
@@ -331,6 +691,12 @@ class _Session(requests.Session):
             return super().request(method, url, *args, **kwargs)
         except requests.RequestException as exc:
             raise unreachable_error(self._server, url, exc) from exc
+
+    def rebuild_auth(self, prepared_request: Any, response: Any) -> None:
+        """転送（3xx）で受付の外へ行くときは、鍵（X-API-Key）を付けて行かない（11/10 監査。requests が外すのは Authorization だけ）。"""
+        super().rebuild_auth(prepared_request, response)
+        if not same_origin(prepared_request.url, self._server):
+            prepared_request.headers.pop("X-API-Key", None)
 
 
 CLOUD_SANDBOX_GUIDE = f"{DEFAULT_SERVER}/claude-code-blender#cloud-sessions"
@@ -436,11 +802,7 @@ class Client:
     @staticmethod
     def _write_cache(cache: dict[str, str]) -> None:
         try:
-            CACHE.write_text(json.dumps(cache, indent=1), encoding="utf-8")
-            try:
-                os.chmod(CACHE, 0o600)
-            except OSError:
-                pass
+            write_private(CACHE, json.dumps(cache, indent=1))   # 11/10 監査: 最初から 0600 で作って置き換える
         except OSError:
             pass
 
@@ -463,6 +825,10 @@ class Client:
 
     def _headers(self) -> dict[str, str]:
         return {"X-API-Key": self.key()}
+
+    def _headers_for(self, url: str) -> dict[str, str]:
+        """鍵は、つないでいる受付と同じ origin（scheme・ホスト・ポート）への頼みにだけ付ける（11/10 監査）。"""
+        return self._headers() if same_origin(url, self.server) else {}
 
     def _req(self, method: str, path: str, timeout: float = 30.0, **kw: Any) -> Any:
         r = self.s.request(method, f"{self.server}{path}", headers=self._headers(), timeout=timeout, **kw)
@@ -493,11 +859,15 @@ class Client:
 
     def upload(self, path: str | Path, assets: Optional[list[str | Path]] = None,
                trace_assets: bool = True,
-               progress: Optional[Callable[[int, int], None]] = None) -> dict[str, Any]:
+               progress: Optional[Callable[[int, int], None]] = None, asset_roots: Any = (), *,
+               _own_file: bool = False) -> dict[str, Any]:
         """シーンを送る。同じ中身を送ってあれば送り直さない（sha256 で照合）。
 
         assets: 一緒に送る素材（画像など）。.blend は blender-asset-tracer があれば参照する外部ファイルを自動で集める。
         返り値に assets（送った素材）と missing_assets（見つからなかった参照）が入る。
+        11/10 監査: 隠しのファイル・フォルダ（. で始まる名前）は送らない。素材は種類を決めた拡張子だけで、文字のファイル
+        （.json .txt .csv .py）はシーンのフォルダ（とその下）にあるものだけ（local_file_problem）。指定した素材が外れれば
+        何も送らずに ValueError。.blend などから自動で集めた素材が外れれば送らず、返り値の refused_assets に理由を入れる。
         """
         p = Path(path)
         if not p.is_file():
@@ -505,6 +875,11 @@ class Client:
         if p.suffix.lower() not in SCENE_SUFFIXES:
             raise ValueError("scene must be a .blend file, a Blender Python script (.py), or a 3D file "
                              "(" + ", ".join(SCENE_SUFFIXES[2:]) + ")")
+        if not _own_file:         # upload_text が一時フォルダに書いたスクリプトは、置き場所を見ない
+            why = local_file_problem(p, scene=True)
+            if why:
+                raise ValueError(f"refused to send the scene {p}: {why}")
+        check_local_files(assets or [], p.parent)
         digest = sha256_of(p)
         out: Optional[dict[str, Any]] = None
         reused = False
@@ -537,8 +912,9 @@ class Client:
             upload_method = "reused_existing"
         items: list[tuple[str, Path]] = []
         missing: list[str] = []
+        lib_map: Optional[dict[str, Any]] = None
         if p.suffix.lower() == ".blend" and trace_assets:
-            items, missing = trace_blend_assets(p)
+            items, missing, lib_map = trace_blend(p, asset_roots)
             try:
                 import blender_asset_tracer  # type: ignore  # noqa: F401
             except Exception:  # noqa: BLE001
@@ -564,6 +940,16 @@ class Client:
                     folder = Path(rel).parent.as_posix()
                     for sub in companion_refs("mtl", fp.read_text(encoding="utf-8", errors="replace")):
                         queue.append(sub if folder in ("", ".") else f"{folder}/{sub}")
+        # 11/10 監査: シーンの中の参照から集めた素材も、同じ決まりで見る（送らない物は理由つきで返す）
+        refused: list[dict[str, str]] = []
+        kept: list[tuple[str, Path]] = []
+        for name, fp in items:
+            why = local_file_problem(fp, Path(p).parent)
+            if why:
+                refused.append({"path": str(fp), "why": why})
+            else:
+                kept.append((name, fp))
+        items = kept
         for a in assets or []:
             ap = Path(a)
             if not ap.is_file():
@@ -586,9 +972,35 @@ class Client:
             return int(a.get("size") or -1) == ap.stat().st_size
 
         todo = [(n, ap) for n, ap in items if not _same(n, ap)]
+        # 11/9: 新しい型（連番の VDB・焼いたキャッシュなど、旗 JR_PRO_ASSETS）は別に送る。受付が受けなければ外して理由を書く
+        pro = [(n, ap) for n, ap in todo if is_pro_asset(n)]
+        # 11/9 夜: リンクした .blend（旗 JR_LINKED_BLEND）も別に送る。受付が受けなければ外し、付け替えの組も送らない
+        libs = [(n, ap) for n, ap in todo if is_library_asset(n)]
+        todo = [(n, ap) for n, ap in todo if not is_pro_asset(n) and not is_library_asset(n)]
+        scene_id = out["scene_id"]
         if todo:
-            out = self.upload_assets(out["scene_id"], todo)
+            out = self.upload_assets(scene_id, todo)
+        if pro:
+            try:
+                out = self.upload_assets(scene_id, pro)
+            except ClientError as exc:
+                if exc.status != 400 or exc.error != "unsupported":
+                    raise
+                missing += [f"{n} (this server does not take {Path(n).suffix.lower()} files yet)" for n, _ in pro]
+        if libs:
+            try:
+                out = self.upload_assets(scene_id, libs)
+            except ClientError as exc:
+                if exc.status != 400 or exc.error != "unsupported":
+                    raise
+                missing += [f"{n} (this server does not take linked .blend files yet; make the linked data local in "
+                            "Blender (Object > Relations > Make Local > All) or Append it, then save)" for n, _ in libs]
+                lib_map = None
+        if lib_map:
+            out = self._send_library_map(scene_id, lib_map, already) or out
         out["missing_assets"] = missing
+        if refused:
+            out["refused_assets"] = refused
         # Keep the user's name separate from the server-safe stored name.  This
         # avoids making a normalized filename look like a different upload.
         out["original_name"] = p.name
@@ -597,6 +1009,19 @@ class Client:
         out["upload_method"] = upload_method
         out["reused_existing"] = reused
         return out
+
+    def _send_library_map(self, scene_id: str, doc: dict[str, Any], already: dict[str, Any]) -> Optional[dict[str, Any]]:
+        """リンクした .blend の付け替えの組（jr_libraries.json）を素材として送る（同じ中身が受付にあれば送らない）。"""
+        import hashlib
+        import tempfile
+        from .libplan import MAP_NAME
+        raw = json.dumps(doc, ensure_ascii=False, sort_keys=True).encode("utf-8")
+        if (already.get(MAP_NAME) or {}).get("sha256") == hashlib.sha256(raw).hexdigest():
+            return None
+        with tempfile.TemporaryDirectory(prefix="jr-libmap-") as d:
+            f = Path(d) / MAP_NAME
+            f.write_bytes(raw)
+            return self.upload_assets(scene_id, [(MAP_NAME, f)])
 
     def preflight(self, scene_id: str, **settings: Any) -> dict[str, Any]:
         """Return the shared render-readiness diagnosis without rendering or charging."""
@@ -624,7 +1049,7 @@ class Client:
         else:
             data.pop(ident, None)
         try:
-            self._RESUME_FILE.write_text(json.dumps(data), encoding="utf-8")
+            write_private(self._RESUME_FILE, json.dumps(data))
         except OSError:
             pass
 
@@ -741,6 +1166,9 @@ class Client:
         p = Path(path)
         if not p.is_file():
             raise FileNotFoundError(f"no such file: {p}")
+        why = local_file_problem(p, scene=True)      # 11/10 監査: 隠しフォルダの中のファイルは、リンクでも送らない
+        if why:
+            raise ValueError(f"refused to send {p}: {why}")
         token = ""
         if upload_url:
             parts = urlsplit(upload_url)
@@ -783,7 +1211,10 @@ class Client:
         公開の受付には 1 回 100 MB までに分けて送る（1 つで超える素材は断ってリンクを案内する）。"""
         cap = self.upload_cap_bytes()
         if not cap:
-            return self._post_assets(scene_id, items)
+            done: dict[str, Any] = {}
+            for i in range(0, len(items), ASSET_BATCH_FILES):
+                done = self._post_assets(scene_id, items[i:i + ASSET_BATCH_FILES])
+            return done
         room = cap - 1024 * 1024           # multipart の見出しのぶんを空ける
         # 大きい素材（64 MiB を超える）は 1 つずつ分けて送る（UP-07、10/14。カード登録・前払いの鍵は 1 つ 5 GiB・合計 15 GiB まで）。
         # 受付が分けて送る道を開けていなければ、前のとおり 1 回で送る（100 MB を超えるものは断る）
@@ -812,7 +1243,7 @@ class Client:
                                       "(lower texture resolution, or compress it) or pack it into the .blend",
                                       extra={"code": "INVALID_INPUT", "retryable": False, "recommended_action": "FIX_INPUT"})
                 raise self._too_large(f"asset {name}", n, cap, "asset_urls")
-            if batches[-1] and used + n > room:
+            if batches[-1] and (used + n > room or len(batches[-1]) >= ASSET_BATCH_FILES):
                 batches.append([])
                 used = 0
             batches[-1].append((name, path))
@@ -901,7 +1332,7 @@ class Client:
         with tempfile.TemporaryDirectory() as d:
             p = Path(d) / Path(name).name
             p.write_text(text, encoding="utf-8")
-            return self.upload(p)
+            return self.upload(p, _own_file=True)
 
     def upload_url(self, url: str) -> dict[str, Any]:
         """https の URL からシーンを取り込ませる（受付が取りに行く。手元に落とさない）。/samples/… の見本や /upload のリンクに。"""
@@ -950,6 +1381,17 @@ class Client:
 
     def cancel(self, job_id: str) -> dict[str, Any]:
         return self._req("DELETE", f"/v1/jobs/{job_id}")
+
+    def retry(self, job_id: str, confirm: bool = False, max_yen: Optional[int] = None,
+              idempotency_key: Optional[str] = None) -> dict[str, Any]:
+        """失敗・取り消しの仕上げの足りないコマだけを描き直す（11/9、受付の旗 JR_FRAME_RETRY。OFF の受付は 404）。
+        confirm=False は足りないコマと値段だけ（描かない）。confirm=True で新しい仕事を入れる。"""
+        body: dict[str, Any] = {"confirm": bool(confirm)}
+        if max_yen is not None:
+            body["max_yen"] = int(max_yen)
+        if idempotency_key:
+            body["idempotency_key"] = idempotency_key
+        return self._req("POST", f"/v1/jobs/{job_id}/retry", json=body, timeout=120)
 
     # ---- 決済 --------------------------------------------------------------
 
@@ -1011,6 +1453,8 @@ class Client:
 
         wanted = select_artifacts(j["artifacts"], only) if isinstance(only, str) or only is None else \
             [a for a in j["artifacts"] if a["name"] in only]
+        for a in wanted:
+            safe_name(a["name"])          # 11/10 監査: 受付が返した名前が out_dir の外を指すなら、何も書く前に止める
         if len(wanted) >= ARCHIVE_MIN_FILES:
             got = self._download_archive(job_id, out, wanted)
             if got is not None:
@@ -1018,7 +1462,7 @@ class Client:
             self._say("the zip did not come through; fetching the files one by one")
         last = time.monotonic()
         for i, a in enumerate(wanted, 1):
-            dest = out / a["name"]
+            dest = out / safe_name(a["name"])
             if _have(dest, a):            # 前の回（切れた zip・打ち直し）で届いている
                 paths.append(dest)
                 continue
@@ -1029,7 +1473,9 @@ class Client:
             # 落とせるように、パスだけを取り出して自分の server に付け直す
             parts = urlsplit(a["url"])
             path = parts.path + (f"?{parts.query}" if parts.query else "")
-            url = f"{self.server}{path}" if parts.path.startswith("/v1/") else a["url"]
+            url = f"{self.server}{path}" if parts.path.startswith("/v1/") or (not parts.scheme and path.startswith("/")) else a["url"]
+            if urlsplit(url).scheme.lower() not in ("http", "https"):
+                raise ClientError(0, "bad_artifact_url", f"the server sent an artifact link that is not http(s): {url[:200]!r}")
             self._download_file(url, dest)
             paths.append(dest)
         return paths
@@ -1039,7 +1485,8 @@ class Client:
         part = dest.with_name(dest.name + ".part")
         for attempt in range(DOWNLOAD_TRIES):
             have = part.stat().st_size if part.exists() else 0
-            headers = {**self._headers(), **({"Range": f"bytes={have}-"} if have else {})}
+            # 11/10 監査: 受付の外のリンク（署名つきの /dl/ など）には鍵を付けない
+            headers = {**self._headers_for(url), **({"Range": f"bytes={have}-"} if have else {})}
             try:
                 with self.s.get(url, headers=headers, stream=True, timeout=600) as r:
                     if r.status_code == 416:          # もう全部ある
@@ -1076,8 +1523,8 @@ class Client:
         self._say(f"downloading {len(wanted)} files ({total_mb / 1024:.1f} GB) in {len(groups)} zips of about 1 GB")
         paths: list[Path] = []
         for gi, g in enumerate(groups, 1):
-            if all(_have(out / a["name"], a) for a in g):
-                paths += [out / a["name"] for a in g]
+            if all(_have(out / safe_name(a["name"]), a) for a in g):
+                paths += [out / safe_name(a["name"]) for a in g]
                 continue
             got: Any = None
             for attempt in range(DOWNLOAD_TRIES):
@@ -1128,7 +1575,7 @@ class Client:
                 if not names <= set(zf.namelist()):
                     return None
                 for a in wanted:
-                    dest = out / a["name"]
+                    dest = out / safe_name(a["name"])
                     with zf.open(a["name"]) as src, dest.open("wb") as dst:
                         shutil.copyfileobj(src, dst, 1024 * 1024)
                     paths.append(dest)
@@ -1141,3 +1588,115 @@ class Client:
                     os.unlink(tmp)
                 except OSError:
                     pass
+
+
+# ------------------------------------------------------------------ 11/10 監査: 手元に書く名前・鍵を送る先・送る手元のファイル
+
+def safe_name(name: Any) -> str:
+    """受付が返した成果物の名前を、出力フォルダの中のファイル名にする（npm の safeName と同じ決まり）。フォルダの外を指す名前
+    （/ \\ .. 絶対パス・ドライブ名・制御文字）は ClientError で、何も書かない。"""
+    n = str(name or "")
+    if (not n or "/" in n or "\\" in n or n in (".", "..") or any(ord(c) < 32 for c in n) or re.match(r"^[A-Za-z]:", n)):
+        raise ClientError(0, "bad_artifact_name", f"the server sent an artifact name that is not a plain file name: {json.dumps(n)}")
+    return n
+
+
+def _origin(url: str) -> Optional[tuple[str, str, Optional[int]]]:
+    try:
+        p = urlsplit(str(url or ""))
+        scheme = p.scheme.lower()
+        return scheme, (p.hostname or "").lower(), p.port or {"http": 80, "https": 443}.get(scheme)
+    except ValueError:
+        return None
+
+
+def same_origin(url: str, server: str) -> bool:
+    """url が受付（server）と同じ scheme・ホスト・ポートか。鍵（X-API-Key）はここが真のときだけ送る。"""
+    a, b = _origin(url), _origin(server)
+    return a is not None and a == b and bool(a[1])
+
+
+def write_private(path: Path, text: str) -> None:
+    """持ち主だけが読める（0600）ファイルとして書く。一時ファイルを 0600 で作ってから置き換えるので、書いている間も
+    ほかの利用者に読まれない（11/10 監査: 書いた後の chmod では一瞬読める）。"""
+    import secrets
+
+    path = Path(path)
+    tmp = path.with_name(f".{path.name}.{secrets.token_hex(6)}.tmp")
+    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_BINARY", 0), 0o600)
+    try:
+        with os.fdopen(fd, "wb") as fh:
+            fh.write(text.encode("utf-8"))
+        os.replace(tmp, path)
+    except BaseException:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise
+
+
+# 素材として送る拡張子（画像・3D ファイルとその .bin/.mtl・.blend・フォント・音・動画）。文字のファイルはシーンのフォルダからだけ
+ASSET_SUFFIXES = frozenset({
+    ".png", ".jpg", ".jpeg", ".exr", ".hdr", ".tif", ".tiff", ".webp", ".bmp", ".tga", ".gif", ".dds", ".psd",
+    ".bin", ".mtl", ".fbx", ".glb", ".gltf", ".obj", ".usd", ".usda", ".usdc", ".usdz", ".abc", ".stl", ".ply", ".dae", ".vdb",
+    ".blend", ".ttf", ".otf", ".woff", ".woff2",
+    ".bphys", ".blob", ".uni",        # 焼いたキャッシュ（11/9 JR_PRO_ASSETS。受けるかは受付が決める）
+    ".wav", ".mp3", ".ogg", ".flac", ".m4a", ".mp4", ".mov", ".webm", ".avi", ".mkv", ".m4v",
+})
+TEXT_ASSET_SUFFIXES = frozenset({".json", ".txt", ".csv", ".py"})
+
+
+def _hidden_part(p: Path) -> Optional[str]:
+    """パスの中の隠しの名前（. で始まる）。作業フォルダの中なら作業フォルダより下、ホームの中ならホームより下を見る
+    （エージェントの作業フォルダが隠しフォルダの中にあっても、その中のシーンは送れる）。"""
+    parts: Optional[tuple[str, ...]] = None
+    for base in (Path.cwd, Path.home):
+        try:
+            parts = p.relative_to(base().resolve()).parts
+            break
+        except (ValueError, OSError, RuntimeError):
+            continue
+    if parts is None:
+        parts = p.parts[1:]
+    return next((x for x in parts if x.startswith(".")), None)
+
+
+def local_file_problem(path: str | Path, scene_dir: Optional[str | Path] = None, *, scene: bool = False) -> Optional[str]:
+    """手元のファイルを送ってよいか（stdio の MCP・CLI・Python から）。良ければ None、悪ければ理由の 1 文（11/10 監査:
+    プロンプトに仕込まれた指示で、鍵や設定のファイルを素材として送らせない）。scene=True はシーン本体（拡張子は呼び手が見る）。"""
+    p = Path(path).expanduser()
+    try:
+        rp = p.resolve()
+    except (OSError, RuntimeError):
+        return "the path cannot be resolved"
+    hidden = _hidden_part(rp)
+    if hidden:
+        return (f"it is in a hidden file or folder ({hidden}); files and folders whose names start with '.' are not sent. "
+                "Copy the file into the scene's folder under a normal name if it belongs to the scene")
+    if scene:
+        return None
+    ext = rp.suffix.lower()
+    if ext in TEXT_ASSET_SUFFIXES:
+        if scene_dir is None:
+            return (f"{ext} files are sent only from the scene file's own folder; pass the scene as scene_path with this file "
+                    "next to it (or in a folder below it)")
+        try:
+            rp.relative_to(Path(scene_dir).expanduser().resolve())
+        except (ValueError, OSError, RuntimeError):
+            return f"{ext} files are sent only from the scene file's own folder (or a folder below it)"
+        return None
+    if ext == ".gz" and rp.name.lower().endswith(".bobj.gz"):
+        return None                   # 液体の面のキャッシュ（ほかの .gz は送らない）
+    if ext not in ASSET_SUFFIXES:
+        return (f"{ext or 'a file without an extension'} is not an asset type that is sent (images, 3D files with their .bin "
+                "and .mtl, .blend, fonts, audio and video)")
+    return None
+
+
+def check_local_files(paths: Any, scene_dir: Optional[str | Path] = None) -> None:
+    """素材の一覧を local_file_problem で見て、1 つでも外れれば ValueError（どのパスか・なぜかを言う）。何も送る前に呼ぶ。"""
+    for a in paths or []:
+        why = local_file_problem(a, scene_dir)
+        if why:
+            raise ValueError(f"refused to send {a}: {why}")

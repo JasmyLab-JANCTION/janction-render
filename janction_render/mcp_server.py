@@ -40,6 +40,7 @@ from janction_render.brief import brief as _brief, estimate_brief, final_body_af
     next_after_preview, trim, PRESENT_FIRST, preview_presentation, turntable_estimate, estimate_tell, done_tell, \
     VARIANTS_NEXT, critic_next, final_estimate_text
 from janction_render.client import Client, ClientError, parse_frames
+from janction_render.client import check_local_files, safe_name  # 11/10 監査
 from janction_render import desktop_notify, mcp_common, prompts as _prompts, tooldocs
 
 PREVIEW_WAIT_S = 240.0
@@ -266,7 +267,8 @@ def _delivery_path(c: Client, j: dict[str, Any]) -> Optional[Path]:
         n: Optional[int] = fe - fs + 1
     except (TypeError, ValueError):
         n = None
-    name = mcp_common.deliver_name(_scene_name_of(c, str(j.get("scene_id") or "")), w, h, n, vid.rsplit(".", 1)[-1], j["job_id"])
+    name = mcp_common.deliver_name(_scene_name_of(c, str(j.get("scene_id") or "")), w, h, n, vid.rsplit(".", 1)[-1],
+                                   safe_name(j["job_id"]))
     return Path(mcp_common.deliver_dir()) / name
 
 
@@ -321,7 +323,7 @@ def _fetch_and_deliver(c: Client, j: dict[str, Any]) -> Optional[Path]:
         prev = _DELIVERED.get(job_id)
         if prev is not None and prev.exists():
             return prev
-        paths = c.download(job_id, _out_root() / job_id, only="mp4")
+        paths = c.download(job_id, _out_root() / safe_name(job_id), only="mp4")
         got = _deliver(c, j, paths)
         if got is not None:
             _DELIVERED[job_id] = got
@@ -441,6 +443,8 @@ def _fail(exc: Exception) -> dict[str, Any]:
         # 10/14 IF-03: 大きさで断られたら、ブラウザの /upload（分けて送る・途中から再開）を代わりの道として足す
         mcp_common.add_upload_hint(out, _server_url(), exc.error, exc.status)
         mcp_common.add_feasibility(out, exc.error, exc.extra)     # 1 枚が時間の上限を超える（10/20）: 案を渡す
+        # 足りないファイルで仕上げを断った（11/9、受付の旗 JR_PREFLIGHT_BLOCK_FINAL）。allow_missing はこの道具に引数があるときだけ勧める
+        mcp_common.add_missing_files(out, exc.error, exc.extra, "allow_missing" not in OPT_IN_NOW["render_final"][0])
         if exc.status == 404 and exc.error == "not_found":
             # 10/14 IF-05: 覚えていない job_id には一覧の道を
             out.setdefault("next", "render_status() with no job_id lists this key's recent jobs")
@@ -504,6 +508,9 @@ def _resolve_scene(c: Client, scene_path: str, scene_id: str, scene_script: str 
 def _resolve_scene_local(c: Client, scene_path: str, scene_id: str, scene_script: str = "",
                          assets: Optional[list[str]] = None, scene_url: str = "") -> str:
     _LAST_UPLOAD.clear()
+    if scene_id or scene_script.strip() or scene_url.strip():
+        # 11/10 監査: シーンのファイルが無い入り方では、素材は種類を決めた拡張子だけ（文字のファイルは送らない）。何も送る前に見る
+        check_local_files(assets or [], None)
     if scene_id:
         if assets:
             up = c.upload_assets(scene_id, [(Path(a).name, a) for a in assets])
@@ -532,6 +539,8 @@ def _resolve_scene_local(c: Client, scene_path: str, scene_id: str, scene_script
         _LAST_UPLOAD["assets"] = [x["name"] for x in up["assets"]]
     if up.get("missing_assets"):
         _LAST_UPLOAD["missing_assets"] = up["missing_assets"]
+    if up.get("refused_assets"):
+        _LAST_UPLOAD["refused_assets"] = up["refused_assets"]
     if up.get("reused"):
         _LAST_UPLOAD["reused"] = True
     return up["scene_id"]
@@ -545,15 +554,28 @@ _preset_of = mcp_common.preset_of
 _with_preset = mcp_common.with_preset
 
 
-def _ensure_scene_info(c: Client, sid: str) -> None:
-    """preset='animation' のコマ範囲のために、シーンを一度読んでおく（描かない・GPU なし）。受付が直前の info の結果を使う。"""
+def _ensure_scene_info(c: Client, sid: str, why: str = "preset='animation' needs the scene's frame range") -> None:
+    """preset='animation' のコマ範囲（と settings='scene' のシーンの設定、11/9）のために、シーンを一度読んでおく（描かない・GPU なし）。
+    受付が直前の info の結果を使う。"""
     j = c.submit(sid, kind="info")
     if j["status"] != "done":
         j = _wait_unless_gated(c, j, INFO_WAIT_S)
     if j["status"] != "done":
-        raise ValueError("preset='animation' needs the scene's frame range, but reading the scene did not finish ("
+        raise ValueError(f"{why}, but reading the scene did not finish ("
                          + str((j.get("failure") or {}).get("reason") or j.get("error") or j["status"])
                          + "); pass frames (preview) or frame_start / frame_end (final) instead")
+
+
+def _read_scene_and_retry(c: Client, sid: str, call: Any) -> dict[str, Any]:
+    """settings='scene'（11/9）: 受付がシーンをまだ読んでいないと断ったら（scene_not_read）、1 回読んでからもう一度呼ぶ。
+    読んであるシーンは読み直さない（呼ぶたびに読むと、そのたびにシーンの読み取りが 1 本立つ）。"""
+    try:
+        return call()
+    except ClientError as exc:
+        if exc.error != "scene_not_read" or not sid:
+            raise
+    _ensure_scene_info(c, sid, why="settings='scene' needs the scene's own settings")
+    return call()
 
 
 def _attach_upload_notes(obj: dict[str, Any]) -> dict[str, Any]:
@@ -562,6 +584,10 @@ def _attach_upload_notes(obj: dict[str, Any]) -> dict[str, Any]:
         obj["missing_assets_note"] = ("these files referenced by the .blend were not found next to it and were not sent; "
                                       "they will render pink. Pack them (File > External Data > Pack Resources) or put them "
                                       "next to the .blend")
+    if _LAST_UPLOAD.get("refused_assets"):
+        obj["refused_assets"] = trim(_LAST_UPLOAD["refused_assets"], 10)
+        obj["refused_assets_note"] = ("these files referenced by the scene were not sent (hidden folders, file types that are not "
+                                      "assets, or text files outside the scene's folder); copy the ones the scene needs next to it")
     if _LAST_UPLOAD.get("assets"):
         obj["assets_sent"] = trim(_LAST_UPLOAD["assets"], 10)
     if _LAST_UPLOAD.get("reused"):
@@ -733,7 +759,7 @@ def render_preview(
                          if j["status"] in ("queued", "running")
                          else "fix the scene and try again")
         return [_j(brief)]
-    out = Path(out_dir) if out_dir else _out_root() / j["job_id"]
+    out = Path(out_dir) if out_dir else _out_root() / safe_name(j["job_id"])
     paths = c.download(j["job_id"], out)
     show = next((p for p in paths if p.name == "sheet.png"), None) or next((p for p in paths if p.suffix == ".png"), None)
     brief["files"] = [str(p) for p in paths]
@@ -820,7 +846,7 @@ def render_review(
         b["hint"] = ((_gated_hint(j, "render_status(job_id)") or "still running: call render_status(job_id) and then render_download")
                      if j["status"] in ("queued", "running") else "fix the scene and try again")
         return [_j(b)]
-    out = Path(out_dir) if out_dir else _out_root() / j["job_id"]
+    out = Path(out_dir) if out_dir else _out_root() / safe_name(j["job_id"])
     paths = c.download(j["job_id"], out)
     show = next((p for p in paths if p.name == "sheet.png"), None) or next((p for p in paths if p.suffix == ".png"), None)
     reply = review_reply(j, _preview_followup(c, j))
@@ -844,7 +870,10 @@ def render_estimate(scene_id: Annotated[str, D("scene_id", "")] = "",
                     preset: Annotated[str, D("preset", "")] = "",
                     variations: Annotated[Optional[list[mcp_common.Variant]], D("variations", None)] = None,
                     auto_samples: Annotated[bool, D("auto_samples", False)] = False,
-                    probe_frame: Annotated[int, D("probe_frame", 0)] = 0) -> str:
+                    probe_frame: Annotated[int, D("probe_frame", 0)] = 0,
+                    settings: Annotated[str, D("settings", "")] = "",
+                    test: Annotated[str, D("test", "")] = "",
+                    test_frames: Annotated[int, D("test_frames", 0)] = 0) -> str:
     """Estimate how long a render will take BEFORE starting it (no GPU time used): GPU seconds, queue wait,
     wall-clock time as a human-readable string ('about 3 minutes'), and whether it fits the free time left and
     the size limits. kind is 'final' (frame_start..frame_end at width x height, samples) or 'preview' (frames
@@ -859,9 +888,12 @@ def render_estimate(scene_id: Annotated[str, D("scene_id", "")] = "",
         params.pop("scene_id", None)
         if kind == "final":
             params.update(mcp_common.auto_samples_body(auto_samples, probe_frame))     # 11/5 旗 JR_AUTO_SAMPLES
+            params.update(mcp_common.final_test_body(test, test_frames))           # 11/9 旗 JR_FINAL_TEST（空なら何も足さない）
+        # 11/9 settings='scene'（旗 JR_SCENE_SETTINGS）: 既定値のままの欄を外す。シーンを読んでいなければ受付が断るので、読んでからもう一度
+        params = mcp_common.with_scene_settings(params, mcp_common.scene_settings_mode(settings))
         if needs_info:
             _ensure_scene_info(c, scene_id)
-        est = c.estimate(scene_id or None, **params)
+        est = _read_scene_and_retry(c, scene_id, lambda: c.estimate(scene_id or None, **params))
     except (ClientError, ValueError) as exc:
         return _j(_fail(exc))
     out = estimate_brief(est) or {}
@@ -869,8 +901,11 @@ def render_estimate(scene_id: Annotated[str, D("scene_id", "")] = "",
     out.update(estimate_tell(est))      # docs/101 RCV-01: 測った見積もりは壁時計と円の 1 文、未計測は「未計測の見込み」
     nxt = mcp_common.estimate_next(est) + mcp_common.auto_samples_estimate_next(est)
     if (est.get("calibration") or {}).get("final_path_measured") is False and kind == "final":
-        nxt = ("this estimate is not measured on the final path (tell_user says so): for an animation, render 10 contiguous "
-               "frames on the final path first, then call render_estimate again before the full job; " + nxt)
+        # 11/9 旗 JR_FINAL_TEST: 道具の一覧に test が出ていれば、その試し描き（render_final の test）を勧める
+        how = ("render_final with test='contiguous' (the same arguments) renders 10 contiguous frames on the final path and "
+               "estimates the full range again from them" if "test" not in OPT_IN_NOW["render_final"][0] else
+               "render 10 contiguous frames on the final path first, then call render_estimate again before the full job")
+        nxt = ("this estimate is not measured on the final path (tell_user says so): for an animation, " + how + "; " + nxt)
     out["next"] = nxt
     return _j(out)
 
@@ -932,11 +967,18 @@ def render_final(
     colors: Annotated[Optional[dict[str, Any]], D("colors", None)] = None,
     auto_samples: Annotated[bool, D("auto_samples", False)] = False,
     probe_frame: Annotated[int, D("probe_frame", 0)] = 0,
+    allow_missing: Annotated[bool, D("allow_missing", False)] = False,
+    settings: Annotated[str, D("settings", "")] = "",
+    exr_depth: Annotated[str, D("exr_depth", "")] = "",
+    exr_codec: Annotated[str, D("exr_codec", "")] = "",
+    test: Annotated[str, D("test", "")] = "",
+    test_frames: Annotated[int, D("test_frames", 0)] = 0,
 ) -> str:
     """Render the final frames (or a video) of a Blender scene on JANCTION GPUs. (full description on the tool)."""
     c = _client()
     try:
         preset = _preset_of(preset)
+        mode = mcp_common.scene_settings_mode(settings)      # 11/9 旗 JR_SCENE_SETTINGS（OFF なら ""）
         sid = _resolve_scene(c, scene_path, scene_id, scene_script, assets, scene_url=scene_url)
         if preset == "animation" and frame_end <= frame_start:
             _ensure_scene_info(c, sid)
@@ -951,20 +993,23 @@ def render_final(
             frame_end = None  # type: ignore[assignment]  # カメラごとに 1 枚（frame_start のコマ）
         # 旗つきの引数（11/5、mcp_common.OPT_IN）: 物の色・前の版と比べる・合成用のパス・SNS 向けの動画。旗が OFF なら一覧に出さず、
         # 既定値（空）で呼ばれるので本文は今までと同じ
-        extra.update(mcp_common.opt_in_values(colors=colors, compare_to=compare_to, passes=passes, deliver=deliver))
+        extra.update(mcp_common.opt_in_values(colors=colors, compare_to=compare_to, passes=passes, deliver=deliver,
+                                              allow_missing=allow_missing,      # 11/9 旗 JR_PREFLIGHT_BLOCK_FINAL（False なら送らない）
+                                              exr_depth=exr_depth, exr_codec=exr_codec))     # 11/9 旗 JR_PRO_EXR（空なら送らない）
         params = dict(frame_start=frame_start, frame_end=frame_end,
                       width=width, height=height, samples=samples, fps=fps, output=output,
                       camera=camera or None, transparent=(True if transparent else None), notify_url=notify_url or None,
                       max_yen=(max_yen if max_yen >= 0 else None), idempotency_key=idempotency_key or None,
                       **_job_params(environment, environment_strength, environment_visible, blender, engine=engine), **extra,
-                      **mcp_common.auto_samples_body(auto_samples, probe_frame))     # 11/5 旗 JR_AUTO_SAMPLES
-        params = _with_preset(params, preset, "final")
+                      **mcp_common.auto_samples_body(auto_samples, probe_frame),     # 11/5 旗 JR_AUTO_SAMPLES
+                      **mcp_common.final_test_body(test, test_frames))     # 11/9 旗 JR_FINAL_TEST（空なら何も足さない）
+        params = mcp_common.with_scene_settings(_with_preset(params, preset, "final"), mode)   # 11/9 既定値のままの欄はシーンの値に
         if not params.get("idempotency_key"):
             # 時間切れのあとの呼び直しで 2 本描かない（10/13、mcp_common.auto_idempotency_key）
             params["idempotency_key"] = mcp_common.auto_idempotency_key(
                 "render_final", {"scene_id": scene_id, "scene_path": mcp_common.file_stamp(scene_path), "scene_url": scene_url,
                                  "scene_script": mcp_common.digest(scene_script), "assets": assets, **params})
-        j = c.submit(sid, kind="final", **params)
+        j = _read_scene_and_retry(c, sid, lambda: c.submit(sid, kind="final", **params))
     except ClientError as exc:
         block = _payment_block(exc) or _quota_block(exc)
         return _j(block if block else _fail(exc))
@@ -983,6 +1028,7 @@ def render_final(
         brief["next"] = (f"tell the user it will take {est.get('human', 'a few minutes')}; then render_status(job_id) "
                          "until status is done, then render_download(job_id, only='mp4') for the video")
     brief["next"] += mcp_common.auto_samples_next(j)      # 11/5 サンプル数の自動（受付の旗 JR_AUTO_SAMPLES）
+    brief["next"] += mcp_common.final_test_next(j)        # 11/9 最終の経路での試し描き（受付の旗 JR_FINAL_TEST）
     if j.get("status") not in ("done", "failed", "canceled") and _start_watch(str(j.get("job_id") or "")):
         # 11/9: 終わったらこのサーバーが動画を Downloads に置いて通知する。AI が長く待ち続けなくても利用者に届く
         brief["finish_watch"] = ("this server watches the job; when it finishes it saves the video to the user's Downloads "
@@ -1039,6 +1085,10 @@ def render_status(job_id: Annotated[str, Field(description=P["job_id"])] = "") -
             b["next"] = ("give tell_user (tell_user_ja for Japanese) to the user now, without waiting for them to ask; then "
                          + (f"render_download(job_id='{job_id}', only='mp4') saves the video there and returns the final sentence"
                             if planned else f"render_download(job_id='{job_id}') fetches the files"))
+        if j.get("final_test"):
+            # 11/9 最終の経路での試し描き（受付の旗 JR_FINAL_TEST）: 試しの 1 文（測った秒・検品・全体の値段）と、全体を描くかを聞く
+            b["next"] = ("give tell_user (tell_user_ja for Japanese) to the user now" + mcp_common.final_test_next(j, b)
+                         + f"; render_download(job_id='{job_id}', only='all') fetches the test frames and test_sheet.png")
         _add_next_steps(c, j, b)
     return _j(b)
 
@@ -1104,7 +1154,7 @@ def render_download(job_id: Annotated[str, Field(description=P["job_id"])],
                              "again with wait_seconds=45, or stop here: when it finishes the video goes to Downloads with "
                              "a desktop notification")
             return _j(b)
-        out = Path(out_dir) if out_dir else _out_root() / job_id
+        out = Path(out_dir) if out_dir else _out_root() / safe_name(job_id)
         mode = (only or "auto").strip().lower()
         if mode == "auto":
             # 11/9: 終わった動画の仕上げは動画だけを先に（300 MB のコマを落とし終わるまで「できた」が言えない形にしない）

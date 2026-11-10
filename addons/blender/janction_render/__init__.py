@@ -5,17 +5,17 @@ so every import inside the package is relative. The manifest
 (blender_manifest.toml) carries the metadata; there is no bl_info.
 """
 
-__version__ = "0.1.10"
+__version__ = "0.1.12"
 
 if "bpy" in locals():  # reload (F3 > Reload Scripts) picks up edited modules
     import importlib
 
-    for _module in (client, state, assets, props, prefs, ops, panel):  # noqa: F821 - bound by the first import
+    for _module in (client, state, libplan, assets, jobs_store, props, prefs, ops, panel):  # noqa: F821 - bound by the first import
         importlib.reload(_module)
 
 import bpy  # noqa: E402,F401
 
-from . import assets, client, ops, panel, prefs, props, state  # noqa: E402,F401
+from . import assets, client, jobs_store, libplan, ops, panel, prefs, props, state  # noqa: E402,F401
 
 _MODULES = (props, prefs, ops, panel)
 

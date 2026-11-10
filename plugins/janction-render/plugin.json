@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "janction-render",
-  "version": "0.4.265",
+  "version": "0.4.266",
   "description": "Render Blender scenes and 3D models (GLB, FBX, USD, OBJ, STL) on cloud GPUs from your AI app: product shots, 360-degree turntables, animations and stills, with a preview and a critic first. No local GPU or Blender; no sign-up. The remote MCP connector plus a workflow skill.",
   "author": {
     "name": "JasmyLab Inc.",
@@ -24,7 +24,7 @@
       "interface": {
         "displayName": "JANCTION Render",
         "shortDescription": "Render Blender on cloud GPUs",
-        "longDescription": "JANCTION Render is a cloud GPU render farm for Blender, built for AI agents. The agent writes or receives a Blender scene as a bpy Python script, a .blend file or a 3D file (glTF/GLB, FBX, USD, OBJ), previews it in seconds on a JANCTION GPU, estimates how long the final render will take, then renders the frames or a video and returns download links.\n\nTypical flow: scene_info reads cameras, frame range, objects, lights and missing files without rendering. render_preview returns up to 4 frames tiled in one image with a short critic verdict and fix code, so the agent can check camera, lighting and materials before spending GPU time; with variations it shows 2 to 8 looks of one frame in one labelled sheet. render_estimate reports the expected GPU seconds, the queue wait, and whether the job fits the account's remaining GPU time. render_final renders PNG or EXR frames or a video (MP4, WebM, ProRes, GIF). On request it also returns a before/after video against an earlier version (compare_to), versions of an animation for X, vertical and square posts (deliver), compositing passes as multilayer EXR or ProRes 4444 (passes), and for long finals the fewest samples that look the same (auto_samples). Every final comes with a delivery check (missing, black or flickering frames, resolution, fps and length) and a contact sheet. render_status reports progress and the remaining time, render_download returns the links, render_cancel stops a job, render_import_file takes a file attached in the chat, asset_search finds CC0 models, textures and HDRIs, render_share and render_unshare publish or remove a public page for a render the user chose to share, and billing / render_info report the account's remaining GPU time and worker availability.\n\nIntended users: people building 3DCG with Blender who have no GPU or whose local rendering is slow, and agents that need a rendered image or video from a Blender scene. Not for non-Blender workloads such as video conversion, image generation or modeling advice. Limits: up to 3,000 frames per instruction (automatically split internally under one job id), 1080p by default and up to 4K. Blender 3.6, 4.2, 4.5, 5.0 and 5.2 with Cycles or EEVEE on NVIDIA GPUs. No account is needed: connecting creates a key. Inputs and results are deleted automatically after a short retention period (24 hours after last use by default) and are never used for training. Operated by JasmyLab Inc. (Tokyo, Japan).",
+        "longDescription": "JANCTION Render is a cloud GPU render farm for Blender, built for AI agents. The agent writes or receives a Blender scene as a bpy Python script, a .blend file or a 3D file (glTF/GLB, FBX, USD, OBJ), previews it in seconds on a JANCTION GPU, estimates how long the final render will take, then renders the frames or a video and returns download links.\n\nTypical flow: scene_info reads cameras, frame range, objects, lights and missing files without rendering. render_preview returns up to 4 frames tiled in one image with a short critic verdict and fix code, so the agent can check camera, lighting and materials before spending GPU time; with variations it shows 2 to 8 looks of one frame in one labelled sheet. render_estimate reports the expected GPU seconds, the queue wait, and whether the job fits the account's remaining GPU time. render_final renders PNG or EXR frames or a video (MP4, WebM, ProRes, GIF). On request it also returns a before/after video against an earlier version (compare_to), versions of an animation for X, vertical and square posts (deliver), compositing passes as multilayer EXR or ProRes 4444 (passes), and for long finals the fewest samples that look the same (auto_samples). Every final comes with a delivery check (missing, black or flickering frames, resolution, fps and length) and a contact sheet. render_status reports progress and the remaining time, render_download returns the links, render_cancel stops a job, render_import_file takes a file attached in the chat, asset_search finds CC0 models, textures and HDRIs, render_share and render_unshare publish or remove a public page for a render the user chose to share, and render_info reports worker availability and the queue.\n\nIntended users: people building 3DCG with Blender who have no GPU or whose local rendering is slow, and agents that need a rendered image or video from a Blender scene. Not for non-Blender workloads such as video conversion, image generation or modeling advice. Limits: up to 3,000 frames per instruction (automatically split internally under one job id), 1080p by default and up to 4K. Blender 3.6, 4.2, 4.5, 5.0 and 5.2 with Cycles or EEVEE on NVIDIA GPUs. No account is needed: connecting creates a key. Inputs and results are deleted automatically after a short retention period (24 hours after last use by default) and are never used for training. Operated by JasmyLab Inc. (Tokyo, Japan).",
         "developerName": "JasmyLab Inc.",
         "category": "Creativity",
         "capabilities": [
@@ -42,7 +42,7 @@
         "composerIcon": "./assets/icon.png",
         "defaultPrompt": [
           "Make a red cube rotating on a grey floor in Blender and show me a 4-frame preview.",
-          "How long would 120 frames at 1280x720 with 64 samples take to render, and what would it cost?",
+          "How long would 120 frames at 1280x720 with 64 samples take to render?",
           "Render my Blender scene to a 48-frame MP4 at 1280x720."
         ]
       },
@@ -74,10 +74,10 @@
               "expected_behavior": "render_final returns a job id and an ETA. render_status reports progress; render_download returns PNG frame links and an MP4 link that work for 24 hours, plus report.json and report_sheet.png (the delivery check). The agent shares the MP4 link and the check's verdict."
             },
             {
-              "description": "Check remaining GPU time and service status",
-              "prompt": "How much GPU time do I have left, and is a GPU online right now?",
-              "tools_triggered": "billing, render_info",
-              "expected_behavior": "billing returns the remaining GPU time and when it resets; render_info returns worker availability and queue length. Nothing is rendered."
+              "description": "Check the service status",
+              "prompt": "Is a GPU online right now, and how long is the queue?",
+              "tools_triggered": "render_info",
+              "expected_behavior": "render_info returns worker availability, queue length and the expected wait. Nothing is rendered."
             }
           ],
           "negative": [
@@ -97,7 +97,7 @@
         },
         "demo_recording_url": "https://render.janction.jp/media/demo.mp4",
         "commerce": false,
-        "commerce_description": "The plugin does not sell goods or process payments. When a job needs more GPU time than the account has, the tool returns a link to the JANCTION Render website, where the user can add credit; nothing is purchased inside the plugin."
+        "commerce_description": "The plugin does not sell goods, services or GPU time, does not process payments and does not link to a purchase page. When a job needs more GPU time than the account has, the tool says so and suggests a smaller render; nothing is offered or purchased inside the plugin."
       },
       "publication": {
         "release_notes": "0.4.258: options for creators on the existing tools (no new tool, 13 tools as before). render_preview: variations (2-8 looks of one frame in one labelled sheet). render_final: colors, compare_to (before/after video against an earlier final), deliver (X, vertical and square versions of an animation), passes (multilayer EXR, Cycles) and output='prores4444', auto_samples / probe_frame (finals of 100 frames or more). render_estimate: variations, auto_samples, probe_frame. Every final carries a delivery check (report.json, report_sheet.png) made without GPU time. Preview replies suggest the options that fit in next_actions. EEVEE renders on the GPU again."

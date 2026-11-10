@@ -82,6 +82,30 @@ class JR_OT_get_key(bpy.types.Operator):
         return {'FINISHED'}
 
 
+class JR_OT_add_asset_folder(bpy.types.Operator):
+    """Allow files from this folder to be sent with your scenes (textures, VDB, caches outside the .blend folder)"""
+    bl_idname = "jr.add_asset_folder"
+    bl_label = "Add asset folder"
+    bl_options = {'REGISTER', 'INTERNAL'}
+
+    directory: StringProperty(subtype='DIR_PATH')
+
+    def invoke(self, context, event):
+        context.window_manager.fileselect_add(self)
+        return {'RUNNING_MODAL'}
+
+    def execute(self, context):
+        prefs = get_prefs(context)
+        folder = (self.directory or "").strip()
+        if prefs is None or not folder:
+            return {'CANCELLED'}
+        have = [r.strip() for r in (prefs.asset_roots or "").split(";") if r.strip()]
+        if folder not in have:
+            prefs.asset_roots = ";".join(have + [folder])
+            save_prefs()
+        return {'FINISHED'}
+
+
 class JRPreferences(bpy.types.AddonPreferences):
     bl_idname = __package__
 
@@ -91,6 +115,19 @@ class JRPreferences(bpy.types.AddonPreferences):
     environment: EnumProperty(name="Environment", items=PREF_ENV_ITEMS, default='SCENE')
     blender_version: EnumProperty(name="Blender", items=PREF_VERSION_ITEMS, default='AUTO')
     open_results: BoolProperty(name="Open results folder when done", default=False)
+    # 11/9（0.1.11）: .blend のフォルダの外から送ってよいフォルダ（; 区切り）。空なら .blend のフォルダだけ。
+    # ネットワークの共有もここに書いたときだけ読む。送る写しの中の道だけを jr_pack/ に書き換える
+    asset_roots: StringProperty(
+        name="Asset folders",
+        description="Folders outside the .blend folder whose files may be sent with the scene, separated by ';'. "
+                    "Empty: only the .blend folder. A network share is only read when it is listed here")
+    download_dir: StringProperty(
+        name="Download folder", subtype='DIR_PATH',
+        description="Where results are saved. Empty: a janction_render folder next to the .blend ('//' = relative to the .blend)")
+    notify_when_done: BoolProperty(name="Notify when a render finishes", default=True)
+    # 円の額と支出の上限を出すか（既定 OFF。料金の文は本人の承認が要るので、承認までは出さない）
+    show_costs: BoolProperty(name="Show costs (JPY) and a spending cap", default=False,
+                             description="Show the estimated cost in JPY and send a per-render spending cap")
 
     def draw(self, context):
         layout = self.layout
@@ -105,10 +142,16 @@ class JRPreferences(bpy.types.AddonPreferences):
         col.prop(self, "environment")
         col.prop(self, "blender_version")
         layout.prop(self, "open_results")
+        layout.prop(self, "notify_when_done")
+        layout.prop(self, "download_dir")
+        row = layout.row(align=True)
+        row.prop(self, "asset_roots")
+        row.operator(JR_OT_add_asset_folder.bl_idname, text="", icon='FILE_FOLDER')
+        layout.prop(self, "show_costs")
         layout.operator("wm.url_open", text="render.janction.jp", icon='URL').url = WEBSITE
 
 
-CLASSES = (JR_OT_get_key, JRPreferences)
+CLASSES = (JR_OT_get_key, JR_OT_add_asset_folder, JRPreferences)
 
 
 def register() -> None:

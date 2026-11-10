@@ -110,6 +110,80 @@ def auto_samples_estimate_next(est: dict[str, Any]) -> str:
     return "; also tell the user auto_samples.tell_user (tell_user_ja in Japanese): the test render's cost and the possible saving"
 
 
+# ------------------------------------------------------------------ シーンの設定で描く（11/9、旗 JR_SCENE_SETTINGS、既定 OFF）
+
+SCENE_SETTINGS_DOC = ("'scene' (final, .blend): render with the .blend's own resolution (with its percentage), samples, fps, engine "
+                      "and frame range; width, height, samples, fps and frame_start/frame_end left at their defaults (1920, 1080, "
+                      "128, 24, 1/1) are taken from the scene, other values you pass win. The reply lists what the service still "
+                      "changes (scene_settings.overrides). Leave empty for the service defaults.")
+SCENE_SETTINGS_TOOL_DEFAULTS = {"width": 1920, "height": 1080, "samples": 128, "fps": 24}
+
+
+def scene_settings_mode(settings: str) -> str:
+    """道具の settings 引数を正す（'scene' / 'service' / ""）。旗が OFF なら引数は道具の一覧に無く、既定の "" で呼ばれる。"""
+    s = (settings or "").strip().lower()
+    if s and s not in ("scene", "service"):
+        raise ValueError("settings must be 'scene' (the .blend's own render settings), 'service' or empty")
+    return s if flag_on("JR_SCENE_SETTINGS") else ""
+
+
+def with_scene_settings(body: dict[str, Any], mode: str) -> dict[str, Any]:
+    """settings='scene'（11/9）: 道具の既定値のままの欄（1920x1080・128 サンプル・24 fps・1〜1 コマ）を本文から外し、受付が .blend の
+    値で埋める。既定と違う値は渡したとおり勝つ。受付の旗が OFF でも、外した欄は受付の既定（同じ値）になるので絵は今までと同じ。"""
+    if not mode:
+        return body
+    out = dict(body)
+    out["settings"] = mode
+    if mode == "scene":
+        for k, d in SCENE_SETTINGS_TOOL_DEFAULTS.items():
+            if out.get(k) == d:
+                out[k] = None
+        if (out.get("frame_start"), out.get("frame_end")) == (1, 1):
+            out["frame_start"] = out["frame_end"] = None
+    return out
+
+
+# ------------------------------------------------------------------ 最終の経路での試し描き（11/9、旗 JR_FINAL_TEST、既定 OFF）
+
+FINAL_TEST_DOC = ("Animations: 'contiguous' renders only test_frames frames from frame_start (default 10) and 'spread' only the "
+                  "first, middle and last frame, with exactly the settings of this final, billed like any final. The reply's "
+                  "final_test then gives the GPU seconds per frame, a check of the frames (black, broken, repeated), a contact "
+                  "sheet and the full range estimated again from this measurement, plus render_final_args to render the full "
+                  "range after the user agrees (the test frames are reused). Leave empty to render the whole range.")
+
+
+def final_test_body(test: str, test_frames: int) -> dict[str, Any]:
+    """道具の test・test_frames を受付の本文に（空なら何も足さない＝旗が OFF の道具の本文は今までと同じ）。"""
+    t = (test or "").strip().lower()
+    if not t:
+        return {}
+    if t not in ("contiguous", "spread"):
+        raise ValueError("test must be 'contiguous' (the first frames of the range) or 'spread' (first, middle and last frame)")
+    out: dict[str, Any] = {"test": t}
+    if t == "contiguous" and int(test_frames or 0) > 0:
+        out["test_frames"] = int(test_frames)
+    return out
+
+
+def final_test_next(j: dict[str, Any], b: Optional[dict[str, Any]] = None) -> str:
+    """試しの仕上げの返事の次の一手（受付の final_test）。終わった試しなら、b の tell_user を試しの 1 文にする。試しでなければ空。"""
+    ft = (j or {}).get("final_test")
+    if not isinstance(ft, dict):
+        return ""
+    if ft.get("state") in ("queued", "rendering"):
+        return ("; this is a test of the final path (final_test.frames): when it ends, give the user final_test.tell_user (the "
+                "measured time per frame, the frame check and the price of the full range) and ask before rendering the full range")
+    if b is not None:
+        for k in ("tell_user", "tell_user_ja"):
+            if ft.get(k):
+                b[k] = ft[k]
+    if ft.get("state") != "done" or (ft.get("qa") or {}).get("verdict") not in ("pass", "check"):
+        return ("; the test did not pass: give the user tell_user, do not render the full range, and fix what final_test.qa "
+                "(or failure) says, then test again with final_test.next_actions")
+    return ("; give the user tell_user (tell_user_ja in Japanese); render the full range only after the user agrees, with "
+            "render_final and final_test.render_final_args unchanged (the test frames are reused, not rendered or charged again)")
+
+
 # ------------------------------------------------------------------ 見積もりとシーンの読み取りの返事（両方の道具で同じ）
 
 def estimate_body(kind: str, scene_id: str, frames: str, frame_start: int, frame_end: int, width: int, height: int, samples: int,
@@ -208,6 +282,10 @@ def scene_info_reply(j: dict[str, Any], assets_param: str) -> dict[str, Any]:
     if info.get("missing_files"):
         info["note"] = (f"missing_files will render pink/black; send them with {assets_param} (kept next to the scene), "
                         "pack them into the .blend (File > External Data > Pack) or fix the paths")
+        if any(str(m).lower().endswith(".blend") for m in info["missing_files"]):
+            # 11/9: 受付は .blend を素材として受けない。リンクした .blend は送るのではなく、Blender で取り込んでから保存する
+            info["note"] += ("; a missing linked .blend cannot be sent as an asset: make its data local (Object > Relations > "
+                             "Make Local > All) or Append it instead of linking, save, and send the .blend again")
     if isinstance(info.get("object_names"), list):
         info["object_names"] = trim(info["object_names"], 30)
     so = info.pop("script_output", None)
@@ -735,6 +813,19 @@ OPT_IN: tuple[tuple[str, str, str, str], ...] = (
     ("JR_AUTO_SAMPLES", "render_final", "probe_frame", ""),
     ("JR_AUTO_SAMPLES", "render_estimate", "auto_samples", ""),
     ("JR_AUTO_SAMPLES", "render_estimate", "probe_frame", ""),
+    # 11/9 足りないファイルの仕上げを断る（受付の server/scene_deps.py）。ON でも道具の説明は変えない（引数の説明だけ）
+    ("JR_PREFLIGHT_BLOCK_FINAL", "render_final", "allow_missing", ""),
+    # 11/9 シーンの設定で描く（受付の旗 JR_SCENE_SETTINGS、server/scene_settings.py）。道具の説明には足さない（引数の説明だけ）
+    ("JR_SCENE_SETTINGS", "render_final", "settings", ""),
+    ("JR_SCENE_SETTINGS", "render_estimate", "settings", ""),
+    # 11/9 プロ向けの EXR（受付の旗 JR_PRO_EXR、server/pro_exr.py）。道具の説明には足さない（引数の説明だけ）
+    ("JR_PRO_EXR", "render_final", "exr_depth", ""),
+    ("JR_PRO_EXR", "render_final", "exr_codec", ""),
+    # 11/9 全体を描く前の最終の経路での試し描き（受付の旗 JR_FINAL_TEST、server/final_trial.py）。道具の説明には足さない（引数の説明だけ）
+    ("JR_FINAL_TEST", "render_final", "test", ""),
+    ("JR_FINAL_TEST", "render_final", "test_frames", ""),
+    ("JR_FINAL_TEST", "render_estimate", "test", ""),
+    ("JR_FINAL_TEST", "render_estimate", "test_frames", ""),
 )
 # 旗が ON の引数の説明（stdio の P と、説明の無いリモートの引数に付ける。新版の tooldocs.param_docs に長い文があればそちらが勝つ）
 OPT_IN_PARAM_DOCS: dict[str, str] = {
@@ -748,7 +839,30 @@ OPT_IN_PARAM_DOCS: dict[str, str] = {
     "deliver": ("Extra videos for social posts from an animation: 'x' (fits X's limits), 'vertical' (1080x1920), 'square' "
                 "(1080x1080); the whole frame on a blurred fill, nothing cropped."),
     **AUTO_SAMPLES_DOCS,
+    "allow_missing": ("True renders even though scene_info found files the scene uses that were not sent (missing images render "
+                      "pink or black, objects from a missing linked .blend are absent). Only when the user accepted that; "
+                      "otherwise the final is refused with MISSING_FILES and nothing is charged."),
+    "settings": SCENE_SETTINGS_DOC,
+    "exr_depth": ("'half' (16-bit, default) or 'float' (32-bit) for EXR frames (output='exr' or passes). Cryptomatte passes are "
+                  "always float."),
+    "exr_codec": ("EXR compression: 'ZIP' (default, lossless), 'PIZ' (lossless, good for grainy renders) or 'DWAA' (lossy, "
+                  "smaller; beauty only, not with passes)."),
+    "test": FINAL_TEST_DOC,
+    "test_frames": "test='contiguous': how many frames from frame_start to test (1-24, default 10; 0 = default).",
 }
+
+
+def add_missing_files(out: dict[str, Any], error: str, extra: Any, can_override: bool) -> None:
+    """仕上げを足りないファイルで断った（11/9、受付の 422 missing_files、scene_deps.refusal）: 一覧と直し方を道具の返事に渡し、
+    次の一手を言う。allow_missing は、この道具の一覧に引数が出ているとき（can_override）だけ勧める（無い引数を呼ばせない）。"""
+    if error != "missing_files" or not isinstance(extra, dict):
+        return
+    out.update({k: extra[k] for k in ("missing_files", "missing", "possible_fix", "nothing_rendered", "charged_yen", "scene_id")
+                if k in extra})
+    out["next"] = ("nothing was queued or charged: tell the user which files the scene uses but were not sent (missing_files) "
+                   "and how to fix it (possible_fix), then render the fixed scene; do not send the same scene again unchanged"
+                   + ("; only if the user accepts that those parts render pink or black (or linked objects are absent), call "
+                      "render_final again with allow_missing=true" if can_override else ""))
 
 
 def opt_in(tool: str) -> tuple[list[str], str]:

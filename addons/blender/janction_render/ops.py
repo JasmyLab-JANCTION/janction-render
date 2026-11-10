@@ -4,12 +4,16 @@ A render runs in a background thread (``Runner``): save a copy of the file on
 the main thread, then upload, submit, poll every 2 seconds and download without
 blocking Blender. A ``bpy.app.timers`` tick on the main thread redraws the
 panel and loads the finished preview into an Image Editor.
+
+11/9（0.1.11）: 始めた仕事は jobs_store に残し、Blender を閉じても次の起動で続きを追う。アドオンを外しても受付の仕事は
+止めない（前は DELETE を送っていた）。投入は Idempotency-Key つき。終わったら Blender の中で知らせる。
 """
 import os
 import re
 import tempfile
 import threading
 import time
+import uuid
 from pathlib import Path
 from typing import Any, Optional
 
@@ -18,6 +22,7 @@ import bpy
 from . import assets as assets_mod
 from . import state
 from .client import Client, JRError
+from .jobs_store import Store
 from .prefs import get_prefs, make_client
 
 # 1 回の指示の上限（受付が 240 コマずつに分けて 1 本の動画にする）と、先払いのクレジットでの画素の上限。無料の分の 1080p は
@@ -27,7 +32,9 @@ MAX_PIXELS = 3840 * 2160
 FREE_MAX_FRAMES = MAX_FRAMES_PER_INSTRUCTION      # 互換（古い名前）
 FREE_MAX_PIXELS = 1920 * 1080
 PREVIEW_SAMPLES_MAX = 32
-FINAL_SAMPLES_MAX = 128
+# 仕上げはシーンのサンプル数のまま送る（11/9。前は 128 に黙って切り詰めていて、512 のシーンが 128 で描かれていた）。
+# 上限は受付の FINAL_SAMPLES_MAX（4096）。高くつく分は受付の見積もりと 402・max_yen が止める
+FINAL_SAMPLES_MAX = 4096
 POLL_SECONDS = 2.0
 TICK_SECONDS = 1.0
 RESULTS_FOLDER = "janction_render"
@@ -98,20 +105,40 @@ DOWNLOAD_TRIES = 4
 
 # ---- bpy helpers ------------------------------------------------------------
 
-def _results_dir(fallback: Path) -> Path:
+def _results_dir(fallback: Path, prefs: Any = None) -> Path:
+    """成果物を置くフォルダ。設定の Download folder（11/9、// は .blend からの相対）、無ければ .blend の隣の janction_render。"""
+    custom = str(getattr(prefs, "download_dir", "") or "").strip() if prefs is not None else ""
+    if custom:
+        return Path(bpy.path.abspath(custom))
     if bpy.data.filepath:
         return Path(bpy.data.filepath).parent / RESULTS_FOLDER
     return fallback
 
 
-def _save_copy(tmp_dir: Path) -> Path:
+def _save_copy(tmp_dir: Path, remaps: Any = ()) -> Path:
     """Write a copy of the open file to tmp_dir. Relative paths are kept as written
-    (relative_remap=False) so textures sent as assets resolve on the server."""
+    (relative_remap=False) so textures sent as assets resolve on the server.
+    11/9: remaps（詰め替えのフォルダへの道）は写しを保存する間だけ書き換え、保存の直後に開いているファイルの道を元に戻す。"""
     name = (Path(bpy.data.filepath).stem if bpy.data.filepath else "untitled") + ".blend"
     dest = tmp_dir / name
-    result = bpy.ops.wm.save_as_mainfile(filepath=str(dest), copy=True, relative_remap=False, compress=True)
+    done = assets_mod.apply_remaps(remaps)
+    try:
+        result = bpy.ops.wm.save_as_mainfile(filepath=str(dest), copy=True, relative_remap=False, compress=True)
+    finally:
+        assets_mod.restore_remaps(done)
     if 'FINISHED' not in result or not dest.is_file():
         raise JRError("save_failed", "could not save a copy of the file")
+    return dest
+
+
+def _write_library_map(tmp_dir: Path, doc: Optional[dict[str, Any]]) -> Optional[Path]:
+    """jr_libraries.json を写しの隣に書く（付け替えが無ければ書かない）。送り終えたら Runner._cleanup が消す。"""
+    if not doc:
+        return None
+    import json
+
+    dest = tmp_dir / assets_mod.libplan.MAP_NAME
+    dest.write_text(json.dumps(doc, ensure_ascii=False, sort_keys=True), encoding="utf-8")
     return dest
 
 
@@ -198,18 +225,28 @@ def final_body(context, prefs, settings) -> tuple[dict[str, Any], list[str]]:
         "frame_start": fs,
         "frame_end": fe,
         "samples": _samples(scene, settings, FINAL_SAMPLES_MAX),
-        "output": output,
+        "output": output,                  # mp4 / png / exr（11/9、1 層の OpenEXR。受付は前から受ける）
     })
+    # 支出の上限（円）は、料金を出す設定（既定 OFF、文面は本人の承認待ち）を入れた人だけが送る
+    if prefs is not None and getattr(prefs, "show_costs", False):
+        cap = int(getattr(settings, "max_yen", 0) or 0)
+        if cap > 0:
+            body["max_yen"] = cap
     return body, notes
 
 
 # ---- background runner --------------------------------------------------------
 
 class Runner(threading.Thread):
-    """Upload, submit, poll and download for one job. Never touches bpy."""
+    """Upload, submit, poll and download for one job. Never touches bpy.
 
-    def __init__(self, client: Client, kind: str, scene_path: Path, scene_assets: list[tuple[str, str]],
-                 body: dict[str, Any], out_dir: Path, tmp_dir: Path, open_when_done: bool = False) -> None:
+    11/9: store（jobs_store.Store）があれば、投入の前に Idempotency-Key と scene_id を、投入の後に job_id を残し、
+    受け取り終えたら消す。resume に残した行を渡すと、送る・投入を飛ばして（job_id が無ければ同じ鍵で投入し直して）続きを追う。
+    detach_event はアドオンを外したとき: 受付の仕事は止めずに追うのだけをやめる（行は残す）。"""
+
+    def __init__(self, client: Client, kind: str, scene_path: Optional[Path], scene_assets: list[tuple[str, str]],
+                 body: dict[str, Any], out_dir: Path, tmp_dir: Optional[Path], open_when_done: bool = False,
+                 store: Optional[Store] = None, idem: str = "", resume: Optional[dict[str, Any]] = None) -> None:
         super().__init__(name="janction-render", daemon=True)
         self.client = client
         self.kind = kind
@@ -219,7 +256,11 @@ class Runner(threading.Thread):
         self.out_dir = out_dir
         self.tmp_dir = tmp_dir
         self.open_when_done = open_when_done
+        self.store = store
+        self.idem = idem or str((resume or {}).get("idem") or "") or uuid.uuid4().hex
+        self.resume = resume
         self.cancel_event = threading.Event()
+        self.detach_event = threading.Event()
 
     def run(self) -> None:
         try:
@@ -232,16 +273,52 @@ class Runner(threading.Thread):
                 state.need_payment(payment_text(exc.extra), str(exc.extra.get("checkout_url") or ""))
             else:
                 state.fail(text)
+            row = self.store.get(self.idem) if self.store is not None else None
+            transient = exc.code in ("network", "timeout") or exc.status >= 500
+            if exc.status != 404 and ((row and row.get("job_id")) or (transient and self._row_has_scene())):
+                # 追っている途中・投入の返事が届かなかった: 行は残す（次の起動・Resume で、同じ Idempotency-Key で続きを追う）
+                state.update(message=text + " (the job is kept; press Resume to follow it again)")
+            else:
+                self._forget()
+            state.update(pending_notice=("failed", text))
         except Exception as exc:  # noqa: BLE001 - never let a thread die silently
             state.fail(f"{type(exc).__name__}: {exc}")
+            if not self._row_has_scene():
+                self._forget()
         finally:
             self._cleanup()
             self._refresh_quota()
 
+    # ---- 残す行 ----------------------------------------------------------------
+
+    def _remember(self, **fields: Any) -> None:
+        if self.store is None:
+            return
+        if self.store.get(self.idem) is None:
+            self.store.put({"idem": self.idem, "kind": self.kind, "server": self.client.server, "scene_id": "",
+                            "job_id": "", "body": {k: v for k, v in self.body.items() if k != "scene_id"},
+                            "out_dir": str(self.out_dir), "open_when_done": self.open_when_done,
+                            "blend": self.scene_path.name if self.scene_path else ""})
+        self.store.update(self.idem, **fields)
+
+    def _row_has_scene(self) -> bool:
+        row = self.store.get(self.idem) if self.store is not None else None
+        return bool(row and (row.get("scene_id") or row.get("job_id")))
+
+    def _forget(self) -> None:
+        if self.store is not None:
+            self.store.remove(self.idem)
+
     def _cleanup(self) -> None:
+        if self.tmp_dir is None or self.scene_path is None:
+            return
         try:
             if self.scene_path.parent == self.tmp_dir and self.scene_path.is_file():
                 self.scene_path.unlink()
+            for name, path in self.scene_assets:
+                # 11/9 夜（0.1.12）: 写しの隣に書いた jr_libraries.json
+                if Path(path).parent == self.tmp_dir and Path(path).is_file():
+                    Path(path).unlink()
             if self.tmp_dir.is_dir() and not any(self.tmp_dir.iterdir()):
                 self.tmp_dir.rmdir()
         except OSError:
@@ -256,19 +333,48 @@ class Runner(threading.Thread):
     def _canceled(self) -> bool:
         return self.cancel_event.is_set()
 
+    def _submit(self, body: dict[str, Any]) -> str:
+        job = self.client.submit(body, idempotency_key=self.idem)
+        job_id = str(job["job_id"])
+        self._remember(job_id=job_id)
+        state.update(job_id=job_id, phase=str(job.get("status") or "queued"), message=progress_text(job))
+        return job_id
+
     def _run(self) -> None:
+        if self.resume is not None:
+            job_id = str(self.resume.get("job_id") or "")
+            scene_id = str(self.resume.get("scene_id") or "")
+            if not job_id:
+                if not scene_id:
+                    self._forget()
+                    state.fail("The upload did not finish before Blender closed; press Render again")
+                    return
+                state.update(phase="submitting", message="Submitting again (same request, not a second job)...")
+                job_id = self._submit({**(self.resume.get("body") or {}), "scene_id": scene_id})
+            else:
+                state.update(job_id=job_id, phase="queued", message=f"Following {job_id} again...")
+            self._poll(job_id)
+            return
         state.update(phase="uploading", message="Uploading...")
         scene = self.client.upload_scene(self.scene_path, self.scene_assets,
                                          on_progress=lambda msg: state.update(message=msg))
+        dropped = [str(d) for d in scene.get("assets_dropped") or []]
+        if dropped:
+            # 受付が受けない型・数の上限で外した物（11/9）。理由ごと警告に出す
+            state.update(warnings=list(state.get("warnings") or []) + dropped)
         if self._canceled():
             state.update(phase="canceled", message="Canceled")
+            return
+        if self.detach_event.is_set():
             return
         state.update(phase="submitting", message="Submitting...")
         body = dict(self.body)
         body["scene_id"] = scene["scene_id"]
-        job = self.client.submit(body)
-        job_id = str(job["job_id"])
-        state.update(job_id=job_id, phase=str(job.get("status") or "queued"), message=progress_text(job))
+        self._remember(scene_id=str(scene["scene_id"]))
+        job_id = self._submit(body)
+        self._poll(job_id)
+
+    def _poll(self, job_id: str) -> None:
         warnings = list(state.get("warnings") or [])
         while True:
             if self.cancel_event.wait(POLL_SECONDS):
@@ -276,22 +382,36 @@ class Runner(threading.Thread):
                     self.client.cancel(job_id)
                 except JRError:
                     pass
+                self._forget()
                 state.update(phase="canceled", message="Canceled")
                 return
-            job = self.client.job(job_id)
+            if self.detach_event.is_set():
+                return                                   # 受付の仕事はそのまま（行も残す）
+            try:
+                job = self.client.job(job_id)
+            except JRError as exc:
+                if exc.status == 404 and self.resume is not None:
+                    self._forget()
+                    state.fail(f"{job_id} is no longer on the server (results are kept 24 hours, 7 days with credit)")
+                    return
+                raise
             status = str(job.get("status") or "")
             for w in job.get("warnings") or []:
                 if str(w) not in warnings:
                     warnings.append(str(w))
-            if status in ("done", "failed", "canceled"):
+            if status in ("done", "failed", "canceled", "verification_failed"):
                 break
             state.update(phase=status if status in ("queued", "running") else "running",
                          message=progress_text(job), warnings=list(warnings))
         state.update(warnings=list(warnings))
-        if status == "failed":
-            state.fail(f"Render failed: {job.get('error') or 'unknown error'}")
+        if status in ("failed", "verification_failed"):
+            self._forget()
+            text = f"Render failed: {job.get('error') or status}"
+            state.fail(text)
+            state.update(pending_notice=("failed", text))
             return
         if status == "canceled":
+            self._forget()
             state.update(phase="canceled", message="Canceled")
             return
         self._download(job)
@@ -306,10 +426,13 @@ class Runner(threading.Thread):
         if self.kind == "preview":
             name = "sheet.png" if "sheet.png" in names else next((n for n in names if n.startswith("frame_")), "")
             if not name:
+                self._forget()
                 state.fail("The render finished but produced no image")
                 return
             dest = self.client.artifact(job_id, name, self.out_dir / f"preview_{stamp()}.png")
-            state.update(phase="done", result=str(dest), pending_image=str(dest), message=f"Preview ready{took}")
+            self._forget()
+            state.update(phase="done", result=str(dest), pending_image=str(dest), message=f"Preview ready{took}",
+                         pending_notice=("done", f"Preview ready{took}"))
             return
         if "output.mp4" in names:
             dest = self.client.artifact(job_id, "output.mp4", self.out_dir / f"final_{stamp()}.mp4")
@@ -317,6 +440,7 @@ class Runner(threading.Thread):
         else:
             frames = [n for n in names if FRAME_RE.match(n)]
             if not frames:
+                self._forget()
                 state.fail("The render finished but produced no frames")
                 return
             folder = self.out_dir / f"final_{stamp()}"
@@ -324,12 +448,15 @@ class Runner(threading.Thread):
                 if self._canceled():
                     state.update(phase="canceled", message="Canceled while downloading")
                     return
+                if self.detach_event.is_set():
+                    return
                 state.update(message=f"Downloading {i}/{len(frames)}")
                 self._fetch(job_id, n, folder / PART_PREFIX_RE.sub("", n))
             result = folder
+        self._forget()
         state.update(phase="done", result=str(result), message=f"Final render ready{took}",
-                     pending_open=str(result) if self.open_when_done else "")
-
+                     pending_open=str(result) if self.open_when_done else "",
+                     pending_notice=("done", f"Final render ready{took}: {result}"))
 
     def _fetch(self, job_id: str, name: str, dest: Path) -> None:
         """One file, fetched again when the connection drops in the middle (a 5 GB render is hundreds of files)."""
@@ -370,6 +497,26 @@ def _show_image(path: str) -> None:
     state.update(message=f"Preview saved: {path} (open an Image Editor to see it here)")
 
 
+def _notify(kind: str, text: str) -> None:
+    """終わった・失敗したを Blender の中で小さな窓で知らせる（11/9。設定 Notify when done、既定 ON）。"""
+    prefs = get_prefs()
+    if prefs is not None and not getattr(prefs, "notify_when_done", True):
+        return
+    try:
+        wm = bpy.context.window_manager
+        windows = list(wm.windows) if wm is not None else []
+        if not windows:
+            return
+
+        def draw(menu, _context):
+            menu.layout.label(text=text)
+
+        with bpy.context.temp_override(window=windows[0]):
+            wm.popup_menu(draw, title="JANCTION Render", icon='CHECKMARK' if kind == "done" else 'ERROR')
+    except Exception:  # noqa: BLE001 - 知らせられなくてもパネルには出ている
+        pass
+
+
 def _tick() -> Optional[float]:
     image = state.pop("pending_image")
     if image:
@@ -380,6 +527,9 @@ def _tick() -> Optional[float]:
             bpy.ops.wm.path_open(filepath=to_open)
         except Exception:  # noqa: BLE001
             pass
+    notice = state.pop("pending_notice", None)
+    if notice:
+        _notify(*notice)
     _redraw()
     alive = _runner is not None and _runner.is_alive()
     if not alive and state.get("phase") in state.TERMINAL:
@@ -395,9 +545,84 @@ def _ensure_timer() -> None:
 def _stop_timer() -> None:
     if bpy.app.timers.is_registered(_tick):
         bpy.app.timers.unregister(_tick)
+    if bpy.app.timers.is_registered(_resume_on_start):
+        bpy.app.timers.unregister(_resume_on_start)
+
+
+# ---- 残した仕事（11/9） ------------------------------------------------------------
+
+_STORE: Optional[Store] = None
+
+
+def _store_path() -> Path:
+    """拡張機能の利用者のフォルダ（Blender 4.2+ の extension_path_user）。古い入れ方なら設定のフォルダ。"""
+    try:
+        return Path(bpy.utils.extension_path_user(__package__, path="", create=True)) / "jobs.json"
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        return Path(bpy.utils.user_resource('CONFIG', path="janction_render", create=True)) / "jobs.json"
+    except Exception:  # noqa: BLE001
+        return Path(tempfile.gettempdir()) / "janction_render_jobs.json"
+
+
+def job_store() -> Store:
+    global _STORE
+    if _STORE is None:
+        _STORE = Store(_store_path())
+    return _STORE
+
+
+def pending_jobs(prefs: Any) -> list[dict[str, Any]]:
+    """この設定の受付に残っている仕事（いま追っている仕事は除く）。"""
+    if prefs is None:
+        return []
+    server = make_client(prefs).server
+    current = _runner.idem if _runner is not None and _runner.is_alive() else ""
+    return [r for r in job_store().all() if r.get("server") == server and r.get("idem") != current]
+
+
+def resume_job(prefs: Any, row: dict[str, Any]) -> bool:
+    """残した行の続きを追う。True なら追い始めた。"""
+    global _runner
+    if prefs is None or not prefs.api_key or state.busy():
+        return False
+    state.start_job(str(row.get("kind") or "final"), [])
+    state.update(job_id=str(row.get("job_id") or ""), message="Resuming...")
+    out_dir = Path(str(row.get("out_dir") or "")) if row.get("out_dir") else _results_dir(Path(tempfile.gettempdir()), prefs)
+    _runner = Runner(make_client(prefs), str(row.get("kind") or "final"), None, [], dict(row.get("body") or {}), out_dir,
+                     None, open_when_done=bool(row.get("open_when_done")), store=job_store(), resume=row)
+    _runner.start()
+    _ensure_timer()
+    return True
+
+
+def _resume_on_start() -> Optional[float]:
+    """起動の少し後に 1 回: 前の Blender で終わらなかった仕事があれば、いちばん新しいものの続きを追う。"""
+    try:
+        if getattr(bpy.app, "background", False):
+            return None
+        prefs = get_prefs()
+        rows = pending_jobs(prefs)
+        if rows:
+            resume_job(prefs, rows[-1])
+    except Exception:  # noqa: BLE001 - 起動を止めない
+        pass
+    return None
 
 
 # ---- starting a job (main thread) -----------------------------------------------
+
+def _roots(prefs: Any) -> list[str]:
+    return assets_mod.parse_roots(str(getattr(prefs, "asset_roots", "") or "")) if prefs is not None else []
+
+
+def scan_files(context, prefs: Any) -> "assets_mod.Collected":
+    """依存を集めて、Files の一覧（state.deps）を新しくする。"""
+    collected = assets_mod.collect_from_bpy(scene=getattr(context, "scene", None), roots=_roots(prefs))
+    state.update(deps=list(collected.deps), deps_summary=collected.summary())
+    return collected
+
 
 def start_job(context, kind: str, body: dict[str, Any], notes: list[str], report) -> bool:
     """Save a copy, collect assets and hand everything to a Runner. Reports problems; True when started."""
@@ -412,8 +637,13 @@ def start_job(context, kind: str, body: dict[str, Any], notes: list[str], report
     tmp_dir = Path(tempfile.mkdtemp(prefix="janction_render_"))
     try:
         state.start_job(kind, notes)
-        scene_path = _save_copy(tmp_dir)
-        collected = assets_mod.collect_from_bpy()
+        # 11/9: 先に集める（詰め替えの道 remaps を写しの保存に使う。開いているファイルの道は保存の直後に戻す）
+        collected = scan_files(context, prefs)
+        scene_path = _save_copy(tmp_dir, collected.remaps)
+        # 11/9 夜（0.1.12）: リンクした .blend の入れ子・外のフォルダの付け替えの組（受付の旗 JR_LINKED_BLEND の受付が読む）
+        map_file = _write_library_map(tmp_dir, collected.library_map)
+        if map_file is not None:
+            collected.assets.append((assets_mod.libplan.MAP_NAME, str(map_file)))
     except JRError as exc:
         state.fail(str(exc))
         report({'ERROR'}, str(exc))
@@ -424,10 +654,12 @@ def start_job(context, kind: str, body: dict[str, Any], notes: list[str], report
         return False
     warnings = notes + collected.warnings
     state.update(warnings=warnings)
-    for w in collected.warnings:
+    for w in collected.warnings[:10]:
         report({'WARNING'}, w)
-    _runner = Runner(make_client(prefs), kind, scene_path, collected.assets, body, _results_dir(tmp_dir), tmp_dir,
-                     open_when_done=bool(prefs.open_results) and kind == "final")
+    if len(collected.warnings) > 10:
+        report({'WARNING'}, f"{len(collected.warnings) - 10} more: see Render Properties > JANCTION Render > Files")
+    _runner = Runner(make_client(prefs), kind, scene_path, collected.assets, body, _results_dir(tmp_dir, prefs), tmp_dir,
+                     open_when_done=bool(prefs.open_results) and kind == "final", store=job_store())
     _runner.start()
     _ensure_timer()
     report({'INFO'}, f"{kind.capitalize()} started: uploading {scene_path.name}"
@@ -474,6 +706,23 @@ class JR_OT_final(bpy.types.Operator):
         return {'FINISHED'} if start_job(context, "final", body, notes, self.report) else {'CANCELLED'}
 
 
+def estimate_text(body: dict[str, Any], est: dict[str, Any], show_costs: bool = False) -> str:
+    """見積もりの 1 行。円の額は料金を出す設定（既定 OFF）のときだけ足す（文面は本人の承認待ち、11/9）。"""
+    frames = body["frame_end"] - body["frame_start"] + 1
+    text = f"{frames} frames at {body['width']}x{body['height']}, {body['samples']} samples: {est.get('human') or 'unknown'}"
+    quota = est.get("quota") or {}
+    if isinstance(quota, dict) and quota:
+        left = float(quota.get("gpu_seconds_left_today") or 0) / 60.0
+        fits = quota.get("fits_today")
+        text += f"; {left:.1f} free min left" + ("" if fits is None else (", fits" if fits else ", does not fit"))
+    cost = est.get("cost") if isinstance(est.get("cost"), dict) else {}
+    if show_costs and cost.get("estimated_yen") is not None:
+        text += f"; about {cost['estimated_yen']} JPY"
+        if cost.get("max_charge_yen") is not None:
+            text += f" (at most {cost['max_charge_yen']} JPY)"
+    return text
+
+
 class JR_OT_estimate(bpy.types.Operator):
     """Ask the server how long the final render would take and whether it fits the free GPU time left"""
     bl_idname = "jr.estimate"
@@ -491,13 +740,7 @@ class JR_OT_estimate(bpy.types.Operator):
         except JRError as exc:
             self.report({'ERROR'}, f"Estimate failed: {exc}")
             return {'CANCELLED'}
-        frames = body["frame_end"] - body["frame_start"] + 1
-        text = f"{frames} frames at {body['width']}x{body['height']}: {est.get('human') or 'unknown'}"
-        quota = est.get("quota") or {}
-        if isinstance(quota, dict) and quota:
-            left = float(quota.get("gpu_seconds_left_today") or 0) / 60.0
-            fits = quota.get("fits_today")
-            text += f"; {left:.1f} free min left" + ("" if fits is None else (", fits" if fits else ", does not fit"))
+        text = estimate_text(body, est, bool(getattr(prefs, "show_costs", False)))
         state.update(message=text)
         self.report({'INFO'}, text)
         return {'FINISHED'}
@@ -532,7 +775,7 @@ class JR_OT_open_results(bpy.types.Operator):
     def execute(self, context):
         path = state.get("result") or ""
         if not path or not os.path.exists(path):
-            folder = _results_dir(Path(tempfile.gettempdir()))
+            folder = _results_dir(Path(tempfile.gettempdir()), get_prefs(context))
             if not folder.is_dir():
                 self.report({'WARNING'}, "No result yet")
                 return {'CANCELLED'}
@@ -565,18 +808,98 @@ class JR_OT_refresh_quota(bpy.types.Operator):
         return {'FINISHED'}
 
 
-CLASSES = (JR_OT_preview, JR_OT_final, JR_OT_estimate, JR_OT_cancel, JR_OT_open_results, JR_OT_refresh_quota)
+class JR_OT_scan_files(bpy.types.Operator):
+    """List every file this scene needs and whether it will be sent"""
+    bl_idname = "jr.scan_files"
+    bl_label = "Check files"
+    bl_options = {'REGISTER'}
+
+    def execute(self, context):
+        try:
+            collected = scan_files(context, get_prefs(context))
+        except Exception as exc:  # noqa: BLE001
+            self.report({'ERROR'}, f"Could not list the files: {exc}")
+            return {'CANCELLED'}
+        self.report({'INFO'}, collected.summary())
+        return {'FINISHED'}
+
+
+def file_list_text(deps: list[dict[str, Any]]) -> str:
+    """Files の一覧を貼り付けられる文に（1 行 1 つ）。"""
+    lines = []
+    for d in deps:
+        files = f" ({d['files']} files, {d['bytes'] / 1048576.0:.1f} MB)" if d.get("files") else ""
+        moved = " [path rewritten in the uploaded copy]" if d.get("remapped") else ""
+        note = f": {d['note']}" if d.get("note") else ""
+        lines.append(f"[{d['status']}] {d['kind']} {d['label']} {d['path']}{files}{moved}{note}".rstrip())
+    return "\n".join(lines)
+
+
+class JR_OT_copy_file_list(bpy.types.Operator):
+    """Copy the file list to the clipboard"""
+    bl_idname = "jr.copy_file_list"
+    bl_label = "Copy list"
+    bl_options = {'REGISTER', 'INTERNAL'}
+
+    def execute(self, context):
+        deps = state.get("deps") or []
+        if not deps:
+            self.report({'WARNING'}, "Press Check files first")
+            return {'CANCELLED'}
+        context.window_manager.clipboard = file_list_text(deps)
+        self.report({'INFO'}, f"Copied {len(deps)} lines")
+        return {'FINISHED'}
+
+
+class JR_OT_resume_job(bpy.types.Operator):
+    """Follow a render started earlier (before Blender was closed) and download its result"""
+    bl_idname = "jr.resume_job"
+    bl_label = "Resume"
+    bl_options = {'REGISTER', 'INTERNAL'}
+
+    idem: bpy.props.StringProperty(options={'HIDDEN'})
+
+    def execute(self, context):
+        row = job_store().get(self.idem)
+        if row is None:
+            self.report({'WARNING'}, "That render is no longer listed")
+            return {'CANCELLED'}
+        if not resume_job(get_prefs(context), row):
+            self.report({'WARNING'}, "A render is already running, or there is no API key")
+            return {'CANCELLED'}
+        return {'FINISHED'}
+
+
+class JR_OT_forget_job(bpy.types.Operator):
+    """Stop listing this render here (the render itself is not canceled)"""
+    bl_idname = "jr.forget_job"
+    bl_label = "Forget"
+    bl_options = {'REGISTER', 'INTERNAL'}
+
+    idem: bpy.props.StringProperty(options={'HIDDEN'})
+
+    def execute(self, context):
+        job_store().remove(self.idem)
+        return {'FINISHED'}
+
+
+CLASSES = (JR_OT_preview, JR_OT_final, JR_OT_estimate, JR_OT_cancel, JR_OT_open_results, JR_OT_refresh_quota,
+           JR_OT_scan_files, JR_OT_copy_file_list, JR_OT_resume_job, JR_OT_forget_job)
 
 
 def register() -> None:
     for cls in CLASSES:
         bpy.utils.register_class(cls)
+    # 前の Blender で終わらなかった仕事の続き（起動の少し後に 1 回。ファイルを開いても消えないよう persistent）
+    if not bpy.app.timers.is_registered(_resume_on_start):
+        bpy.app.timers.register(_resume_on_start, first_interval=3.0, persistent=True)
 
 
 def unregister() -> None:
     global _runner
     if _runner is not None and _runner.is_alive():
-        _runner.cancel_event.set()
+        # 11/9: 受付の仕事は止めない（前は DELETE を送っていた）。追うのをやめるだけで、行は残して次に続きを追う
+        _runner.detach_event.set()
     _runner = None
     _stop_timer()
     for cls in reversed(CLASSES):

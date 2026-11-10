@@ -46,7 +46,8 @@ def command(body: str, title: str = TITLE, platform: str | None = None) -> tuple
         return (["osascript", "-e", "on run argv", "-e",
                  "display notification (item 2 of argv) with title (item 1 of argv)", "-e", "end run", title, body], {})
     exe = shutil.which("notify-send")
-    return ([exe, title, body], {}) if exe else None
+    # 11/10 監査: -- の後ろは文。- で始まる文（シーン名など）をオプションと読ませない
+    return ([exe, "--", title, body], {}) if exe else None
 
 
 def notify(body: str, title: str = TITLE) -> bool:

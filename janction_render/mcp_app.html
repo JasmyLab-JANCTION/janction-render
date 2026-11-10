@@ -33,8 +33,12 @@
 </head>
 <body>
 <div class="card" id="root"><span class="muted">JANCTION Render</span></div>
+<!-- 11/10 監査: MCP Apps の部品は版を決めたファイルを、中身のハッシュ（SRI）つきで読む（@modelcontextprotocol/ext-apps 0.4.0 の
+     dist/src/app-with-deps.js、unpkg と jsdelivr で同じ sha384）。import map の integrity と、先に読む module の integrity の両方 -->
+<script type="importmap">{"imports": {}, "integrity": {"https://unpkg.com/@modelcontextprotocol/ext-apps@0.4.0/dist/src/app-with-deps.js": "sha384-b10Zoyb0dRzg8Btkc/Ff0GKt9UPM3qEjF0APn28oLLR4LP9ba0prCMaa55cjjaIV"}}</script>
+<script type="module" src="https://unpkg.com/@modelcontextprotocol/ext-apps@0.4.0/dist/src/app-with-deps.js" integrity="sha384-b10Zoyb0dRzg8Btkc/Ff0GKt9UPM3qEjF0APn28oLLR4LP9ba0prCMaa55cjjaIV" crossorigin="anonymous"></script>
 <script type="module">
-import { App } from "https://unpkg.com/@modelcontextprotocol/ext-apps@0.4.0/app-with-deps";
+import { App } from "https://unpkg.com/@modelcontextprotocol/ext-apps@0.4.0/dist/src/app-with-deps.js";
 
 const root = document.getElementById("root");
 const app = new App({ name: "JANCTION Render", version: "1.0.0" });
@@ -47,8 +51,17 @@ function parseResult(result) {
   let job = null;
   try { job = JSON.parse(text); } catch (e) { job = { raw: text }; }
   const img = content.find(c => c.type === "image");
-  return { job, image: img ? `data:${img.mimeType || "image/png"};base64,${img.data}` : null };
+  return { job, image: img ? imageUrl(img.mimeType || "image/png", img.data) : null };
 }
+
+// 11/10 監査: 道具の返事の絵は、使う形（PNG・JPEG・WebP・GIF）と base64 の文字だけを data: にする
+const IMAGE_TYPES = ["image/png", "image/jpeg", "image/webp", "image/gif"];
+function imageUrl(mime, data) {
+  const m = String(mime).toLowerCase();
+  if (!IMAGE_TYPES.includes(m) || typeof data !== "string" || !/^[A-Za-z0-9+/=\s]*$/.test(data)) return null;
+  return `data:${m};base64,${data.replace(/\s/g, "")}`;
+}
+function webLink(u) { return /^https?:\/\//i.test(String(u || "")) ? String(u) : ""; }
 
 function esc(s) { return String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
 
@@ -87,8 +100,8 @@ function render() {
   } else if (eta && status === "done") {
     html += `<div class="muted">${esc(eta)}</div>`;
   }
-  if (state.image) html += `<img class="sheet" src="${state.image}" alt="render preview">`;
-  const out = job.output_url;
+  if (state.image) html += `<img class="sheet" src="${esc(state.image)}" alt="render preview">`;
+  const out = webLink(job.output_url);
   const links = job.links || {};
   if (status === "done" && out && /\.(mp4|webm|mov)(\?|$)/.test(out)) {
     html += `<video controls playsinline src="${esc(out)}"></video>`;
@@ -120,7 +133,7 @@ function render() {
   if (warns.length) html += `<details><summary>${warns.length} note${warns.length > 1 ? "s" : ""} from Blender</summary><ul class="warn">${warns.map(w => `<li>${esc(w)}</li>`).join("")}</ul></details>`;
   if (job.expires_at) html += `<div class="muted">files kept until ${esc(job.expires_at)}</div>`;
   root.innerHTML = html;
-  root.querySelectorAll("button[data-open]").forEach(b => b.addEventListener("click", () => app.openLink({ url: b.dataset.open })));
+  root.querySelectorAll("button[data-open]").forEach(b => b.addEventListener("click", () => { const u = webLink(b.dataset.open); if (u) app.openLink({ url: u }); }));
   root.querySelectorAll("button[data-say]").forEach(b => b.addEventListener("click", () => app.sendMessage({ role: "user", content: { type: "text", text: b.dataset.say } })));
   root.querySelectorAll("button[data-preset]").forEach(b => b.addEventListener("click", () => app.sendMessage({ role: "user", content: { type: "text", text: `Use the ${b.dataset.preset} lighting preset (environment="${b.dataset.preset}") for the final render. Ask me about frames, resolution and samples first.` } })));
   root.querySelector("button[data-act=refresh]")?.addEventListener("click", refresh);

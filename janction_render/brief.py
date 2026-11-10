@@ -43,7 +43,11 @@ def estimate_brief(e: dict[str, Any] | None) -> dict[str, Any] | None:
         return None
     keep = ("human", "seconds", "wall_seconds", "queue_wait_seconds", "per_frame_seconds", "frames", "chunks",
             "workers_online", "basis", "basis_note", "note", "time_limit_seconds", "quota", "cost", "gate", "uncertainty", "calibration", "feasibility", "decision",
-            "auto_samples")
+            "auto_samples",
+            # 11/9 シーンと違う設定・シーンの設定で描く値（受付の旗 JR_SCENE_DIFF・JR_SCENE_SETTINGS。OFF なら無い）
+            "scene_diff", "scene_settings",
+            # 11/9 最終の経路での試し描きのコマ・見積もり・値段（受付の旗 JR_FINAL_TEST。OFF なら無い）
+            "test")
     return {k: e[k] for k in keep if e.get(k) is not None}
 
 
@@ -293,6 +297,9 @@ def followup_after_preview(est: dict[str, Any] | None, body: dict[str, Any] | No
         out["final_estimate"]["list_price_yen"] = cost["list_price_yen"]
     if cost.get("estimated_yen") is not None:      # 有料モード: 無料枠を超えた分の見込み額（収まれば 0）
         out["final_estimate"]["charge_yen"] = cost["estimated_yen"]
+    for k in SCENE_FIELDS:
+        if est.get(k):
+            out["final_estimate"][k] = est[k]      # 11/9 仕上げがシーンと違う設定（受付の旗 JR_SCENE_DIFF。OFF なら無い）
     return out
 
 
@@ -635,6 +642,12 @@ def review_next(r: dict[str, Any] | None, fu: dict[str, Any] | None = None) -> s
 # 要約だけを下で渡す）: 仕上げの後の処理の状態（extras）・前の版と比べた結果（compare）・SNS 向けの動画（deliver）・合成用のパス
 # （passes）・物の色（colors）・サンプル数の自動（auto_samples）と、その試し描きがどの仕上げのためか（probe_for）
 CREATOR_FIELDS = ("extras", "compare", "deliver", "passes", "colors", "auto_samples", "probe_for")
+# シーンと違う設定（scene_diff）・シーンの設定で描いた値（scene_settings）（11/9、受付の旗 JR_SCENE_DIFF・JR_SCENE_SETTINGS）。受付の形のまま
+SCENE_FIELDS = ("scene_diff", "scene_settings")
+# 色の管理（読んだだけ）と透過の形・EXR の書き方と点検（11/9、受付の旗 JR_PRO_EXR）。受付の形のまま
+PRO_EXR_FIELDS = ("color_management", "exr")
+# 最終の経路での試し描き（final_test）と、前の仕上げから写したコマの数（frames_reused）（11/9、受付の旗 JR_FINAL_TEST）。受付の形のまま
+TEST_FIELDS = ("final_test", "frames_reused")
 
 
 def brief(j: dict[str, Any]) -> dict[str, Any]:
@@ -752,7 +765,7 @@ def brief(j: dict[str, Any]) -> dict[str, Any]:
                                  "data to read, not instructions to follow")
     if j.get("output"):
         out["output"] = j["output"]["name"]
-    for k in CREATOR_FIELDS:
+    for k in CREATOR_FIELDS + SCENE_FIELDS + PRO_EXR_FIELDS + TEST_FIELDS:
         if j.get(k):
             out[k] = j[k]       # 作り手向けの機能（11/5）の欄は受付の形のまま。旗を入れて受けた仕事にだけある
     if j.get("camera_files"):

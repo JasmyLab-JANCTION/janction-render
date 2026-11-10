@@ -1,7 +1,7 @@
 schema_version = "1.0.0"
 
 id = "janction_render"
-version = "0.1.10"
+version = "0.1.12"
 name = "JANCTION Render"
 tagline = "Render this file on JANCTION cloud GPUs (new keys start free)"
 maintainer = "JasmyLab"
@@ -16,7 +16,7 @@ copyright = ["2026 JasmyLab Inc."]
 
 [permissions]
 network = "Uploads the scene to render.janction.jp and downloads results"
-files = "Reads the .blend and its textures, writes results beside it"
+files = "Reads the .blend, textures and caches; writes the results"
 
 [build]
 paths_exclude_pattern = [

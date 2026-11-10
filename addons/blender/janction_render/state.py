@@ -22,6 +22,9 @@ _STATE: dict[str, Any] = {
     "pending_open": "",     # a path the timer should open with the OS
     "quota_requested": False,
     "checkout_url": "",     # the top-up page (Stripe Checkout) after a 402 payment_required; cleared by the next job
+    "pending_notice": None,  # (done|failed, 文) 終わりを Blender の中で知らせる（11/9、タイマーが 1 回だけ出す）
+    "deps": [],             # Files の一覧（assets.Collected.deps、11/9）
+    "deps_summary": "",
 }
 
 
@@ -29,6 +32,7 @@ def snapshot() -> dict[str, Any]:
     with _LOCK:
         out = dict(_STATE)
         out["warnings"] = list(_STATE["warnings"])
+        out["deps"] = list(_STATE["deps"])
         return out
 
 
@@ -57,7 +61,7 @@ def busy() -> bool:
 
 def start_job(kind: str, warnings: Optional[list[str]] = None) -> None:
     update(phase="uploading", kind=kind, job_id="", message="Saving a copy...", result="",
-           warnings=list(warnings or []), pending_image="", pending_open="", checkout_url="")
+           warnings=list(warnings or []), pending_image="", pending_open="", checkout_url="", pending_notice=None)
 
 
 def fail(message: str, warnings: Optional[list[str]] = None) -> None:

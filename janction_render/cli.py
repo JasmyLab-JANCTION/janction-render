@@ -2,9 +2,11 @@
 
     janction-render preview scene.py                      # 試し描き 1 コマ → PNG
     janction-render render scene.blend --frames 1-240     # 仕上げ → MP4（1 コマなら PNG）
+    janction-render render scene.blend --frames 1-240 --test   # 同じ設定で 10 コマ試し、測った秒・検品・全体の値段を見てから全体
     janction-render status JOB
     janction-render download JOB --out DIR [--wait 600]
     janction-render cancel JOB
+    janction-render retry JOB [--yes]                     # 失敗・取り消しの仕上げの足りないコマだけ描き直す（値段を先に見せる）
     janction-render jobs
     janction-render info
     janction-render estimate scene.blend --frames 1-48       # 時間と値段だけ（描かない）
@@ -25,7 +27,7 @@ from typing import Any
 
 from . import hookup, links
 from .brief import welcome_billing
-from .client import Client, ClientError, parse_frames, trace_blend_assets
+from .client import Client, ClientError, parse_frames, safe_name, trace_blend_assets
 
 
 QUICKSTART = """JANCTION Render: render Blender scenes on cloud GPUs from the terminal.
@@ -86,6 +88,20 @@ def _upload_progress(done: int, total: int) -> None:
           file=sys.stderr)
 
 
+def _asset_root_arg(s: argparse.ArgumentParser) -> None:
+    """11/9 夜: .blend のフォルダの外のリンクした .blend とその中の素材を送ってよいフォルダ（何度でも）。既定は .blend のフォルダの
+    中だけ（アドオンの Asset folders と同じ安全側。ネットワークの共有は、その共有の中のフォルダを書いたときだけ）。"""
+    s.add_argument("--asset-root", action="append", default=None, metavar="FOLDER",
+                   help="also send linked .blend libraries (and the files they use) from this folder outside the .blend's "
+                        "folder; repeat for more folders. A network share is used only when a folder on it is named here")
+
+
+def _roots_kw(args: argparse.Namespace) -> dict[str, Any]:
+    """--asset-root を書いたときだけ upload に渡す（書かなければ今までと同じ呼び方。既定は .blend のフォルダの中だけ）。"""
+    roots = getattr(args, "asset_root", None)
+    return {"asset_roots": list(roots)} if roots else {}
+
+
 def _scene(c: Client, args: argparse.Namespace) -> str:
     if getattr(args, "scene_id", None):
         return args.scene_id
@@ -95,11 +111,12 @@ def _scene(c: Client, args: argparse.Namespace) -> str:
         # https のリンク（GitHub・Hugging Face のファイルのページのリンクは生のファイルに直す。10/10）。受付が取りに行く
         url = links.scene_link(args.scene)
         if not url:
-            raise SystemExit("the link must be https and end in " + " / ".join(links.SCENE_EXTS))
+            raise SystemExit("the link must be https, end in " + " / ".join(links.SCENE_EXTS)
+                             + ", and have no spaces, quotes or any of " + " ".join(sorted(links.SHELL_CHARS)))
         up = c.upload_url(url)
         print(f"fetched {url} -> scene_id {up['scene_id']}", file=sys.stderr)
         return up["scene_id"]
-    up = c.upload(args.scene, progress=_upload_progress)
+    up = c.upload(args.scene, progress=_upload_progress, **_roots_kw(args))
     args._upload = up
     if up.get("reused_existing"):
         print(f"same file already uploaded; reused scene_id {up['scene_id']} (no bytes sent)", file=sys.stderr)
@@ -117,7 +134,7 @@ def cmd_upload(c: Client, args: argparse.Namespace) -> int:
     if not path.is_file():
         raise FileNotFoundError(f"no such file: {path}")
     if args.keep:
-        up = c.upload(path, progress=_upload_progress)
+        up = c.upload(path, progress=_upload_progress, **_roots_kw(args))
         print(_j({"scene_id": up["scene_id"], "key": "this machine's key",
                   "next": "use this scene_id with this CLI or the local MCP server (janction-render-mcp); AI apps connected "
                           "through OAuth use another key, so run `janction-render upload <file>` without --keep for them"}))
@@ -198,7 +215,7 @@ def cmd_preview(c: Client, args: argparse.Namespace) -> int:
     if j["status"] != "done":
         print(_j({k: j.get(k) for k in ("job_id", "status", "error", "log_tail", "warnings")}))
         return 1
-    out = Path(args.out) if args.out else Path("render_out") / j["job_id"]
+    out = Path(args.out) if args.out else Path("render_out") / safe_name(j["job_id"])
     paths = c.download(j["job_id"], out, on_progress=_say_err)
     print(_j({"job_id": j["job_id"], "scene_id": sid, "frames": frames, "files": [str(p) for p in paths],
               "warnings": j.get("warnings") or [], "gpu_seconds": j["gpu_seconds"], "device": j["device"],
@@ -207,23 +224,188 @@ def cmd_preview(c: Client, args: argparse.Namespace) -> int:
     return 0
 
 
+# 仕上げの既定（受付の既定と同じ）。--scene-settings のときは送らず、.blend の値を受付が埋める（11/9）
+RENDER_DEFAULTS = {"size": (1920, 1080), "samples": 128, "fps": 24}
+
+
+def _defaults(args: argparse.Namespace, scene: bool) -> dict[str, Any]:
+    """渡されなかった --size / --samples / --fps の値。--scene-settings なら None（送らない）、ほかは今までの既定。"""
+    out: dict[str, Any] = {}
+    for k, d in RENDER_DEFAULTS.items():
+        v = getattr(args, k, None)
+        out[k] = v if v is not None else (None if scene else d)
+    return out
+
+
+def _with_scene_read(c: Client, sid: str, args: argparse.Namespace, call: Any) -> dict[str, Any]:
+    """--scene-settings（11/9）: 受付がシーンをまだ読んでいないと断ったら（scene_not_read）、読んで（GPU なし・無料）からもう一度。"""
+    try:
+        return call()
+    except ClientError as exc:
+        if exc.error != "scene_not_read":
+            raise
+    print("reading the scene's own settings first (no GPU time, nothing charged)", file=sys.stderr)
+    j = c.submit(sid, kind="info")
+    if j["status"] != "done":
+        j = c.wait(j["job_id"], timeout=min(float(getattr(args, "timeout", 600) or 600), 600.0), on_progress=_progress)
+    if j["status"] != "done":
+        raise SystemExit(f"could not read the scene ({j.get('error') or j['status']}); pass --size, --samples and --frames instead")
+    return call()
+
+
+def _say_scene_settings(reply: dict[str, Any]) -> None:
+    """--scene-settings の結果を標準エラーに（シーンから取った値・サービスが変えたもの）。受付の旗が切なら、効かなかったと言う。"""
+    ss = reply.get("scene_settings")
+    if not isinstance(ss, dict):
+        print("note: this server did not apply --scene-settings (not enabled there); the service defaults were used",
+              file=sys.stderr)
+        return
+    print(ss.get("summary") or "rendering with the scene's own settings", file=sys.stderr)
+    for o in ss.get("overrides") or []:
+        if o.get("reason") in ("free_tier_cap", "size_limit", "sample_limit", "fps_limit"):
+            print(f"  changed: {o.get('setting')} {o.get('scene')} -> {o.get('job')} ({o.get('reason')})", file=sys.stderr)
+
+
+def _test_mode(args: argparse.Namespace) -> str:
+    """--test（続いたコマ）・--test-spread（最初・真ん中・最後）・--test-frames N（続いたコマの数）。どれも無ければ ""。"""
+    if getattr(args, "test_spread", False):
+        return "spread"
+    if getattr(args, "test", False) or getattr(args, "test_frames", None):
+        return "contiguous"
+    return ""
+
+
+def _test_body(test: str, args: argparse.Namespace) -> dict[str, Any]:
+    out: dict[str, Any] = {"test": test}
+    if test == "contiguous" and getattr(args, "test_frames", None):
+        out["test_frames"] = int(args.test_frames)
+    return out
+
+
+def _say_test(ft: dict[str, Any]) -> None:
+    """試しの結果を標準エラーに: 測った 1 コマの秒・検品・全体の値段（受付の final_test）。"""
+    t = ft.get("timing") or {}
+    qa = ft.get("qa") or {}
+    full = ft.get("full_render") or {}
+    est, cost, reuse = full.get("estimate") or {}, full.get("cost") or {}, full.get("test_reuse") or {}
+    if t.get("per_frame_gpu_seconds") is not None:
+        line = f"measured: {t['per_frame_gpu_seconds']:g} GPU seconds per frame over {t.get('frames_measured')} frames"
+        if t.get("per_frame_render_seconds") is not None:
+            line += f" ({t['per_frame_render_seconds']:g} s rendering, {t.get('load_seconds'):g} s loading in total)"
+        print(line, file=sys.stderr)
+    print(f"frame check: {qa.get('verdict') or 'not run'}" + (f" - {qa['summary']}" if qa.get("summary") else ""), file=sys.stderr)
+    for r in (qa.get("reasons") or [])[:4]:
+        print(f"  {r.get('level')}: {r.get('text')}", file=sys.stderr)
+    for w in qa.get("warnings") or []:
+        print(f"  warning: {w.get('text')}", file=sys.stderr)       # 試しで黒コマが出て別の GPU で描き直した（11/9）
+    if ft.get("contact_sheet"):
+        print(f"contact sheet: {ft['contact_sheet']} (janction-render download JOB --out DIR)", file=sys.stderr)
+    if est:
+        free = bool(cost.get("free") or cost.get("free_beta"))
+        print(f"full range ({(ft.get('of') or {}).get('frames')} frames): {est.get('human') or '?'}, about "
+              f"{round(float(est.get('seconds') or 0))} GPU seconds, "
+              + ("free" if free else f"about {cost.get('estimated_yen')} JPY (up to {cost.get('reserved_yen')} JPY held)"),
+              file=sys.stderr)
+        if reuse:
+            print(f"  the {reuse.get('frames_reused')} test frames are reused (not rendered or charged again); the price and the "
+                  f"hold cover the other {reuse.get('frames_to_render')} frames", file=sys.stderr)
+    elif full.get("error"):
+        print(f"full range: could not estimate ({(full['error'] or {}).get('detail') or full['error']})", file=sys.stderr)
+
+
+def _test_then_full(c: Client, sid: str, args: argparse.Namespace, params: dict[str, Any], test: str) -> Any:
+    """--test（11/9、受付の旗 JR_FINAL_TEST）: 全体と同じ設定で試しのコマだけ描き（普通の仕上げと同じく使った GPU 秒を引く）、測った
+    1 コマの秒・検品・全体の値段を見せてから、全体を描くか聞く（--yes なら聞かない）。返り値は全体の仕事か、終わりのコード。
+    受付が試しを知らない（旗が OFF・古い受付）なら、試しも全体も入れずに 2 で終わる（test の欄が無視されて全部を描かないように、
+    先に見積もり（無料）で確かめる）。"""
+    tb = _test_body(test, args)
+    probe = {k: v for k, v in params.items() if k not in ("idempotency_key", "notify_url")}
+    est = _with_scene_read(c, sid, args, lambda: c.estimate(sid, kind="final", **probe, **tb))
+    t_est = est.get("test")
+    if not isinstance(t_est, dict):
+        print("this server does not run final-path tests yet (--test needs JR_FINAL_TEST there); nothing was started",
+              file=sys.stderr)
+        return 2
+    te, tc = t_est.get("estimate") or {}, t_est.get("cost") or {}
+    print(f"test: {t_est.get('frame_count')} of {(t_est.get('of') or {}).get('frames')} frames "
+          f"({', '.join(str(f) for f in (t_est.get('frames') or [])[:3])}{' ...' if len(t_est.get('frames') or []) > 3 else ''}) "
+          f"with the settings of the full render, {te.get('human') or '?'}, "
+          + ("free" if tc.get("free") or tc.get("free_beta") else f"about {tc.get('estimated_yen')} JPY"), file=sys.stderr)
+    tparams = dict(params, **tb)
+    if params.get("idempotency_key"):
+        tparams["idempotency_key"] = f"{params['idempotency_key']}:test"
+    tj = _with_scene_read(c, sid, args, lambda: c.submit(sid, kind="final", **tparams))
+    print(f"test job {tj['job_id']} queued", file=sys.stderr)
+    tj = c.wait(tj["job_id"], timeout=args.timeout, on_progress=_progress)
+    ft = tj.get("final_test") or {}
+    _say_test(ft)
+    summary = {"test_job_id": tj["job_id"], "status": tj["status"], "final_test": {k: ft.get(k) for k in (
+        "frames", "timing", "qa", "full_render", "contact_sheet") if ft.get(k) is not None}}
+    if tj["status"] != "done" or not ft.get("confirm"):
+        why = ((tj.get("failure") or {}).get("reason") or tj.get("error") or tj["status"]) if tj["status"] != "done" else \
+            "the frame check failed"
+        print(f"the test did not pass ({why}); the full range was not started. Fix the scene and run the test again",
+              file=sys.stderr)
+        print(_j(summary))
+        return 1
+    if not args.yes:
+        if not sys.stdin.isatty():
+            print("the full range was not started; run again with --yes to render it after the test", file=sys.stderr)
+            print(_j(summary))
+            return 2
+        if input("render the full range now? [y/N] ").strip().lower() not in ("y", "yes"):
+            print("the full range was not started", file=sys.stderr)
+            print(_j(summary))
+            return 1
+    body = dict(ft["confirm"].get("body") or {})
+    body.pop("kind", None)
+    body.pop("scene_id", None)
+    for k in ("max_yen", "idempotency_key"):
+        if params.get(k) is not None:
+            body[k] = params[k]
+    j = c.submit(sid, kind="final", **body)
+    print(f"full render: the {ft.get('frame_count')} test frames are reused (no GPU time, not charged again)", file=sys.stderr)
+    return j
+
+
 def cmd_render(c: Client, args: argparse.Namespace) -> int:
+    if _test_mode(args) and (args.output or "") == "blend":
+        print("--test is for rendered frames; --output blend renders nothing", file=sys.stderr)
+        return 2
     sid = _scene(c, args)
-    w, h = args.size
-    if args.frames is None:
+    scene = bool(getattr(args, "scene_settings", False))
+    d = _defaults(args, scene)
+    w, h = d["size"] or (None, None)
+    if args.frames is None and not scene:
         # --output blend は描かない（シーンを .blend で返すだけ）のでコマは要らない（10/15）
         if (args.output or "") != "blend":
             print("--frames is required (e.g. 1-240 or 12); only --output blend works without it", file=sys.stderr)
             return 2
         args.frames = (1, 1)
-    fs, fe = args.frames
-    j = c.submit(sid, kind="final", frame_start=fs, frame_end=fe, width=w, height=h,
-                 samples=args.samples, fps=args.fps, output=args.output, camera=args.camera, engine=args.engine,
-                 transparent=args.transparent or None, notify_url=args.notify_url or None,
-                 max_yen=args.max_yen, idempotency_key=args.idempotency_key or None)
+    fs, fe = args.frames if args.frames is not None else (None, None)    # --scene-settings: 無ければシーンのコマ範囲
+    params: dict[str, Any] = dict(frame_start=fs, frame_end=fe, width=w, height=h,
+                                  samples=d["samples"], fps=d["fps"], output=args.output, camera=args.camera, engine=args.engine,
+                                  transparent=args.transparent or None, notify_url=args.notify_url or None,
+                                  max_yen=args.max_yen, idempotency_key=args.idempotency_key or None)
+    if scene:
+        params["settings"] = "scene"
+    test = _test_mode(args)
+    if test:
+        # 11/9 --test / --test-spread（受付の旗 JR_FINAL_TEST）: 全体と同じ設定で数コマだけ描いて測り、全体の値段を見せてから聞く
+        got = _test_then_full(c, sid, args, params, test)
+        if isinstance(got, int):
+            return got
+        j = got
+    else:
+        # 11/9 夜: 古い読み取りのシーンは、受付が仕上げの前に読み直しを頼む（scene_not_read）。読んでからもう一度（本文は同じ）
+        j = _with_scene_read(c, sid, args, lambda: c.submit(sid, kind="final", **params))
     if j.get("idempotent_replayed"):
         print(f"job {j['job_id']} was already submitted with this idempotency key (nothing new queued or charged)", file=sys.stderr)
-    print(f"job {j['job_id']} queued: {fe - fs + 1} frames in {j['progress']['chunks_total']} chunks, "
+    if scene:
+        _say_scene_settings(j)
+        fs, fe = j.get("frame_start"), j.get("frame_end")
+    n = (fe - fs + 1) if isinstance(fs, int) and isinstance(fe, int) else "?"
+    print(f"job {j['job_id']} queued: {n} frames in {j['progress']['chunks_total']} chunks, "
           f"estimate ~{(j.get('estimate') or {}).get('seconds', '?')}s", file=sys.stderr)
     if not args.wait:
         print(_j({"job_id": j["job_id"], "scene_id": sid, "estimate": j.get("estimate")}))
@@ -232,7 +414,7 @@ def cmd_render(c: Client, args: argparse.Namespace) -> int:
     if j["status"] != "done":
         print(_j({k: j.get(k) for k in ("job_id", "status", "error", "log_tail")}))
         return 1
-    out = Path(args.out) if args.out else Path("render_out") / j["job_id"]
+    out = Path(args.out) if args.out else Path("render_out") / safe_name(j["job_id"])
     paths = c.download(j["job_id"], out, on_progress=_say_err)
     print(_j({"job_id": j["job_id"], "scene_id": sid, "files": [str(p) for p in paths],
               "warnings": j.get("warnings") or [], "gpu_seconds": j["gpu_seconds"], "device": j["device"],
@@ -244,24 +426,40 @@ def cmd_render(c: Client, args: argparse.Namespace) -> int:
 _CLI_FLAGS = {"samples": "--samples", "engine": "--engine", "fps": "--fps", "output": "--output", "camera": "--camera"}
 
 
+_PLAIN_ARG = frozenset("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_.,:/=+@-")
+
+
+def _arg(v: Any) -> str | None:
+    """見せるコマンドに入れる値（11/10 監査）。記号の無い値はそのまま、空白などは引用符で囲む。シェルが読む記号や引用符を
+    含む値は None（その指定はコマンドに入れない）。"""
+    s = str(v)
+    if s and all(c in _PLAIN_ARG for c in s):
+        return s
+    if s and all(31 < ord(c) < 127 for c in s) and not any(c in links.SHELL_CHARS or c in "\"'%<>&" for c in s):
+        return f'"{s}"'
+    return None
+
+
 def _command_for(args: dict[str, Any]) -> str:
     """render_final の引数 → そのまま打てる CLI の 1 行（preset は CLI の shots / turntable。どちらもファイルから描く）。"""
-    sid = args.get("scene_id") or "SCENE_ID"
+    sid = _arg(args.get("scene_id") or "SCENE_ID") or "SCENE_ID"
     pre = {"product": "shots", "turntable": "turntable"}.get(str(args.get("preset") or ""))
     if pre:
-        return f"janction-render {pre} YOUR_MODEL_FILE" + (f" --environment {args['environment']}" if args.get("environment") else "")
+        env = _arg(args["environment"]) if args.get("environment") else None
+        return f"janction-render {pre} YOUR_MODEL_FILE" + (f" --environment {env}" if env else "")
     fs, fe = args.get("frame_start"), args.get("frame_end")
     parts = ["janction-render render", f"--scene-id {sid}"]
-    if fs is not None:
-        parts.append(f"--frames {fs}-{fe}" if fe not in (None, fs) else f"--frames {fs}")
-    if args.get("width") and args.get("height"):
-        parts.append(f"--size {args['width']}x{args['height']}")
-    parts += [f"{flag} {str(args[k]).lower() if k == 'engine' else args[k]}" for k, flag in _CLI_FLAGS.items()
-              if args.get(k) not in (None, "")]
+    vals = {k: _arg(args[k]) for k in ("frame_start", "frame_end", "width", "height", "max_yen", *_CLI_FLAGS) if args.get(k) not in (None, "")}
+    if fs is not None and vals.get("frame_start"):
+        parts.append(f"--frames {vals['frame_start']}-{vals['frame_end']}" if fe not in (None, fs) and vals.get("frame_end")
+                     else f"--frames {vals['frame_start']}")
+    if vals.get("width") and vals.get("height"):
+        parts.append(f"--size {vals['width']}x{vals['height']}")
+    parts += [f"{flag} {vals[k].lower() if k == 'engine' else vals[k]}" for k, flag in _CLI_FLAGS.items() if vals.get(k)]
     if args.get("transparent"):
         parts.append("--transparent")
-    if args.get("max_yen"):
-        parts.append(f"--max-yen {args['max_yen']}")
+    if vals.get("max_yen"):
+        parts.append(f"--max-yen {vals['max_yen']}")
     return " ".join(parts) + " --wait"
 
 
@@ -281,7 +479,7 @@ def _suggest_next(c: Client, job_id: str) -> None:
         if a.get("type") == "render":
             cmd = _command_for((a.get("render") or {}).get("args") or {})
         elif a.get("type") == "recipe":
-            cmd = f"janction-render recipe {job_id} --out recipe.json"
+            cmd = f"janction-render recipe {_arg(job_id) or 'JOB_ID'} --out recipe.json"
         elif a.get("type") == "upload":
             cmd = "janction-render preview my_scene.blend"
         else:
@@ -311,7 +509,7 @@ def cmd_status(c: Client, args: argparse.Namespace) -> int:
 
 def cmd_download(c: Client, args: argparse.Namespace) -> int:
     j = c.wait(args.job, timeout=args.wait, on_progress=_progress) if args.wait else c.job(args.job)
-    out = Path(args.out) if args.out else Path("render_out") / args.job
+    out = Path(args.out) if args.out else Path("render_out") / safe_name(args.job)
     paths = c.download(args.job, out, on_progress=_say_err)
     print(_j({"job_id": args.job, "status": j["status"], "files": [str(p) for p in paths]}))
     return 0 if j["status"] == "done" else 1
@@ -320,6 +518,50 @@ def cmd_download(c: Client, args: argparse.Namespace) -> int:
 def cmd_cancel(c: Client, args: argparse.Namespace) -> int:
     j = c.cancel(args.job)
     print(_j({"job_id": j["job_id"], "status": j["status"]}))
+    return 0
+
+
+def cmd_retry(c: Client, args: argparse.Namespace) -> int:
+    """失敗・取り消しの仕上げの足りないコマだけを描き直す（11/9）。先に足りないコマと値段を見せ、聞いてから（--yes なら聞かずに）始める。
+    標準出力は JSON だけ（人への言葉は標準エラー）。聞けない（端末でない）のに --yes が無ければ、描かずに 2 で終わる。"""
+    try:
+        plan = c.retry(args.job, max_yen=args.max_yen)
+    except ClientError as exc:
+        if exc.status == 404:
+            print(f"error: no such job, or this server does not retry frames yet ({exc.detail or exc.error})", file=sys.stderr)
+            return 2
+        raise
+    if not plan.get("dry_run"):
+        # もうやり直した仕事がある（描いている・描き終えた）: その仕事が返る
+        print(plan.get("note") or f"job {plan.get('job_id')} is already the retry", file=sys.stderr)
+        print(_j({"job_id": plan.get("job_id"), "status": plan.get("status")}))
+        return 0
+    print(plan.get("tell_user") or plan.get("note") or "nothing to render again", file=sys.stderr)
+    cost = plan.get("cost") or {}
+    if plan.get("parts") == []:
+        print(_j(plan))                  # 分けた仕上げで、失敗・取り消しの部分が無い
+        return 1
+    if args.max_yen is not None and cost.get("within_max_yen") is False:
+        print(f"over budget: rendering the missing frames needs about {cost.get('needed_yen')} JPY, above --max-yen {args.max_yen}",
+              file=sys.stderr)
+        print(_j(plan))
+        return 5
+    if not args.yes:
+        if not sys.stdin.isatty():
+            print("nothing was started; run again with --yes to render the missing frames", file=sys.stderr)
+            print(_j(plan))
+            return 2
+        if input("render the missing frames now? [y/N] ").strip().lower() not in ("y", "yes"):
+            print("nothing was started", file=sys.stderr)
+            return 1
+    j = c.retry(args.job, confirm=True, max_yen=args.max_yen, idempotency_key=args.idempotency_key)
+    if j.get("idempotent_replayed"):
+        print(f"job {j['job_id']} was already started for this retry (nothing new queued or charged)", file=sys.stderr)
+    else:
+        print(f"job {j['job_id']} queued: only the missing frames are rendered; follow it with: janction-render status {j['job_id']}",
+              file=sys.stderr)
+    print(_j({"job_id": j["job_id"], "status": j.get("status"), "retry_of": j.get("retry_of") or plan.get("retry_of"),
+              "estimate": j.get("estimate")}))
     return 0
 
 
@@ -420,15 +662,28 @@ def cmd_balance(c: Client, args: argparse.Namespace) -> int:
 
 def cmd_estimate(c: Client, args: argparse.Namespace) -> int:
     """描かずに時間と値段だけ（10/11）。--max-yen を付けると、その額に収まるかも見る（収まらなければ 5 で終わる＝CI で止まる）。"""
+    scene = bool(getattr(args, "scene_settings", False))
+    if scene and args.preview:
+        print("--scene-settings is for final renders (leave out --preview)", file=sys.stderr)
+        return 2
     sid = _scene(c, args)
-    w, h = args.size
-    body: dict[str, Any] = {"width": w, "height": h, "samples": args.samples, "engine": args.engine, "max_yen": args.max_yen}
+    d = _defaults(args, scene)
+    w, h = d["size"] or (None, None)
+    body: dict[str, Any] = {"width": w, "height": h, "samples": d["samples"], "engine": args.engine, "max_yen": args.max_yen}
     if args.preview:
         body.update({"kind": "preview", "frames": parse_frames(args.frames or "1")})
+    elif scene:
+        # 11/9: 渡さなかった欄（大きさ・サンプル数・コマ範囲）は .blend の値で見積もる
+        fs, fe = _frames(args.frames) if args.frames else (None, None)
+        body.update({"kind": "final", "frame_start": fs, "frame_end": fe, "settings": "scene"})
     else:
         fs, fe = _frames(args.frames or "1")
         body.update({"kind": "final", "frame_start": fs, "frame_end": fe})
-    est = c.estimate(sid, **body)
+    if scene:
+        est = _with_scene_read(c, sid, args, lambda: c.estimate(sid, **body))
+        _say_scene_settings(est)
+    else:
+        est = c.estimate(sid, **body)
     cost = est.get("cost") or {}
     free = bool(cost.get("free") or cost.get("free_beta"))
     print(f"{est.get('human') or 'estimate'}: about {round(float(est.get('seconds') or 0))} GPU seconds, "
@@ -600,7 +855,7 @@ def _outcome(c: Client, args: argparse.Namespace, name: str, options: dict[str, 
     if j["status"] != "done":
         print(_j({k: j.get(k) for k in ("job_id", "status", "error", "log_tail")}))
         return 1
-    out = Path(args.out) if args.out else Path("render_out") / j["job_id"]
+    out = Path(args.out) if args.out else Path("render_out") / safe_name(j["job_id"])
     paths = c.download(j["job_id"], out, only=only, on_progress=_say_err)
     print(_j({"job_id": j["job_id"], "scene_id": sid, "files": [str(p) for p in paths], "gpu_seconds": j["gpu_seconds"],
               "expires_at": j["expires_at"]}))
@@ -625,7 +880,7 @@ def cmd_try(c: Client, args: argparse.Namespace) -> int:
     if j["status"] != "done":
         print(_j({k: j.get(k) for k in ("job_id", "status", "error", "log_tail")}))
         return 1
-    out = Path(args.out) if args.out else Path("render_out") / j["job_id"]
+    out = Path(args.out) if args.out else Path("render_out") / safe_name(j["job_id"])
     paths = c.download(j["job_id"], out, on_progress=_say_err)
     print(f"done: {j['gpu_seconds']} GPU seconds on {j.get('device') or 'GPU'} -> " + ", ".join(str(p) for p in paths))
     try:
@@ -667,12 +922,14 @@ def build_parser() -> argparse.ArgumentParser:
                                                 "a scene of that connection")
     s.add_argument("--keep", action="store_true", help="store it under this machine's key instead and print the scene_id "
                                                        "(for this CLI and the local MCP server)")
+    _asset_root_arg(s)
     s.set_defaults(fn=cmd_upload)
 
     s = sub.add_parser("inspect", help="read the scene without rendering (cameras, frame range, missing files)")
     s.add_argument("scene", nargs="?", help=".blend file or bpy Python script")
     s.add_argument("--scene-id", default=None, help="reuse an uploaded scene")
     s.add_argument("--timeout", type=float, default=180)
+    _asset_root_arg(s)
     s.set_defaults(fn=cmd_inspect)
 
     s = sub.add_parser("preview", help="render 1-4 preview frames (fast, up to 720p; several frames are tiled)")
@@ -687,16 +944,22 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--out", default=None)
     s.add_argument("--timeout", type=float, default=300)
     s.add_argument("--max-yen", type=int, default=None, help="refuse the preview if it could cost more than this (JPY)")
+    _asset_root_arg(s)
     s.set_defaults(fn=cmd_preview)
 
     s = sub.add_parser("render", help="render final frames (MP4 or PNG)")
     s.add_argument("scene", nargs="?")
     s.add_argument("--scene-id", default=None)
-    s.add_argument("--frames", type=_frames, default=None, help="e.g. 1-240 or 12 (not needed with --output blend)")
-    s.add_argument("--size", type=_size, default=(1920, 1080))
-    s.add_argument("--samples", type=int, default=128)
+    s.add_argument("--frames", type=_frames, default=None,
+                   help="e.g. 1-240 or 12 (not needed with --output blend or --scene-settings)")
+    # 11/9: 既定は渡さなかったときに cmd_render が入れる（RENDER_DEFAULTS。--scene-settings なら送らずシーンの値）
+    s.add_argument("--size", type=_size, default=None, help="WIDTHxHEIGHT (default 1920x1080)")
+    s.add_argument("--samples", type=int, default=None, help="default 128")
     s.add_argument("--engine", choices=["cycles", "eevee"], default=None, help="cycles (default) or eevee (cheaper drafts)")
-    s.add_argument("--fps", type=int, default=24)
+    s.add_argument("--fps", type=int, default=None, help="default 24")
+    s.add_argument("--scene-settings", action="store_true",
+                   help=".blend: use the scene's own resolution, samples, fps, engine and frame range for every option not "
+                        "given here (the server lists anything it still changes)")
     s.add_argument("--output", choices=["auto", "png", "exr", "mp4", "webm", "prores", "gif", "webp", "blend"], default="auto",
                    help="png/exr = frames, mp4/webm/prores/gif/webp = video (auto: mp4 for a range, png for one frame)")
     s.add_argument("--transparent", action="store_true", help="transparent background (png/exr/webm/gif/webp)")
@@ -707,6 +970,14 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--timeout", type=float, default=7200)
     s.add_argument("--max-yen", type=int, default=None, help="refuse the job before it starts if it could cost more than this (JPY)")
     s.add_argument("--idempotency-key", default=None, help="same key = same job: a retry never renders or charges twice")
+    # 11/9 最終の経路での試し描き（受付の旗 JR_FINAL_TEST）
+    s.add_argument("--test", action="store_true",
+                   help="first render 10 contiguous frames with exactly these settings (billed like any final), show the measured "
+                        "time per frame, the frame check and the full price, then ask before rendering the full range")
+    s.add_argument("--test-frames", type=int, default=None, help="with --test: how many contiguous frames to test (1-24)")
+    s.add_argument("--test-spread", action="store_true", help="like --test, but test the first, middle and last frame")
+    s.add_argument("--yes", action="store_true", help="with --test: render the full range without asking if the test passes")
+    _asset_root_arg(s)
     s.set_defaults(fn=cmd_render)
 
     s = sub.add_parser("estimate", help="time and price of a render before running it (no GPU used)")
@@ -714,10 +985,14 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--scene-id", default=None, help="reuse an uploaded scene")
     s.add_argument("--frames", default="", help="e.g. 1-240 (final) or 1,8,16 (with --preview)")
     s.add_argument("--preview", action="store_true", help="estimate a preview instead of a final render")
-    s.add_argument("--size", type=_size, default=(1920, 1080))
-    s.add_argument("--samples", type=int, default=128)
+    s.add_argument("--size", type=_size, default=None, help="WIDTHxHEIGHT (default 1920x1080)")
+    s.add_argument("--samples", type=int, default=None, help="default 128")
     s.add_argument("--engine", choices=["cycles", "eevee"], default=None)
+    s.add_argument("--scene-settings", action="store_true",
+                   help=".blend: estimate with the scene's own resolution, samples, engine and frame range for every option "
+                        "not given here")
     s.add_argument("--max-yen", type=int, default=None, help="exit with code 5 when the job could cost more than this (JPY)")
+    _asset_root_arg(s)
     s.set_defaults(fn=cmd_estimate)
 
     s = sub.add_parser("doctor", help="check the connection, the key, the credit and the AI apps on this machine")
@@ -765,6 +1040,12 @@ def build_parser() -> argparse.ArgumentParser:
     s = sub.add_parser("cancel")
     s.add_argument("job")
     s.set_defaults(fn=cmd_cancel)
+    s = sub.add_parser("retry", help="render only the frames a failed or canceled final is missing (shows the price first)")
+    s.add_argument("job")
+    s.add_argument("--yes", action="store_true", help="start without asking (needed when not run in a terminal)")
+    s.add_argument("--max-yen", type=int, default=None, help="refuse if rendering the missing frames could cost more than this (JPY)")
+    s.add_argument("--idempotency-key", default=None, help="same key = same retry: sending it again never renders or charges twice")
+    s.set_defaults(fn=cmd_retry)
 
     s = sub.add_parser("jobs")
     s.add_argument("--limit", type=int, default=20)
@@ -796,6 +1077,7 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--environment", default="studio", help="studio, sunset, overcast or night")
     s.add_argument("--out", default=None, help="folder for the MP4 (default: render_out/<job_id>)")
     s.add_argument("--timeout", type=float, default=1800)
+    _asset_root_arg(s)
     s.set_defaults(fn=cmd_turntable, scene_id=None)
 
     s = sub.add_parser("shots", help="four product shots (0/90/180/270 degrees, PNG) of a model in one command (fixed price ceiling)")
@@ -805,6 +1087,7 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--environment", default="studio", help="studio, sunset, overcast or night")
     s.add_argument("--out", default=None, help="folder for the PNGs (default: render_out/<job_id>)")
     s.add_argument("--timeout", type=float, default=1800)
+    _asset_root_arg(s)
     s.set_defaults(fn=cmd_shots, scene_id=None)
 
     s = sub.add_parser("connect", help="connect your AI apps (Claude Code, Codex, Gemini CLI, Cursor, Windsurf, VS Code) to JANCTION Render")
@@ -845,11 +1128,11 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"or pay {pay.get('topup_yen') or ''} JPY: {pay['checkout_url']}"
                       + ("; the render then starts by itself" if order else ", then run the command again"), file=sys.stderr)
                 if order:
-                    print(f"follow it with: janction-render status {order}", file=sys.stderr)
+                    print(f"follow it with: janction-render status {_arg(order) or 'ORDER_ID'}", file=sys.stderr)
             elif order:
                 # 10/14: 払うと預かった仕事が自動で始まる。送り直すと同じ仕事が返る（2 本は描かない）
                 print(f"open this page in a browser and pay: {pay['checkout_url']}", file=sys.stderr)
-                print(f"the render then starts by itself (nothing to run again); follow it with: janction-render status {order}",
+                print(f"the render then starts by itself (nothing to run again); follow it with: janction-render status {_arg(order) or 'ORDER_ID'}",
                       file=sys.stderr)
             else:
                 print(f"open this page in a browser and pay, then run the command again: {pay['checkout_url']}",

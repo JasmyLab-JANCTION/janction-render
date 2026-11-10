@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.4.266 - 2026-11-10
+
+- Security and billing hardening after a code review: tighter limits on uploads, fetched files and what a render hands back; an app connection (OAuth) can render, read results and share, but changes to keys, email, payment settings, limits and deletions need the API key itself or a sign-in on the account page.
+- A failed render is free when the failure is confirmed on our side (the render container, the GPU worker or the encoder). Any other failed render counts only the chunks that finished, plus lost time past the daily allowance.
+- A final that uses up the amount held for it (or, on free time, well past its estimate) is stopped; the frames that finished are kept and the error lists the frames left (failure code BUDGET_REACHED).
+- When a scene's linked .blend library or a texture is missing, the advice now says what works today (pack the files, or Make Local / Append the linked data) instead of asking to send the .blend as an asset.
+- pip install 'janction-render[blend]' now also installs zstandard, so the CLI can list the textures and caches of compressed .blend files (the default since Blender 4.x).
+- The scene reader also reports the scene's denoising, film transparency, colour management and baked simulation caches, for upcoming production checks; nothing changes in current renders.
+- Groundwork for production features in internal tests (keeping the scene's own settings, refusing finals with missing files or unbaked simulations, re-rendering only missing frames, more asset types, a final-path test before the full render, EXR depth and checks), off by default.
+
 ## 0.4.265 - 2026-11-09
 
 - The connect guide covers the Gemini app (gemini.google.com: Settings → Connected Apps → Custom apps), Manus and MiniMax Code, and gives Perplexity's path (Settings → Connectors → Custom → Remote).

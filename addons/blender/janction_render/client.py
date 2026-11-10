@@ -9,6 +9,7 @@ import base64
 import hashlib
 import http.client
 import json
+import os
 import socket
 import time
 import urllib.error
@@ -18,14 +19,27 @@ import uuid
 from pathlib import Path
 from typing import Any, Callable, Iterable, Optional, Sequence
 
-VERSION = "0.1.10"
+VERSION = "0.1.12"
 USER_AGENT = f"janction-render-blender/{VERSION}"
 CLIENT_NAME = f"blender {VERSION}"
 DEFAULT_SERVER = "https://render.janction.jp"
 CHUNK = 1024 * 1024
 
 # One request to POST /v1/files/{id}/assets carries at most this many files / bytes.
-ASSET_BATCH_FILES = 10
+# 11/9: 10 -> 100。連番・キャッシュは小さいファイルが数百あり、10 ずつだと鍵ごとの 1 時間 120 回の上限に当たる
+ASSET_BATCH_FILES = 100
+# 旗 JR_PRO_ASSETS の受付だけが受ける型（assets.PRO_EXTENSIONS と同じ）。旗の無い受付は 400 unsupported を返す
+PRO_EXTENSIONS = {".vdb", ".bphys", ".blob", ".uni", ".gz", ".avi", ".mkv", ".webm"}
+# 旗 JR_LINKED_BLEND の受付だけが受ける型（リンクした .blend、11/9 夜 0.1.12）と、その付け替えの組のファイル
+LIBRARY_EXTENSIONS = {".blend"}
+LIBRARY_MAP_NAME = "jr_libraries.json"
+BASE_EXTENSIONS = {
+    ".png", ".jpg", ".jpeg", ".exr", ".hdr", ".tif", ".tiff", ".webp", ".bmp", ".tga",
+    ".bin", ".mtl", ".fbx", ".glb", ".gltf", ".obj", ".usd", ".usda", ".usdc", ".usdz", ".abc",
+    ".mp4", ".mov", ".json", ".txt", ".csv", ".ttf", ".otf",
+}
+# manifest を読めない古い受付の数の上限
+LEGACY_MAX_ASSETS = 40
 ASSET_BATCH_BYTES = 256 * 1024 * 1024
 # render.janction.jp sits behind an edge that passes at most 100 MB per request; a bigger upload
 # never reaches the service and comes back as a bare 413. The scene is checked before it is sent and
@@ -116,6 +130,25 @@ def sha256_of(path: "str | Path") -> str:
         for chunk in iter(lambda: fh.read(CHUNK), b""):
             h.update(chunk)
     return h.hexdigest()
+
+
+# 同じ Blender の間は、大きさと更新時刻が同じファイルの sha256 を測り直さない（連番・VDB で数 GB になる、11/9）
+_HASHES: dict[tuple[str, int, int], str] = {}
+
+
+def cached_sha256(path: "str | Path") -> str:
+    st = os.stat(path)
+    key = (os.path.normcase(os.path.abspath(str(path))), st.st_size, st.st_mtime_ns)
+    digest = _HASHES.get(key)
+    if digest is None:
+        digest = _HASHES[key] = sha256_of(path)
+    return digest
+
+
+def is_pro(name: str) -> bool:
+    """旗の要る型か（JR_PRO_ASSETS の .vdb など、11/9 夜から JR_LINKED_BLEND のリンクした .blend も）。"""
+    ext = os.path.splitext(name)[1].lower()
+    return (ext in PRO_EXTENSIONS and ext not in BASE_EXTENSIONS) or ext in LIBRARY_EXTENSIONS
 
 
 def _multipart_filename(name: str) -> str:
@@ -227,11 +260,12 @@ class Client:
 
     def _open(self, method: str, path: str, *, json_body: Optional[dict[str, Any]] = None,
               body: Optional[MultipartBody] = None, query: Optional[dict[str, str]] = None,
-              auth: bool = True, timeout: Optional[float] = None):
+              auth: bool = True, timeout: Optional[float] = None, extra_headers: Optional[dict[str, str]] = None):
         url = self.server + path
         if query:
             url += "?" + urllib.parse.urlencode(query)
         headers = {"User-Agent": USER_AGENT, "X-Client": CLIENT_NAME, "Accept": "application/json"}
+        headers.update(extra_headers or {})
         if auth:
             if not self.api_key:
                 raise JRError("no_key", "No API key. Open the add-on preferences and press 'Get a free key'.")
@@ -317,8 +351,11 @@ class Client:
 
         The scene is skipped when the server already has the same bytes (sha256
         lookup). Assets are ``(relative_name, absolute_path)`` pairs; names the
-        scene already has with the same size are skipped too. Returns the scene
-        view with ``assets_sent`` (names uploaded by this call).
+        scene already has with the same content are skipped too (sha256 through
+        POST /v1/files/{id}/manifest, 11/9; an older server is compared by size).
+        Returns the scene view with ``assets_sent`` (names uploaded by this call)
+        and ``assets_dropped`` (["name: why", ...] left out: a type the server
+        does not take yet, or over its per-scene file count).
         """
         p = Path(path)
         if not p.is_file():
@@ -343,9 +380,7 @@ class Client:
                 scene = self._json("POST", "/v1/files", body=body, timeout=1800)
         else:
             tell(f"{p.name} is already on the server")
-        have = {str(a.get("name")): int(a.get("size") or -1) for a in scene.get("assets") or []}
-        todo = [(name, abs_path) for name, abs_path in assets
-                if have.get(name) != Path(abs_path).stat().st_size]
+        todo, dropped = self.plan_assets(scene, list(assets), tell) if assets else ([], [])
         sent: list[str] = []
         if todo:
             scene_id = str(scene["scene_id"])
@@ -375,7 +410,72 @@ class Client:
                 scene = self.upload_assets(scene_id, batch)
                 sent += [name for name, _ in batch]
         scene["assets_sent"] = sent
+        scene["assets_dropped"] = dropped
         return scene
+
+    def manifest(self, scene_id: str, items: list[dict[str, Any]]) -> dict[str, Any]:
+        """POST /v1/files/{id}/manifest: 手元の素材の一覧（name・size・sha256）を受付と照らす。have / missing / limits を返す。"""
+        return self._json("POST", f"/v1/files/{scene_id}/manifest", json_body={"assets": items}, timeout=120)
+
+    def plan_assets(self, scene: dict[str, Any], assets: list[Asset],
+                    tell: Callable[[str], None]) -> tuple[list[Asset], list[str]]:
+        """送る素材を決める（11/9）。sha256 で照らし、受付に同じ中身がある物は送らない（大きさが同じでも中身が違えば送る）。
+        受付が受けない型（旗 JR_PRO_ASSETS の無い受付の .vdb など）と、シーンの数の上限を超える物は外して理由を返す。
+        (送る物, ["名前: 理由"])。"""
+        scene_id = str(scene["scene_id"])
+        tell(f"Checking {len(assets)} files")
+        wanted = [{"name": n, "size": Path(p).stat().st_size, "sha256": cached_sha256(p)} for n, p in assets]
+        dropped: list[str] = []
+        diff: Optional[dict[str, Any]] = None
+        try:
+            diff = self.manifest(scene_id, wanted)
+        except JRError as exc:
+            if exc.code in ("network", "timeout", "no_key"):
+                raise
+            if exc.status == 400 and exc.code == "unsupported" and any(is_pro(w["name"]) for w in wanted):
+                # 旗の無い受付: 新しい型だけを外して、残りで照らし直す（描画は止めない）
+                for w in wanted:
+                    if is_pro(w["name"]):
+                        ext = ".bobj.gz" if w["name"].lower().endswith(".bobj.gz") else os.path.splitext(w["name"])[1].lower()
+                        what = "linked .blend" if ext in LIBRARY_EXTENSIONS else ext
+                        dropped.append(f"{w['name']}: {self._host()} does not take {what} files yet")
+                # リンクした .blend を外したら、その付け替えの組（jr_libraries.json）も送らない
+                libs_out = any(os.path.splitext(w["name"])[1].lower() in LIBRARY_EXTENSIONS for w in wanted)
+                wanted = [w for w in wanted if not is_pro(w["name"]) and not (libs_out and w["name"] == LIBRARY_MAP_NAME)]
+                assets = [(n, p) for n, p in assets if not is_pro(n) and not (libs_out and n == LIBRARY_MAP_NAME)]
+                try:
+                    diff = self.manifest(scene_id, wanted) if wanted else {"missing": [], "limits": {}}
+                except JRError as exc2:
+                    if exc2.code in ("network", "timeout", "no_key"):
+                        raise
+                    diff = None
+        if diff is None:
+            # manifest の無い古い受付: シーンの一覧の sha256（無ければ大きさ）で比べる
+            have = {str(a.get("name")): a for a in scene.get("assets") or []}
+
+            def same(w: dict[str, Any]) -> bool:
+                h = have.get(w["name"])
+                if h is None:
+                    return False
+                if h.get("sha256"):
+                    return str(h["sha256"]) == w["sha256"]
+                return int(h.get("size") or -1) == w["size"]
+
+            missing = {w["name"] for w in wanted if not same(w)}
+            limit = LEGACY_MAX_ASSETS
+        else:
+            missing = {str(m.get("name")) for m in diff.get("missing") or [] if isinstance(m, dict)}
+            limit = int((diff.get("limits") or {}).get("max_assets") or 0)
+        todo = [(n, p) for n, p in assets if n in missing]
+        if limit:
+            on_server = {str(a.get("name")) for a in scene.get("assets") or []}
+            room = max(0, limit - len(on_server))
+            new = [n for n, _ in todo if n not in on_server]
+            if len(new) > room:
+                cut = set(new[room:])
+                dropped += [f"{n}: {self._host()} takes {limit} files per scene" for n in new[room:]]
+                todo = [(n, p) for n, p in todo if n not in cut]
+        return todo, dropped
 
     # ---- large scenes in parts (POST /v1/uploads, tus 1.0) ----------------------
 
@@ -516,9 +616,11 @@ class Client:
         """POST /v1/estimate: seconds, human sentence and quota, without rendering."""
         return self._json("POST", "/v1/estimate", json_body=body, timeout=20)
 
-    def submit(self, body: dict[str, Any]) -> dict[str, Any]:
-        """POST /v1/jobs: start a preview or final render."""
-        return self._json("POST", "/v1/jobs", json_body=body, timeout=60)
+    def submit(self, body: dict[str, Any], idempotency_key: str = "") -> dict[str, Any]:
+        """POST /v1/jobs: start a preview or final render. 同じ Idempotency-Key で送り直すと受付は最初の仕事を返す
+        （Blender が落ちて job_id を受け取れなかったときに、同じ依頼を二重に入れない、11/9）。"""
+        headers = {"Idempotency-Key": idempotency_key} if idempotency_key else None
+        return self._json("POST", "/v1/jobs", json_body=body, timeout=60, extra_headers=headers)
 
     def job(self, job_id: str) -> dict[str, Any]:
         return self._json("GET", f"/v1/jobs/{job_id}", timeout=20)
