@@ -15,6 +15,7 @@ VERSION_ITEMS = [
     ('DEFAULT', "Default", "Use the version from the add-on preferences"),
     ('5.0', "Blender 5.0", ""),
     ('5.2', "Blender 5.2", ""),
+    ('5.3', "Blender 5.3", ""),
 ]
 OUTPUT_ITEMS = [
     ('mp4', "MP4", "One video file"),

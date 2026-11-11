@@ -19,7 +19,7 @@ import uuid
 from pathlib import Path
 from typing import Any, Callable, Iterable, Optional, Sequence
 
-VERSION = "0.1.12"
+VERSION = "0.1.13"
 USER_AGENT = f"janction-render-blender/{VERSION}"
 CLIENT_NAME = f"blender {VERSION}"
 DEFAULT_SERVER = "https://render.janction.jp"

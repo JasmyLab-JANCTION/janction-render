@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.267 - 2026-11-11
+
+- Blender 5.3 is available (Cycles and EEVEE on GPU). A .blend saved with 5.3 opens with 5.3; pass blender='5.3' for scripts and 3D files. Defaults for scripts and 3D files stay on 5.0, and files saved with 5.2 or older open as before.
+- A .blend is no longer opened by an older Blender than the one that saved it: if the matching version is not available right now, the request is refused with unsupported_blender_version (or the job fails with UNSUPPORTED_BLENDER_VERSION) instead of rendering with missing features. That attempt is not charged.
+
 ## 0.4.266 - 2026-11-10
 
 - Security and billing hardening after a code review: tighter limits on uploads, fetched files and what a render hands back; an app connection (OAuth) can render, read results and share, but changes to keys, email, payment settings, limits and deletions need the API key itself or a sign-in on the account page.

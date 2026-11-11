@@ -170,8 +170,11 @@ def _environment(prefs, settings) -> str:
 def _blender_version(prefs, settings) -> str:
     value = settings.blender_version if settings.blender_version != 'DEFAULT' else (prefs.blender_version if prefs else 'AUTO')
     if value == 'AUTO':
-        # A file saved by this Blender must not be opened by an older one on the worker: 5.2 for Blender 5.1+, else 5.0.
+        # A file saved by this Blender must not be opened by an older one on the worker: 5.3 for Blender 5.3+,
+        # 5.2 for 5.1 and 5.2, else 5.0 (0.1.13).
         running = tuple(getattr(getattr(bpy, "app", None), "version", (5, 0, 0)))[:2]
+        if running >= (5, 3):
+            return "5.3"
         return "5.2" if running >= (5, 1) else "5.0"
     return str(value)
 

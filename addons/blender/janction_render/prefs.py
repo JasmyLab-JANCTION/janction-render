@@ -17,9 +17,10 @@ PREF_ENV_ITEMS = [
     ('night', "Night", "Night HDRI"),
 ]
 PREF_VERSION_ITEMS = [
-    ('AUTO', "Match this Blender", "5.2 when this Blender is 5.1 or newer, otherwise 5.0, so the worker never opens the file with an older Blender"),
+    ('AUTO', "Match this Blender", "5.3 when this Blender is 5.3 or newer, 5.2 for 5.1 and 5.2, otherwise 5.0, so the worker never opens the file with an older Blender"),
     ('5.0', "Blender 5.0", ""),
     ('5.2', "Blender 5.2", ""),
+    ('5.3', "Blender 5.3", ""),
 ]
 
 
