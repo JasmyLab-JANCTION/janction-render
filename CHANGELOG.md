@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.269 - 2026-11-11
+
+- Gaussian splats render: send a .spz file or a 3D Gaussian Splatting .ply and it opens with Blender 5.3 as a splat (Cycles or EEVEE) for previews, stills and turntables, at the same price per GPU-second. A file can have up to 2,000,000 points for now; a larger one is refused before anything is rendered or charged.
+- For splats, the preview check no longer asks for a camera outside the scene or for a light: a captured scene surrounds the camera and carries its own lighting. Captures often have haze around the subject, so look at the preview before a turntable; the delivery check flags the frames where the camera passes through it.
+- The browser workbench and the upload page accept .spz files.
+
 ## 0.4.268 - 2026-11-11
 
 - The browser workbench at /start has a new layout: one large stage shows the preview and then the finished image or video, the settings sit in a side rail, and the main button stays in view (fixed to the bottom of the screen on phones). Lights, the four-way light comparison, the camera and a frame slider are right under the picture.
