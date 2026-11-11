@@ -10,7 +10,7 @@ from typing import Optional
 from urllib.parse import quote, urlparse
 
 # 受付が受ける拡張子（/v1/health の features.inputs と同じ）
-SCENE_EXTS = (".blend", ".py", ".glb", ".gltf", ".fbx", ".obj", ".usd", ".usda", ".usdc", ".usdz", ".stl", ".ply", ".abc")
+SCENE_EXTS = (".blend", ".py", ".glb", ".gltf", ".fbx", ".obj", ".usd", ".usda", ".usdc", ".usdz", ".stl", ".ply", ".abc", ".spz")
 MAX_URL = 1000
 
 _GITHUB_BLOB = re.compile(r"^https://github\.com/([^/]+)/([^/]+)/(?:blob|raw)/(.+)$")

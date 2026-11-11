@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.268 - 2026-11-11
+
+- The browser workbench at /start has a new layout: one large stage shows the preview and then the finished image or video, the settings sit in a side rail, and the main button stays in view (fixed to the bottom of the screen on phones). Lights, the four-way light comparison, the camera and a frame slider are right under the picture.
+- In the workbench, turntable and scene-video previews play as frames, the tiles shown while a final renders are the frames as they finish, a finished video starts playing in place, and the result line shows how long it took and what it cost. Textures and other assets can be added after the scene is uploaded.
+- Monthly plans are now Basic 1,500 JPY (1,650 JPY of credit every month), Standard 4,500 JPY (5,400 JPY) and Pro 15,000 JPY (19,500 JPY). The price per GPU-second is unchanged and unused credit carries over. While a plan is active, results are kept 30 days; Standard and Pro include JANCTION Storage (beta): 200 GiB on Standard, 1 TiB for 3 people on Pro.
+
 ## 0.4.267 - 2026-11-11
 
 - Blender 5.3 is available (Cycles and EEVEE on GPU). A .blend saved with 5.3 opens with 5.3; pass blender='5.3' for scripts and 3D files. Defaults for scripts and 3D files stay on 5.0, and files saved with 5.2 or older open as before.

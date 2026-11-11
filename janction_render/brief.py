@@ -807,7 +807,13 @@ def plan_fields(me: dict[str, Any]) -> dict[str, Any]:
     if not plans and not links and b.get("autocharge") is None and b.get("subscription") is None:
         return {}
     out: dict[str, Any] = {"autocharge": b.get("autocharge"), "monthly_plan": b.get("subscription"),
-                           "monthly_plans": [{k: p.get(k) for k in ("id", "name", "price_yen", "credit_yen")} for p in plans]}
+                           "monthly_plans": [{k: p.get(k) for k in ("id", "name", "price_yen", "credit_yen")}
+                                             # 11/11 受付の旗 JR_PLAN_RENDERS・JR_PLAN_PERKS が ON のときだけ届く欄（無ければ今の形のまま）
+                                             | {k: p[k] for k in ("renders_estimate", "renders", "keep_days_after_last_use") if k in p}
+                                             for p in plans]}
+    if any("renders_estimate" in p for p in plans):
+        out["monthly_plans_note"] = ("describe each monthly plan by how many renders it covers: renders.en / renders.ja "
+                                     "(1080p 240-frame animations, about 160 JPY each), then the price")
     if links:
         out["links"] = links
         out["links_note"] = ("each link opens a confirmation page where the user decides on Stripe; share one only when the user "

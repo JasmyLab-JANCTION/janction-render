@@ -23,7 +23,7 @@ LOCAL_SERVER = "http://127.0.0.1:8340"
 CACHE = Path.home() / ".janction-render.json"
 
 # 送れるシーン: .blend、bpy スクリプト、こちらの Blender が読み込める 3D ファイル
-SCENE_SUFFIXES = (".blend", ".py", ".fbx", ".glb", ".gltf", ".obj", ".stl", ".ply", ".usd", ".usda", ".usdc", ".usdz", ".abc")
+SCENE_SUFFIXES = (".blend", ".py", ".fbx", ".glb", ".gltf", ".obj", ".stl", ".ply", ".usd", ".usda", ".usdc", ".usdz", ".abc", ".spz")
 ONLY_CHOICES = ("all", "mp4", "frames", "sheet", "output", "video", "blend")
 ARCHIVE_MIN_FILES = 8   # これ以上の数のファイルは zip で 1 回で取る（1 枚ずつだと入口の回数制限 429 に当たる、10/9）
 # zip は約 1 GiB ずつの区切りで取る（10/14 受け取り側の 5 GB 試験: 1 本の zip は途中から取り直せず、切れると全部を 1 枚ずつ取り直していた）
