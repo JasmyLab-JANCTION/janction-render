@@ -742,9 +742,8 @@ def render_preview(
         params = dict(frames=frame_list, camera=camera or None, cameras=(list(cameras) if cameras else None),
                       variations=(list(variations) if variations else None),
                       width=width, height=height, samples=samples, transparent=(True if transparent else None),
-                      **_job_params(environment, environment_strength, environment_visible, blender, engine=engine),
-                      **({"orbit": True, "orbit_frames": orbit_frames, "orbit_elevation": orbit_elevation,
-                          "orbit_target": orbit_target, "orbit_distance": orbit_distance} if orbit else {}))
+                      **_job_params(environment, environment_strength, environment_visible, blender, orbit, orbit_frames,
+                                    orbit_elevation, orbit_target, orbit_distance, engine=engine))
         j = c.submit(sid, kind="preview", **_with_preset(params, preset, "preview"))
         _log(f"preview job {j['job_id']} submitted frames={frame_list}")
         j = _wait_unless_gated(c, j, PREVIEW_WAIT_S)
@@ -983,9 +982,10 @@ def render_final(
         if preset == "animation" and frame_end <= frame_start:
             _ensure_scene_info(c, sid)
         extra: dict[str, Any] = {}
+        # 11/12: preset と orbit_frames だけ（orbit=True なし）でも渡した回転の値を送る（mcp_common.job_params）
+        extra.update({k: v for k, v in _job_params("", 1.0, True, "", orbit, orbit_frames, orbit_elevation, orbit_target,
+                                                   orbit_distance).items() if k.startswith("orbit")})
         if orbit:
-            extra.update({"orbit": True, "orbit_frames": orbit_frames, "orbit_elevation": orbit_elevation,
-                          "orbit_target": orbit_target, "orbit_distance": orbit_distance})
             if frame_end <= frame_start:
                 frame_end = None  # type: ignore[assignment]  # 1 周ぶんは受付が決める
         if cameras:

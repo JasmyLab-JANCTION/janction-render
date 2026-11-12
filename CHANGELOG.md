@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.4.270 - 2026-11-12
+
+- The top-up page offers 500, 3,000 and 10,000 JPY, plus a field for any other amount; monthly plans that include JANCTION Storage say it is in beta.
+- A Blender script that ChatGPT wraps in a file that only writes the script to /mnt/data is now rendered from the script inside, instead of failing on the write.
+- A script that writes its own data into an output frame now fails as a script problem with the fix (remove the code that writes to the output file), instead of asking to send it again.
+- preset='turntable' or 'product' with orbit_frames (and no orbit=True) now uses the frames you pass instead of the preset's 24.
+- After a preview, the final estimate's time, price and the sentence to tell the user all describe the same final; the preset final shows its real size (1280x720 or 1440x1440) and is listed once.
+- "Same settings" after a final keeps a hidden backdrop (environment_visible=False).
+- A long final split into parts no longer stays as "queued 0/0" after its parts' files expire; it expires like any other job.
+- render_info and the size checks now say what the service does: a final paid from prepaid credit can be up to 3840x2160 (renders covered by free time stay at 1920x1080 until a key has paid 500 JPY in total).
+- The final-path test reports EEVEE render time per frame apart from the scene loading.
+
 ## 0.4.269 - 2026-11-11
 
 - Gaussian splats render: send a .spz file or a 3D Gaussian Splatting .ply and it opens with Blender 5.3 as a splat (Cycles or EEVEE) for previews, stills and turntables, at the same price per GPU-second. A file can have up to 2,000,000 points for now; a larger one is refused before anything is rendered or charged.

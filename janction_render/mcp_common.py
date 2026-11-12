@@ -60,6 +60,13 @@ def job_params(environment: str, environment_strength: float, environment_visibl
     if orbit:
         out.update({"orbit": True, "orbit_frames": orbit_frames, "orbit_elevation": orbit_elevation,
                     "orbit_target": orbit_target, "orbit_distance": orbit_distance})
+    else:
+        # 11/12: orbit=True を付けずに preset='turntable'/'product' と orbit_frames=8 などを渡すと、ここで落として受付のプリセットの
+        # 既定（24 コマ）が勝っていた（説明は「渡した値が勝つ」）。既定と違う回転の値は送る（orbit が無ければ受付は使わない）
+        extra = {"orbit_frames": orbit_frames, "orbit_elevation": orbit_elevation, "orbit_target": orbit_target,
+                 "orbit_distance": orbit_distance}
+        dflt = {"orbit_frames": 24, "orbit_elevation": 18.0, "orbit_target": "", "orbit_distance": 1.0}
+        out.update({k: v for k, v in extra.items() if v != dflt[k]})
     return out
 
 
