@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.4.276 - 2026-11-12
+
+- The MCP tool descriptions are back to their 0.4.274 wording for now (the changes to the version list, the scene inputs and the EEVEE note made in 0.4.275 are withdrawn until a directory review of the current definitions is finished). Nothing else changes: Blender 5.3, Gaussian splats and the add-on 0.1.13 work as before.
+
+## 0.4.275 - 2026-11-12
+
+- The MCP tool descriptions name Blender 5.3 and Gaussian splat files (.spz) where they list versions and scene inputs.
+- The EEVEE note in the tool descriptions now matches the measurements: about two-thirds of the Cycles cost per frame on longer animations, and below about 100 frames Cycles is usually as cheap or cheaper because every GPU chunk pays for loading and shader compilation. auto_samples says it applies to finals of 100 frames or more.
+- The Blender add-on is 0.1.13: Blender 5.3 is in the version list, and "Match this Blender" sends a 5.3 file to 5.3.
+
+## 0.4.274 - 2026-11-12
+
+- A script that ChatGPT runs to make a Blender script (it reads your files from /mnt/data and writes the Blender script out) is now refused at upload with script_is_a_generator and what to do: ask ChatGPT to run it and send the Blender script it makes. Before, it was sent to render and failed on a missing module.
+- Getting a .blend back is explained where agents looked for it: a script's own .blend save (which is skipped) now says to send the same script with output='blend' and download scene.blend; a missing artifact lists the files the job has and, for a .blend, gives the same way; GET /v1/files/{id}/download, /content, /raw and /file say it too.
+- A script that reopens a file it saved itself now fails as a script error that says so (saves are skipped and files a script writes are not kept), instead of asking to send a missing file.
+
 ## 0.4.273 - 2026-11-12
 
 - Renders kept in JANCTION Storage (beta) that you were never told about: the next MCP reply now says so once, with a one-use link to open them. Opening the link keeps them for 7 days from then; press Keep in Storage to keep them longer.
