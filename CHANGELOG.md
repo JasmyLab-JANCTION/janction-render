@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.4.272 - 2026-11-12
+
+- The FAQ and guide pages, llms.txt and facts.json now name the current Blender versions (3.6, 4.2, 4.5, 5.0, 5.2 and 5.3) and Gaussian splats (.spz); pages that still said "5.0 or 5.2" are corrected.
+
+## 0.4.271 - 2026-11-12
+
+- Messages from JANCTION about your account now also reach REST clients and the /start page: GET /v1/me, POST /v1/estimate and GET /v1/jobs/{id} carry notice_for_you when there is one (the remote MCP already did).
+- When an estimate needs a top-up, it includes cost.pay_url: a link that adds credit to the same key. Hand it to the user; paying on the website in another browser makes a new key, and the credit does not reach the one that renders.
+- On /start, pressing a top-up button in a browser that has no key yet first says the credit will go to a new key and how to add it to the key an AI app uses; press again to continue.
+
 ## 0.4.270 - 2026-11-12
 
 - The top-up page offers 500, 3,000 and 10,000 JPY, plus a field for any other amount; monthly plans that include JANCTION Storage say it is in beta.
