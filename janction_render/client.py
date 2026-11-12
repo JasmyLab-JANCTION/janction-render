@@ -1302,6 +1302,13 @@ class Client:
         self._raise(r)
         return r.json()
 
+    def connect_code(self) -> dict[str, Any]:
+        """このアカウントの接続コード（8 字・10 分・1 回、11/12）。別の AI アプリの JANCTION の接続のページ（I have a connect code）か、
+        別のブラウザの /connect/code に入れると、同じアカウント（残高・無料の残り・作品）につながる。鍵そのもので呼ぶ。"""
+        r = self.s.post(f"{self.server}/v1/me/connect-code", headers=self._headers(), timeout=30)
+        self._raise(r)
+        return r.json()
+
     def disconnect(self, conn_id: str) -> dict[str, Any]:
         r = self.s.delete(f"{self.server}/v1/connections/{conn_id}", headers=self._headers(), timeout=30)
         self._raise(r)

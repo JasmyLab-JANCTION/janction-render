@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.4.284 - 2026-11-13
+
+- The pricing page's warning before a first top-up in a browser without a key also says how to bring in the account an AI app uses (a connect code), since some AI apps cannot hand out payment links.
+- Command line: `janction-render connect-code` prints a one-time code to use the same account from another AI app, device or browser (the code goes to the terminal only).
+- The HTTP API reference lists POST /v1/me/connect-code.
+- Operations: many refused connect codes in an hour are reported as a possible guessing attempt.
+
+## 0.4.283 - 2026-11-12
+
+- The website's studio has a settings row for using the same account from another AI app or device (connect code), and the warning before a first top-up in a browser without a key now says how to bring in the account an AI app uses.
+- Agents that call the HTTP API with the key itself are told how to give the user the same account in their browser (a one-time code from POST /v1/me/connect-code), so paying on the website reaches the key that renders.
+- The FAQ and llms.txt explain how to keep one account across AI apps, devices and browsers.
+- If you made a new key in a second AI app by mistake, the connection page can offer the account this browser used before, and /connect/code can give a code for it (off by default).
+
+## 0.4.282 - 2026-11-12
+
+- One account across AI apps, devices and browsers, without signing in: open render.janction.jp/connect/code in the browser where you connected an AI app to get a one-time connect code (10 minutes), then enter it on another AI app's JANCTION connection page or in another browser. It joins the same account (credit, free time left and renders) instead of making a new one. AI replies only carry the page, never the code.
+- Payment pages now say which account the credit goes to (the key prefix and the AI apps connected to it); a different key used on the website in the same browser does not receive it.
+- In ChatGPT, when a render needs more GPU time than the account has, the reply now links to an information page for that same account instead of the website's front page.
+
+## 0.4.281 - 2026-11-12
+
+- When a scene script fails, the reply now says what to change: the module that is not installed and what to use instead, the undefined name with its line and Python's suggestion, how to send a file the script opens, or the exception and line, in English and Japanese.
+
 ## 0.4.280 - 2026-11-12
 
 - Product turntables: when the camera circles behind a backdrop wall, that wall is left out of the frames where it would block the view, instead of filming its back (the sample bottle's 360-degree turntable had five nearly black frames).

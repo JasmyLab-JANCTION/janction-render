@@ -600,6 +600,19 @@ def cmd_connections(c: Client, args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_connect_code(c: Client, args: argparse.Namespace) -> int:
+    """11/12: 別の AI アプリ・端末・ブラウザで同じアカウントを使うための 1 回きりのコード。コードは端末にだけ出す。"""
+    v = c.connect_code()
+    if args.json:
+        print(_j(v))
+        return 0
+    print(v["code"])
+    print(f"valid once, until {v.get('expires_at', '')} (10 minutes). In the other AI app, connect JANCTION Render and choose "
+          f"\"I have a connect code\" on the connection page, or open {v.get('connect_page', '/connect/code')} in another browser. "
+          "Do not paste the code into a chat or share it.", file=sys.stderr)
+    return 0
+
+
 def cmd_disconnect(c: Client, args: argparse.Namespace) -> int:
     print(_j(c.disconnect(args.id)))
     return 0
@@ -1046,6 +1059,10 @@ def build_parser() -> argparse.ArgumentParser:
     s.set_defaults(fn=cmd_revoke_key)
     s = sub.add_parser("connections", help="apps connected with your key (Claude, ChatGPT, Codex ...)")
     s.set_defaults(fn=cmd_connections)
+    s = sub.add_parser("connect-code", help="a one-time code (10 minutes) to use this same account from another AI app, device "
+                                            "or browser, without signing up")
+    s.add_argument("--json", action="store_true")
+    s.set_defaults(fn=cmd_connect_code)
     s = sub.add_parser("disconnect", help="disconnect one app (id from 'connections')")
     s.add_argument("id")
     s.set_defaults(fn=cmd_disconnect)
