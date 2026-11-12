@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.273 - 2026-11-12
+
+- Renders kept in JANCTION Storage (beta) that you were never told about: the next MCP reply now says so once, with a one-use link to open them. Opening the link keeps them for 7 days from then; press Keep in Storage to keep them longer.
+
 ## 0.4.272 - 2026-11-12
 
 - The FAQ and guide pages, llms.txt and facts.json now name the current Blender versions (3.6, 4.2, 4.5, 5.0, 5.2 and 5.3) and Gaussian splats (.spz); pages that still said "5.0 or 5.2" are corrected.
