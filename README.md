@@ -76,7 +76,8 @@ Keep 3D files in a repository? Add a button that lets anyone render them from th
 - **Built for agents.** Preview first (1-4 frames in a few GPU seconds), an estimate with time and cost before the final, structured
   errors with the fix, spending caps per key, safe retries with `Idempotency-Key`.
 - **3D files and turntables.** glTF / GLB, FBX, USD, OBJ, STL, PLY, Alembic are imported into an empty scene with a camera and
-  HDRI lighting; `orbit=True` makes a turntable. Fixed-price outcomes: `POST /v1/outcomes/turntable` and `/product-shot`.
+  HDRI lighting; `orbit=True` makes a turntable. Gaussian splats (`.spz`, or a 3D Gaussian Splatting `.ply`) open with Blender 5.3.
+  Fixed-price outcomes: `POST /v1/outcomes/turntable` and `/product-shot`.
 <!-- terms:honest_limits_en -->
 - **Honest limits.** Free welcome credit for a new key with no card, then paid per GPU-second from prepaid credit (current amounts: https://render.janction.jp/pricing); finals up to 3,000 frames per instruction, run as parts of 240 under one job id (1080p on free time, up to 4K on prepaid credit), on JANCTION's own GPUs (NVIDIA RTX PRO 6000 Blackwell); when they are busy jobs wait in a queue and the ETA says so. Inputs and results are deleted 24 hours after last use (7 days, normally, for keys that have paid 500 JPY or more in total) and never used for training.
 <!-- /terms:honest_limits_en -->
@@ -442,7 +443,7 @@ As of 2026-10-26 (the current values are always at https://render.janction.jp/fa
   `jr_assets.apply(floor, jr_assets.material('wood_floor_deck', scale=2))` (diff / normal / roughness / metal wired into a
   Principled BSDF), `jr_assets.world_hdri('studio_small_09')`. See `samples/polyhaven_room.py`.
 - A render you choose to share (`render_share`) gets a public page (`/r/<id>`, OGP for X and Discord) that stays until you unshare it.
-- Blender 3.6, 4.2, 4.5, 5.0 and 5.2, Cycles on GPU (and EEVEE). By default a `.blend` opens with the version it was saved in and other scenes with 5.0; `blender="5.2"` (or `"4.5"`, `"4.2"`, `"3.6"`) picks one, and a script that stops on Blender 5 because of an older API is rendered again on an older version automatically. `render_info` lists what is available.
+- Blender 3.6, 4.2, 4.5, 5.0, 5.2 and 5.3, Cycles on GPU (and EEVEE). By default a `.blend` opens with the version it was saved in and other scenes with 5.0; `blender="5.3"` (or `"5.2"`, `"4.5"`, `"4.2"`, `"3.6"`) picks one, and a script that stops on Blender 5 because of an older API is rendered again on an older version automatically. `render_info` lists what is available.
 
 ## Blender add-on and DCC tools (for people, not agents)
 
