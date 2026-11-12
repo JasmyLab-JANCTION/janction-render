@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.4.280 - 2026-11-12
+
+- Product turntables: when the camera circles behind a backdrop wall, that wall is left out of the frames where it would block the view, instead of filming its back (the sample bottle's 360-degree turntable had five nearly black frames).
+- Delivery check: a run of frames much darker than the rest is now reported as "please look", not only a single-frame flicker. The command line prints the delivery check after a final or a turntable.
+- Workbench: notes before the final are shown in Japanese on the Japanese page with the right count, and the preview label no longer covers the studio label when comparing lights.
+- Gaussian splats: a shot that looks at a side the scan did not cover is described as such (not "add light"), and the point-count limit no longer suggests sending the file again through /upload.
+
+## 0.4.279 - 2026-11-12
+
+- The Simplified Chinese pages under /zh/ now use the same layout as the English and Japanese pages (masthead, navigation, language switch and footer).
+
+## 0.4.278 - 2026-11-12
+
+- Simplified Chinese pages: pricing, rendered examples, the Blender MCP server, free Blender cloud rendering, rendering without a GPU, Blender animation to MP4, product turntables and DeepSeek, under /zh/. English and Japanese pages that have a Chinese version now link to it.
+
+## 0.4.277 - 2026-11-12
+
+- Maintenance release: internal reporting tools only. Rendering, pricing, the API and the MCP tools are unchanged.
+
 ## 0.4.276 - 2026-11-12
 
 - The MCP tool descriptions are back to their 0.4.274 wording for now (the changes to the version list, the scene inputs and the EEVEE note made in 0.4.275 are withdrawn until a directory review of the current definitions is finished). Nothing else changes: Blender 5.3, Gaussian splats and the add-on 0.1.13 work as before.

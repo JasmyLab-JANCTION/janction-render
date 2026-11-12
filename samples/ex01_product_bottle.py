@@ -85,6 +85,27 @@ paper = material("Label", (0.96, 0.94, 0.88), roughness=0.7)
 floor = material("Floor", (0.82, 0.82, 0.8), roughness=0.3)
 wall = material("Wall", (0.9, 0.9, 0.88), roughness=0.8)
 
+# The backdrop colour for camera rays only (11/12): a turntable of this sample (orbit=True) hides the backdrop wall on the
+# frames where the camera passes behind it, and the camera then sees the world. Light from the world is unchanged, so the
+# still render looks the same as before.
+world = scene.world or bpy.data.worlds.new("World")
+scene.world = world
+world.use_nodes = True
+wn, wl = world.node_tree.nodes, world.node_tree.links
+for n in list(wn):
+    wn.remove(n)
+w_out = wn.new("ShaderNodeOutputWorld")
+w_light = wn.new("ShaderNodeBackground")
+w_light.inputs["Color"].default_value = (0.05, 0.05, 0.05, 1.0)
+w_seen = wn.new("ShaderNodeBackground")
+w_seen.inputs["Color"].default_value = (0.62, 0.62, 0.6, 1.0)
+w_path = wn.new("ShaderNodeLightPath")
+w_mix = wn.new("ShaderNodeMixShader")
+wl.new(w_path.outputs["Is Camera Ray"], w_mix.inputs["Fac"])
+wl.new(w_light.outputs["Background"], w_mix.inputs[1])
+wl.new(w_seen.outputs["Background"], w_mix.inputs[2])
+wl.new(w_mix.outputs["Shader"], w_out.inputs["Surface"])
+
 add("primitive_plane_add", "Floor", floor, size=24)
 back = add("primitive_plane_add", "Backdrop", wall, size=24, location=(0, 4, 6))
 back.rotation_euler = (math.pi / 2, 0, 0)

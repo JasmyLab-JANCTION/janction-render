@@ -13,7 +13,6 @@
     {"id": "brand-ja-04", "group": "brand", "lang": "ja", "query": "ジャスミーラボ JANCTION Render"},
     {"id": "brand-zh-01", "group": "brand", "lang": "zh", "query": "JANCTION Render Blender 渲染"},
     {"id": "brand-zh-02", "group": "brand", "lang": "zh", "query": "JANCTION Render MCP"},
-
     {"id": "generic-en-01", "group": "generic", "lang": "en", "query": "free cloud GPU rendering for Blender"},
     {"id": "generic-en-02", "group": "generic", "lang": "en", "query": "Blender rendering MCP server"},
     {"id": "generic-en-03", "group": "generic", "lang": "en", "query": "render Blender animation without a GPU"},
@@ -33,18 +32,28 @@
     {"id": "generic-zh-02", "group": "generic", "lang": "zh", "query": "Blender 渲染 MCP 服务器"},
     {"id": "generic-zh-03", "group": "generic", "lang": "zh", "query": "没有显卡 怎么渲染 Blender 动画"},
     {"id": "generic-zh-04", "group": "generic", "lang": "zh", "query": "DeepSeek Blender 渲染 工作流"},
-
     {"id": "compare-en-01", "group": "compare", "lang": "en", "query": "Blender GPU render farm comparison"},
     {"id": "compare-en-02", "group": "compare", "lang": "en", "query": "best render farm for AI agents"},
     {"id": "compare-en-03", "group": "compare", "lang": "en", "query": "SheepIt vs cloud render farm for Blender"},
     {"id": "compare-ja-01", "group": "compare", "lang": "ja", "query": "Blender レンダーファーム 比較 2026"},
     {"id": "compare-zh-01", "group": "compare", "lang": "zh", "query": "Blender 渲染农场 对比"},
-
     {"id": "problem-en-01", "group": "problem", "lang": "en", "query": "Blender render too slow on MacBook what to do"},
     {"id": "problem-en-02", "group": "problem", "lang": "en", "query": "turn a glTF model into a turntable MP4"},
     {"id": "problem-en-03", "group": "problem", "lang": "en", "query": "Blender Cycles out of memory GPU render alternative"},
     {"id": "problem-ja-01", "group": "problem", "lang": "ja", "query": "Blender レンダリングが遅い ノート PC 対処"},
     {"id": "problem-ja-02", "group": "problem", "lang": "ja", "query": "glTF を回転動画 MP4 にしたい"},
-    {"id": "problem-zh-01", "group": "problem", "lang": "zh", "query": "笔记本 Blender 渲染太慢 怎么办"}
+    {"id": "problem-zh-01", "group": "problem", "lang": "zh", "query": "笔记本 Blender 渲染太慢 怎么办"},
+    {"id": "generic-zh-05", "group": "generic", "lang": "zh", "query": "Blender 在线渲染 网站"},
+    {"id": "generic-zh-06", "group": "generic", "lang": "zh", "query": "Blender 云渲染 推荐"},
+    {"id": "generic-zh-07", "group": "generic", "lang": "zh", "query": "AI 生成 3D 场景 渲染 视频"},
+    {"id": "generic-zh-08", "group": "generic", "lang": "zh", "query": "bpy 脚本 云端 渲染 API"},
+    {"id": "generic-zh-09", "group": "generic", "lang": "zh", "query": "GLB 模型 转 MP4 旋转视频"},
+    {"id": "generic-zh-10", "group": "generic", "lang": "zh", "query": "通义 Qwen Code Blender MCP"},
+    {"id": "generic-zh-11", "group": "generic", "lang": "zh", "query": "Kimi Blender 渲染"},
+    {"id": "compare-zh-02", "group": "compare", "lang": "zh", "query": "Blender 渲染农场 价格 对比 按秒计费"},
+    {"id": "compare-zh-03", "group": "compare", "lang": "zh", "query": "SheepIt Colab Blender 云渲染 区别"},
+    {"id": "problem-zh-02", "group": "problem", "lang": "zh", "query": "MacBook Blender Cycles 很慢"},
+    {"id": "problem-zh-03", "group": "problem", "lang": "zh", "query": "Blender 动画 渲染 时间太长 怎么办"},
+    {"id": "problem-zh-04", "group": "problem", "lang": "zh", "query": "免费 Blender 渲染农场 不用注册"}
   ]
 }

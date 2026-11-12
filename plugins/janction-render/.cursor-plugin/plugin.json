@@ -1,7 +1,7 @@
 {
   "name": "janction-render",
   "displayName": "JANCTION Render",
-  "version": "0.4.276",
+  "version": "0.4.280",
   "description": "Render Blender scenes and 3D models (bpy, .blend, glTF/GLB, FBX, USD, OBJ) on cloud GPUs from the agent: a preview in seconds with a critic verdict and fix code, an estimate, then stills, animations, product shots and 360-degree turntables with download links. No local GPU or Blender; no sign-up. The remote MCP server plus a workflow skill.",
   "author": {
     "name": "JasmyLab Inc.",

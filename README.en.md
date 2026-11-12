@@ -23,6 +23,8 @@ not affiliated with Render.com or the Render Network.
 
 Official site: https://render.janction.jp · MCP endpoint: `https://render.janction.jp/mcp` · Fact sheet: https://render.janction.jp/facts
 
+简体中文: [README.zh-CN.md](https://github.com/JasmyLab-JANCTION/janction-render/blob/main/README.zh-CN.md) · https://render.janction.jp/zh
+
 Try it from a terminal in a few seconds, free and with nothing to sign up for (needs [uv](https://docs.astral.sh/uv/); or `pip install janction-render` and drop the `uvx`):
 
 ```shell

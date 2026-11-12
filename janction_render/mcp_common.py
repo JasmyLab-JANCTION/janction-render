@@ -480,6 +480,8 @@ def add_upload_hint(out: dict[str, Any], server: str, error: str = "", status: i
     """大きさで断られた（413・too_large）返事と、手元のパス・チャットの添付を渡した返事（bad_url、10/21 docs/90 FR-01）に
     /upload の案内を足す。それ以外は触らない。"""
     local_path = error == "bad_url" and "cannot be read from here" in str(out.get("detail") or "")
+    if error == "splat_too_large":
+        return out      # 11/12: 点の数の上限（413）。送り方の問題ではないので /upload を勧めない（減らしてから送り直す）
     if not (error == "too_large" or status == 413 or local_path):
         return out
     hint = upload_page_hint(server)

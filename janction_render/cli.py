@@ -416,9 +416,10 @@ def cmd_render(c: Client, args: argparse.Namespace) -> int:
         return 1
     out = Path(args.out) if args.out else Path("render_out") / safe_name(j["job_id"])
     paths = c.download(j["job_id"], out, on_progress=_say_err)
+    dr = _delivery_check(c, j)
     print(_j({"job_id": j["job_id"], "scene_id": sid, "files": [str(p) for p in paths],
               "warnings": j.get("warnings") or [], "gpu_seconds": j["gpu_seconds"], "device": j["device"],
-              "expires_at": j["expires_at"]}))
+              "expires_at": j["expires_at"], **({"delivery_report": dr} if dr else {})}))
     _suggest_next(c, j["job_id"])
     return 0
 
@@ -461,6 +462,27 @@ def _command_for(args: dict[str, Any]) -> str:
     if vals.get("max_yen"):
         parts.append(f"--max-yen {vals['max_yen']}")
     return " ".join(parts) + " --wait"
+
+
+def _delivery_check(c: Client, j: dict[str, Any], waits: int = 10, pause: float = 2.0) -> dict[str, Any]:
+    """11/12: 仕上げの納品の点検（delivery_report）を CLI でも出す。終わった直後は「点検中」なので、数秒待って読み直す
+    （turntable で 5 コマ暗い「要確認」が CLI の結果に出ていなかった、j_94912534086044c2）。要確認・問題ありは標準エラーにも 1 行。"""
+    import time
+    dr = j.get("delivery_report") or {}
+    for _ in range(waits):
+        if dr.get("state") != "preparing":
+            break
+        time.sleep(pause)
+        try:
+            dr = c.job(j["job_id"]).get("delivery_report") or {}
+        except ClientError:
+            break
+    if not dr:
+        return {}
+    keep = {k: dr[k] for k in ("state", "verdict", "summary", "summary_ja", "report_file", "sheet_file") if k in dr}
+    if dr.get("verdict") in ("check", "problem"):
+        print(dr.get("summary") or f"Delivery check: {dr.get('verdict')}", file=sys.stderr)
+    return keep
 
 
 def _suggest_next(c: Client, job_id: str) -> None:
@@ -857,8 +879,9 @@ def _outcome(c: Client, args: argparse.Namespace, name: str, options: dict[str, 
         return 1
     out = Path(args.out) if args.out else Path("render_out") / safe_name(j["job_id"])
     paths = c.download(j["job_id"], out, only=only, on_progress=_say_err)
+    dr = _delivery_check(c, j)
     print(_j({"job_id": j["job_id"], "scene_id": sid, "files": [str(p) for p in paths], "gpu_seconds": j["gpu_seconds"],
-              "expires_at": j["expires_at"]}))
+              "expires_at": j["expires_at"], **({"delivery_report": dr} if dr else {})}))
     return 0
 
 

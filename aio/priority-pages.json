@@ -1,8 +1,10 @@
 [
   {"path": "/", "intent": "brand"},
   {"path": "/ja/", "intent": "brand"},
+  {"path": "/zh", "intent": "brand"},
   {"path": "/pricing", "intent": "pricing"},
   {"path": "/ja/pricing", "intent": "pricing"},
+  {"path": "/zh/pricing", "intent": "pricing"},
   {"path": "/render-blender-without-gpu", "intent": "no-gpu"},
   {"path": "/ja/render-blender-without-gpu", "intent": "no-gpu"},
   {"path": "/ai-3d-model-render", "intent": "glb"},
