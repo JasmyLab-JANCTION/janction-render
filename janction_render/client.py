@@ -754,6 +754,7 @@ def unreachable_error(server: str, url: str, exc: BaseException) -> ClientError:
 
 class Client:
     def __init__(self, server: Optional[str] = None, api_key: Optional[str] = None, client: str = "") -> None:
+        self.last_news: Optional[dict[str, Any]] = None
         from . import __version__
 
         self.server = (server or os.environ.get("JANCTION_RENDER_SERVER") or DEFAULT_SERVER).rstrip("/")
@@ -1269,10 +1270,13 @@ class Client:
         return r.json()
 
     def share(self, job_id: str, title: str = "", note: str = "", include_script: bool = False, listed: bool = False,
-              prompt: str = "") -> dict[str, Any]:
-        """描けた結果を公開ページにする（/r/<id>）。prompt は「エージェントに頼んだこと」。"""
-        r = self.s.post(f"{self.server}/v1/jobs/{job_id}/share", headers=self._headers(),
-                        json={"title": title, "note": note, "include_script": include_script, "listed": listed, "prompt": prompt}, timeout=120)
+              prompt: str = "", expires_days: int = 0) -> dict[str, Any]:
+        """描けた結果を公開ページにする（/r/<id>）。prompt は「エージェントに頼んだこと」。expires_days（1〜90）は受付の旗
+        JR_SHARE_EXPIRY が開いていれば、その日数でページを閉じる（0 なら送らない＝今までどおり）。"""
+        body = {"title": title, "note": note, "include_script": include_script, "listed": listed, "prompt": prompt}
+        if expires_days:
+            body["expires_days"] = int(expires_days)
+        r = self.s.post(f"{self.server}/v1/jobs/{job_id}/share", headers=self._headers(), json=body, timeout=120)
         self._raise(r)
         return r.json()
 
@@ -1360,7 +1364,11 @@ class Client:
         return self._req("POST", "/v1/estimate", json=body)
 
     def job(self, job_id: str) -> dict[str, Any]:
-        return self._req("GET", f"/v1/jobs/{job_id}")
+        j = self._req("GET", f"/v1/jobs/{job_id}")
+        # 11/13 0.4.292: 受付が描き終えた結果に 1 回だけ付ける「伝えてもいい話」（server/news_notice.py）を覚えておく（CLI は最後に 1 行出す）
+        if isinstance(j, dict) and isinstance(j.get("news"), dict):
+            self.last_news = j["news"]
+        return j
 
     def next_actions(self, job_id: str) -> Optional[dict[str, Any]]:
         """終わった仕事の次の一手（受付の旗 JR_RET_NEXT_ACTIONS が OFF なら None）。見るだけで描かない。"""

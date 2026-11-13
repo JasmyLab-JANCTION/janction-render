@@ -4,6 +4,7 @@
 仕事の Resume を足した。
 """
 import threading
+import time
 
 import bpy
 
@@ -26,6 +27,10 @@ def _quota_once(prefs) -> None:
         try:
             state.set_quota(client.me())
         except Exception:  # noqa: BLE001 - the panel then shows the key without minutes
+            pass
+        try:
+            state.set_capabilities(client.capabilities())
+        except Exception:  # noqa: BLE001 - 読めなければ旗つきの物は出さない（今までと同じ）
             pass
 
     threading.Thread(target=work, name="janction-quota", daemon=True).start()
@@ -76,6 +81,16 @@ class RENDER_PT_janction_render(bpy.types.Panel):
         row.operator("jr.preview", icon='RENDER_STILL')
         row.operator("jr.estimate", icon='TIME')
         row.operator("jr.final", icon='RENDER_ANIMATION')
+        # 11/13: 受付が下描き動画を全員に開けているときだけ（旗 JR_DRAFT_VIDEO）。ほかの旗つきの物は Blender の設定から拾う
+        if state.open_arg("render_preview", "draft_video"):
+            layout.operator("jr.draft", icon='SEQUENCE')
+        # 11/13 v2 REN-05: 受付が案件の印を全員に開けていて、この .blend が案件の番号を持っているときだけ
+        if state.open_feature("project_tag"):
+            layout.operator("jr.project_history", icon='FILE_BLEND')
+            for row in (state.get("project_history") or [])[:5]:
+                when = time.strftime("%m/%d %H:%M", time.localtime(float(row.get("created_at") or 0)))
+                gone = " (files expired)" if row.get("files_expired") else ""
+                layout.label(text=f"{when} {row.get('kind')} {row.get('status')} {row.get('size')}{gone}")
         if snap["phase"] in state.BUSY:
             layout.operator("jr.cancel", icon='CANCEL')
 
@@ -125,6 +140,12 @@ class RENDER_PT_janction_render_files(bpy.types.Panel):
         row = layout.row(align=True)
         row.operator("jr.scan_files", icon='VIEWZOOM')
         row.operator("jr.copy_file_list", text="", icon='COPYDOWN')
+        found = snap.get("checks") or []
+        if found:                                  # 11/13 手元の点検（送らずに分かること）
+            layout.label(text=snap.get("checks_summary") or "", icon='CHECKMARK' if not any(c[0] != "info" for c in found)
+                         else 'ERROR')
+            for level, _code, text in found[:8]:
+                layout.label(text=text, icon={"block": 'CANCEL', "warn": 'ERROR'}.get(level, 'INFO'))
         deps = snap.get("deps") or []
         if not deps:
             layout.label(text="Press Check files to list what will be sent", icon='INFO')

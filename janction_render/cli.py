@@ -5,6 +5,7 @@
     janction-render render scene.blend --frames 1-240 --test   # 同じ設定で 10 コマ試し、測った秒・検品・全体の値段を見てから全体
     janction-render status JOB
     janction-render download JOB --out DIR [--wait 600]
+    janction-render download JOB --out DIR --follow      # 描いている間、描けたコマから順に落とし続ける
     janction-render cancel JOB
     janction-render retry JOB [--yes]                     # 失敗・取り消しの仕上げの足りないコマだけ描き直す（値段を先に見せる）
     janction-render jobs
@@ -21,7 +22,9 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import sys
+import time
 from pathlib import Path
 from typing import Any
 
@@ -169,6 +172,48 @@ def cmd_upload(c: Client, args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_verify_package(c: Any, args: argparse.Namespace) -> int:
+    """手元に落とした仕上げのフォルダを package.json（受付の旗 JR_DELIVERY_PACKAGE の納品の目録）と照らす（11/13、v2 QAD-08）。
+    受付には何も送らない。欠け・中身違い・目録に無い納品物があれば 1 で終わる。"""
+    from .server import package
+    folder = Path(args.folder)
+    if not (folder / package.NAME).is_file():
+        print(_j({"ok": False, "error": f"no {package.NAME} in {folder}"}))
+        return 1
+    out = package.verify(folder)
+    print(_j(out))
+    return 0 if out["ok"] else 1
+
+
+def cmd_bake(c: Client, args: argparse.Namespace) -> int:
+    """.blend のシミュレーションを受付の側で焼き、焼いたシーンの scene_id を出す（11/12、受付の旗 JR_FARM_BAKE）。
+    焼くのは描かない作業（GPU を付けない）。出た baked_scene_id で render --scene-id を打てば、焼いたシミュレーションで描ける。"""
+    sid = _scene(c, args)
+    j = c.submit(sid, kind="task", task="bake_simulations")
+    print(f"job {j['job_id']} queued (bakes the simulations, no render)", file=sys.stderr)
+    j = c.wait(j["job_id"], timeout=args.timeout, on_progress=_progress)
+    out = {"job_id": j.get("job_id"), "status": j.get("status"), "scene_id": sid}
+    if j.get("status") != "done":
+        out.update({k: j.get(k) for k in ("error", "log_tail") if j.get(k)})
+        print(_j(out))
+        return 1
+    folder = Path(args.out) if args.out else Path("render_out") / safe_name(j["job_id"])
+    paths = c.download(j["job_id"], folder, only=["verification.json", "scene.blend"])
+    ver = {}
+    for p in paths:
+        if p.name == "verification.json":
+            try:
+                ver = json.loads(p.read_text(encoding="utf-8"))
+            except ValueError:
+                ver = {}
+    out.update({k: ver.get(k) for k in ("baked_scene_id", "baked", "not_baked", "bake_errors", "next") if ver.get(k) is not None})
+    out["files"] = [str(p) for p in paths]
+    if ver.get("baked_scene_id"):
+        print(f"baked: render it with  janction-render render --scene-id {ver['baked_scene_id']} ...", file=sys.stderr)
+    print(_j(out))
+    return 0 if ver.get("baked_scene_id") else 1
+
+
 def cmd_inspect(c: Client, args: argparse.Namespace) -> int:
     sid = _scene(c, args)
     j = c.submit(sid, kind="info")
@@ -204,13 +249,45 @@ def cmd_inspect(c: Client, args: argparse.Namespace) -> int:
     return 0
 
 
+def _frame_range(text: str) -> "tuple[int, int] | None":
+    m = re.fullmatch(r"\s*(\d+)\s*-\s*(\d+)\s*", text or "")
+    return (int(m.group(1)), int(m.group(2))) if m and int(m.group(2)) >= int(m.group(1)) else None
+
+
+def _scene_frame_range(c: Client, sid: str, args: argparse.Namespace) -> tuple[int, int]:
+    """シーンのコマの範囲（読み取りの仕事。GPU なし・無料）。--draft-video で --frames を渡さなかったとき（11/13）。"""
+    print("reading the scene's frame range first (no GPU time, nothing charged)", file=sys.stderr)
+    j = c.submit(sid, kind="info")
+    if j.get("status") != "done":
+        j = c.wait(j["job_id"], timeout=min(float(getattr(args, "timeout", 300) or 300), 600.0), on_progress=_progress)
+    if j.get("status") != "done":
+        raise SystemExit(f"could not read the scene ({j.get('error') or j.get('status')}); pass --frames START-END")
+    info = j.get("info") or {}
+    return int(info.get("frame_start") or 1), int(info.get("frame_end") or 1)
+
+
 def cmd_preview(c: Client, args: argparse.Namespace) -> int:
+    if getattr(args, "full_turn", False) and getattr(args, "draft_video", False):
+        raise SystemExit("--full-turn and --draft-video do not go together: one is a turn around the subject, the other the scene's animation")
     sid = _scene(c, args)
     w, h = args.size
     frames = parse_frames(args.frames, default=args.frame)
+    extra: dict[str, Any] = {}
+    what = f"frames {frames}"
+    if getattr(args, "full_turn", False):
+        # 11/13 一周を 1 枚で（受付の full_turn）: 回るカメラの 1 周を最大 24 コマ、角度の札つきで 1 枚に並べる
+        frames, what = None, "the whole turn (up to 24 frames in one sheet)"
+        extra.update(orbit=True, full_turn=True)
+    elif getattr(args, "draft_video", False):
+        # 11/13 下描き動画（受付の draft_video）: 範囲から最大 24 コマを小さく描き、並べた 1 枚と実際の長さで流れる draft.mp4
+        rng = _frame_range(args.frames) or _scene_frame_range(c, sid, args)
+        if rng[1] <= rng[0]:
+            raise SystemExit("the scene has one frame; --draft-video is for an animation (pass --frames START-END)")
+        frames, what = None, f"a draft video of frames {rng[0]}-{rng[1]}"
+        extra.update(draft_video=True, frame_start=rng[0], frame_end=rng[1])
     j = c.submit(sid, kind="preview", frames=frames, camera=args.camera, width=w, height=h,
-                 samples=args.samples, engine=args.engine, max_yen=args.max_yen)
-    print(f"job {j['job_id']} queued: frames {frames} (estimate ~{j['estimate']['seconds']}s)", file=sys.stderr)
+                 samples=args.samples, engine=args.engine, max_yen=args.max_yen, **extra)
+    print(f"job {j['job_id']} queued: {what} (estimate ~{j['estimate']['seconds']}s)", file=sys.stderr)
     j = c.wait(j["job_id"], timeout=args.timeout, on_progress=_progress)
     if j["status"] != "done":
         print(_j({k: j.get(k) for k in ("job_id", "status", "error", "log_tail", "warnings")}))
@@ -529,7 +606,41 @@ def cmd_status(c: Client, args: argparse.Namespace) -> int:
     return 0
 
 
+FOLLOW_DONE = ("done", "failed", "canceled", "expired")
+
+
+def follow_download(c: Client, job_id: str, out: Path, interval: float = 10.0, timeout: float = 0.0,
+                    sleep: Any = time.sleep, say: Any = None) -> tuple[dict[str, Any], list[Path]]:
+    """描いている間、描けたコマ（成果物に出たもの）から順に落とし続け、終わったら残り（動画・点検の報告）を全部落とす（11/12）。
+    競合の同期アプリ（GarageFarm renderBeamer・Ranch RANCHSync など）に当たる。手元にあるファイルは落とし直さない（Client.download）。
+    timeout が 0 より大きければ、その秒で待つのをやめる（そこまでに届いた分は手元に残る）。返す: (最後の仕事の状態, 手元のファイル)。"""
+    say = say or (lambda _m: None)
+    t0 = time.monotonic()
+    have: set[str] = set()
+    paths: list[Path] = []
+    while True:
+        j = c.job(job_id)
+        names = [a["name"] for a in (j.get("artifacts") or [])]
+        new = [n for n in names if n not in have]
+        if new:
+            got = c.download(job_id, out, only=new)
+            have.update(new)
+            paths = sorted(set(paths) | set(got))
+            say(f"{job_id}: {len(have)} file(s) here ({j.get('progress') or j.get('status')})")
+        if j.get("status") in FOLLOW_DONE:
+            return j, paths
+        if timeout and time.monotonic() - t0 > timeout:
+            say(f"{job_id}: stopped following after {int(timeout)} s; it is still {j.get('status')}")
+            return j, paths
+        sleep(max(2.0, float(interval)))
+
+
 def cmd_download(c: Client, args: argparse.Namespace) -> int:
+    if getattr(args, "follow", False):
+        out = Path(args.out) if args.out else Path("render_out") / safe_name(args.job)
+        j, paths = follow_download(c, args.job, out, interval=args.interval, timeout=args.wait, say=_say_err)
+        print(_j({"job_id": args.job, "status": j["status"], "files": [str(p) for p in paths]}))
+        return 0 if j["status"] == "done" else 1
     j = c.wait(args.job, timeout=args.wait, on_progress=_progress) if args.wait else c.job(args.job)
     out = Path(args.out) if args.out else Path("render_out") / safe_name(args.job)
     paths = c.download(args.job, out, on_progress=_say_err)
@@ -961,6 +1072,18 @@ def build_parser() -> argparse.ArgumentParser:
     _asset_root_arg(s)
     s.set_defaults(fn=cmd_upload)
 
+    s = sub.add_parser("verify-package", help="check a downloaded render folder against its package.json (nothing is sent)")
+    s.add_argument("folder", help="the folder with package.json and the files")
+    s.set_defaults(fn=cmd_verify_package, offline=True)
+
+    s = sub.add_parser("bake", help="bake the simulations of a .blend on the service (no render); prints the baked scene_id")
+    s.add_argument("scene", nargs="?", help=".blend file")
+    s.add_argument("--scene-id", default=None, help="reuse an uploaded scene")
+    s.add_argument("--timeout", type=float, default=1200)
+    s.add_argument("--out", default=None, help="folder for scene.blend and verification.json")
+    _asset_root_arg(s)
+    s.set_defaults(fn=cmd_bake)
+
     s = sub.add_parser("inspect", help="read the scene without rendering (cameras, frame range, missing files)")
     s.add_argument("scene", nargs="?", help=".blend file or bpy Python script")
     s.add_argument("--scene-id", default=None, help="reuse an uploaded scene")
@@ -980,6 +1103,11 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--out", default=None)
     s.add_argument("--timeout", type=float, default=300)
     s.add_argument("--max-yen", type=int, default=None, help="refuse the preview if it could cost more than this (JPY)")
+    s.add_argument("--full-turn", action="store_true",
+                   help="the whole turn around the subject: up to 24 small frames in one sheet, labelled in degrees")
+    s.add_argument("--draft-video", action="store_true",
+                   help="a long animation as a draft: up to 24 small frames across --frames START-END (default: the scene's range), "
+                        "one sheet plus draft.mp4 at the real length, with the estimate for every frame")
     _asset_root_arg(s)
     s.set_defaults(fn=cmd_preview)
 
@@ -1051,7 +1179,10 @@ def build_parser() -> argparse.ArgumentParser:
     s = sub.add_parser("download")
     s.add_argument("job")
     s.add_argument("--out", default=None)
-    s.add_argument("--wait", type=float, default=0, help="seconds to wait for the job first")
+    s.add_argument("--wait", type=float, default=0, help="seconds to wait for the job first (with --follow: stop following after)")
+    s.add_argument("--follow", action="store_true",
+                   help="keep downloading frames as they finish until the job ends, then fetch the rest (video, reports)")
+    s.add_argument("--interval", type=float, default=10.0, help="--follow: seconds between checks (at least 2)")
     s.set_defaults(fn=cmd_download)
 
     s = sub.add_parser("revoke-key", help="revoke your key (use when it leaked); every connected app stops working")
@@ -1152,7 +1283,12 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     c = Client(server=args.server, api_key=args.key, client="cli")
     try:
-        return int(args.fn(c, args))
+        rc = int(args.fn(c, args))
+        news = getattr(c, "last_news", None)
+        if isinstance(news, dict) and news.get("text"):   # 11/13: 結果の後に 1 行（標準エラー。結果の JSON は変えない）
+            print("", file=sys.stderr)
+            print(f"From JANCTION: {news['text']}", file=sys.stderr)
+        return rc
     except ClientError as exc:
         if exc.status == 429 and exc.error == "quota_exceeded":
             print(f"quota: {exc.detail}", file=sys.stderr)

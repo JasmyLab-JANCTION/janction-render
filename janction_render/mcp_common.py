@@ -8,6 +8,7 @@
 受付の server/jobs.py もプリセットの名前はここから取る。"""
 from __future__ import annotations
 
+import json
 import os
 from typing import Any, Optional
 
@@ -17,9 +18,17 @@ PURPOSE_PRESETS = ("product", "turntable", "animation")
 FINAL_TOOL_DEFAULTS = {"width": 1920, "height": 1080, "samples": 128, "output": "auto"}
 
 
+# 11/12 スキャン向けのプリセット（受付の旗 JR_SCAN_PRESET、jobs.PRESET_DEFAULTS の scan）。道具の側は名前を受付へ通すだけで、
+# 受け付けるかは受付が鍵ごとに決める（旗が効いていなければ、受付が今までと同じ「知らないプリセット」で断る）。
+# 道具の説明・引数の説明には足さない（審査中の文を変えない。案内は llms.txt の 1 行）
+SCAN_PRESET = "scan"
+
+
 def preset_of(preset: str) -> str:
     """道具の preset 引数を正す。知らない名前は ValueError（リモートは INVALID_INPUT、stdio も同じ文で返す）。"""
     p = (preset or "").strip().lower()
+    if p == SCAN_PRESET:
+        return p
     if p and p not in PURPOSE_PRESETS:
         raise ValueError("preset must be '', 'product', 'turntable' or 'animation'")
     return p
@@ -72,10 +81,20 @@ def job_params(environment: str, environment_strength: float, environment_visibl
 
 # ------------------------------------------------------------------ サンプル数の自動（11/5、旗 JR_AUTO_SAMPLES、既定 OFF）
 
+def _auto_samples_min_frames() -> int:
+    """受付の auto_samples.min_frames と同じ値（JR_AUTO_SAMPLES_MIN_FRAMES、既定 100）。説明に書く（11/12: 100 コマ未満で
+    黙って試しを飛ばすのが説明に無かった）。"""
+    try:
+        return max(1, int(float(os.environ.get("JR_AUTO_SAMPLES_MIN_FRAMES") or 100)))
+    except (TypeError, ValueError):
+        return 100
+
+
 AUTO_SAMPLES_DOCS = {
-    "auto_samples": ("True (final, Cycles): a small test render of one frame picks the lowest samples, up to samples, that "
-                     "looks the same as samples; billed like a preview. render_estimate with it shows the test's cost and "
-                     "the saving."),
+    "auto_samples": ("True (final, Cycles, " + str(_auto_samples_min_frames()) + " frames or more): a small test render of one "
+                     "frame picks the lowest samples, up to samples, that looks the same as samples; billed like a preview. "
+                     "A shorter final skips the test and renders at samples (the reply's auto_samples.summary says so). "
+                     "render_estimate with it shows the test's cost and the saving."),
     "probe_frame": "With auto_samples: the frame to test (0 = the middle frame).",
 }
 
@@ -611,9 +630,9 @@ def diagnose(health: Optional[dict[str, Any]], me: Optional[dict[str, Any]], las
 
 # ------------------------------------------------------------------ 引数の説明（道具の description の末尾に足す）
 
-_ENGINE_DOC = (" engine: '' or 'cycles' (path tracing, the default) | 'eevee' (Blender's real-time rasterizer: about half the "
-               "per-frame cost on animations, but every job pays about 7 s of shader compilation, so it only pays off for a few dozen "
-               "frames or more; previews are faster on Cycles; HDRI presets work; no caustics or accurate bounce light).")
+_ENGINE_DOC = (" engine: '' or 'cycles' (path tracing, the default) | 'eevee' (Blender's real-time rasterizer: about two-thirds "
+               "of the Cycles per-frame cost on longer animations, but every GPU chunk pays about 7-9 s of loading and shader "
+               "compilation, so below about 100 frames Cycles is usually as cheap or cheaper; previews are faster on Cycles; HDRI presets work; no caustics or accurate bounce light).")
 _TRANSPARENT_DOC = (" transparent=True: transparent background (alpha) instead of the world/HDRI backdrop; the preview sheet "
                     "shows it over dark grey.")
 _ORBIT_DOC = (" orbit=True: turntable; an orbit camera circles the scene once over orbit_frames frames (default 24, "
@@ -642,13 +661,13 @@ _ENV_DOC = {
                "bundled HDRI (a good first render for scenes without lighting work); 'compare' (render_preview only) renders the "
                "first frame under all four presets in one 2x2 image with labels, so you can pick one; environment_strength scales it (1.0); "
                "environment_visible=False hides the HDRI from the camera (flat grey backdrop, HDRI lighting only). blender: '' "
-               "(a .blend opens with the version it was saved in, other scenes with 5.0) or '5.0' / '5.2' (also '4.5', '4.2', '3.6'; a script that stops on Blender 5 because of an older API is rendered again on those automatically). asset_urls: https links to images or glTF .bin files sent with the scene; a .blend finds them "
+               "(a .blend opens with the version it was saved in, other scenes with 5.0) or '5.0' / '5.2' / '5.3' (also '4.5', '4.2', '3.6'; a script that stops on Blender 5 because of an older API is rendered again on those automatically). asset_urls: https links to images or glTF .bin files sent with the scene; a .blend finds them "
                "through relative paths (same folder), a script through os.environ['JR_ASSETS_DIR']."),
     "stdio": ("environment: '' keeps the scene's own world; 'studio' | 'sunset' | 'overcast' | 'night' replaces it with a "
               "bundled HDRI (good first render for scenes without lighting work); 'compare' (render_preview only) renders the "
               "first frame under all four presets in one 2x2 image with labels, so you can pick one; environment_strength scales it (1.0); "
               "environment_visible=False hides the HDRI from the camera (flat grey backdrop, HDRI lighting only). "
-              "blender: '' (a .blend opens with the version it was saved in, other scenes with 5.0) or '5.0' / '5.2' (also '4.5', '4.2', '3.6'; a script that stops on Blender 5 because of an older API is rendered again on those automatically). assets: local files (images, glTF "
+              "blender: '' (a .blend opens with the version it was saved in, other scenes with 5.0) or '5.0' / '5.2' / '5.3' (also '4.5', '4.2', '3.6'; a script that stops on Blender 5 because of an older API is rendered again on those automatically). assets: local files (images, glTF "
               ".bin, ...) sent along with the scene; a .blend finds them through relative paths, a script through "
               "os.environ['JR_ASSETS_DIR']."),
 }
@@ -835,6 +854,48 @@ OPT_IN: tuple[tuple[str, str, str, str], ...] = (
     ("JR_FINAL_TEST", "render_final", "test_frames", ""),
     ("JR_FINAL_TEST", "render_estimate", "test", ""),
     ("JR_FINAL_TEST", "render_estimate", "test_frames", ""),
+    # 11/12 スキャンの被写体だけ（受付の旗 JR_SPLAT_SUBJECT、server/splat.py）
+    # 道具の説明には足さない（引数の説明だけ。11/9 の旗と同じ・審査中の道具の説明を変えない）
+    ("JR_SPLAT_SUBJECT", "render_preview", "subject_only", ""),
+    ("JR_SPLAT_SUBJECT", "render_final", "subject_only", ""),
+    # 11/12 大きなスキャンを減らして描く（受付の旗 JR_SPLAT_REDUCE、server/splat.py）
+    ("JR_SPLAT_REDUCE", "render_preview", "reduce_points", ""),
+    ("JR_SPLAT_REDUCE", "render_final", "reduce_points", ""),
+    # 11/12 一周まるごとの試し描き（受付の旗 JR_FULL_TURN、server/jobs.py _full_turn）
+    ("JR_FULL_TURN", "render_preview", "full_turn", ""),
+    # 11/12 アニメ全体の下描き動画（受付の旗 JR_DRAFT_VIDEO、jobs._draft）。道具の説明には足さない（引数の説明だけ）
+    ("JR_DRAFT_VIDEO", "render_preview", "draft_video", ""),
+    # 11/12 カメラの動き（受付の旗 JR_CAMERA_MOVE、jobs._camera_move）。道具の説明には足さない（引数の説明だけ）
+    ("JR_CAMERA_MOVE", "render_preview", "camera_move", ""),
+    ("JR_CAMERA_MOVE", "render_preview", "camera_angle", ""),
+    ("JR_CAMERA_MOVE", "render_final", "camera_move", ""),
+    ("JR_CAMERA_MOVE", "render_final", "camera_angle", ""),
+    # 11/12 1 枚の静止画を分けて描く（受付の旗 JR_SPLIT_STILL、jobs._split）。道具の説明には足さない（引数の説明だけ）
+    ("JR_SPLIT_STILL", "render_final", "split", ""),
+    # 11/12 合成の File Output ノードの出力を持ち帰る（受付の旗 JR_FILE_OUTPUTS）。道具の説明には足さない（引数の説明だけ）
+    ("JR_FILE_OUTPUTS", "render_final", "file_outputs", ""),
+    # 11/12 静止画の一部だけ描き直す（受付の旗 JR_REGION_RENDER、jobs._region）。道具の説明には足さない（引数の説明だけ）
+    ("JR_REGION_RENDER", "render_final", "region", ""),
+    ("JR_REGION_RENDER", "render_final", "region_of", ""),
+    # 11/12 独自の色管理（受付の旗 JR_CUSTOM_OCIO、server/ocio.py）。道具の説明には足さない（引数の説明だけ）
+    ("JR_CUSTOM_OCIO", "render_preview", "ocio_config", ""),
+    ("JR_CUSTOM_OCIO", "render_final", "ocio_config", ""),
+    # 11/12 描くシーン（受付の旗 JR_SCENE_SELECT、jobs._scene_name）。道具の説明には足さない（引数の説明だけ）
+    ("JR_SCENE_SELECT", "render_preview", "scene_name", ""),
+    ("JR_SCENE_SELECT", "render_final", "scene_name", ""),
+    # 11/13 v2 REV-02＋AGT-03 シーンの固定（受付の旗 JR_SCENE_LOCK、jobs._scene_lock）。道具の説明には足さない（引数の説明だけ）
+    ("JR_SCENE_LOCK", "render_preview", "lock", ""),
+    ("JR_SCENE_LOCK", "render_preview", "lock_base", ""),
+    ("JR_SCENE_LOCK", "render_final", "lock", ""),
+    ("JR_SCENE_LOCK", "render_final", "lock_base", ""),
+    # 11/13 v2 QAD-02 比べの変えてよい所（受付の旗 JR_COMPARE_REGIONS、server/compare_regions.py）。compare_to と一緒に
+    ("JR_COMPARE_REGIONS", "render_final", "compare_allow", ""),
+    # 11/13 v2 QAD-06 色の仕様との照合（受付の旗 JR_COLOR_SPEC、server/color_spec.py）
+    ("JR_COLOR_SPEC", "render_final", "color_spec", ""),
+    # 11/12 保存先へ送る（受付の旗 JR_DELIVER_URL、server/deliver_url.py）。道具の説明には足さない（引数の説明だけ）
+    ("JR_DELIVER_URL", "render_final", "upload_url", ""),
+    # 11/13 v2 BIZ-02 見積もりの ID（受付の旗 JR_ESTIMATE_ID、server/estimate_ids.py）。道具の説明には足さない（引数の説明だけ）
+    ("JR_ESTIMATE_ID", "render_final", "estimate_id", ""),
 )
 # 旗が ON の引数の説明（stdio の P と、説明の無いリモートの引数に付ける。新版の tooldocs.param_docs に長い文があればそちらが勝つ）
 OPT_IN_PARAM_DOCS: dict[str, str] = {
@@ -858,6 +919,58 @@ OPT_IN_PARAM_DOCS: dict[str, str] = {
                   "smaller; beauty only, not with passes)."),
     "test": FINAL_TEST_DOC,
     "test_frames": "test='contiguous': how many frames from frame_start to test (1-24, default 10; 0 = default).",
+    "reduce_points": ("Gaussian splats over the point limit (refused with splat_too_large): True renders the most visible splats "
+                      "up to the limit and leaves out the faint and tiny ones (at most half; the file is not changed). Only when "
+                      "the user accepts that; use the same value for the final as for the preview."),
+    "camera_move": ("A camera move made by the service instead of the full turn of orbit: 'arc' (sweeps 80 degrees around the "
+                    "subject), 'push_in' (moves closer), 'pull_back' (starts close and reveals the whole), 'rise' (from low to "
+                    "looking down). It eases in and out over orbit_frames frames (48 when left out); orbit_elevation, "
+                    "orbit_distance and orbit_target apply. The preview shows the start, two frames between and the end. Use "
+                    "the same values for the final."),
+    "camera_angle": ("With camera_move: the direction the move is centred on, in degrees (0 = front, counter-clockwise seen "
+                     "from above), the same angles as the labels of an orbit or full_turn preview."),
+    "draft_video": ("True for an animation: preview the whole frame range as a small, quick draft: up to 24 frames spread over "
+                    "the range, tiled in sheet.png and played over the real length in draft.mp4 (the reply's draft section). "
+                    "Leave frames out. The reply's final_estimate is the time and price of every frame at full quality."),
+    "full_turn": ("True with orbit=True (or preset='turntable'): preview the whole turn as up to 24 small frames in one sheet "
+                  "(labelled in degrees) instead of 4 angles; leave frames out. Preview only."),
+    "subject_only": ("Gaussian splats (.spz, 3DGS .ply) only: True keeps the scanned subject and what it stands on and removes the "
+                     "rest of the capture (sky, far scenery, haze, the floor); the file is not changed. Use the same value for the "
+                     "final as for the preview."),
+    "color_spec": ("The colour settings the delivery must have, checked against what Blender reads from the scene: "
+                   "view_transform, look, display_device, working_space, file_colorspace (EXR), exposure, gamma, ocio_config "
+                   "(bundled/custom), film_transparent, encoding (scene_linear/display). Differences fail the delivery check; "
+                   "settings that tend to apply a colour transform twice are listed as risks."),
+    "compare_allow": ("With compare_to: boxes [x0, y0, x1, y1] in pixels of this render where change is expected (up to 8). The "
+                      "comparison then says which frames changed visibly outside them (compare_outside.png marks it in red) and "
+                      "which settings differ from the earlier render."),
+    "lock": ("What must stay exactly as in lock_base's render: any of camera, lights, geometry, materials, text, color, world. "
+             "The service measures the scene you send (after your script runs, before its own options such as colors or "
+             "environment) and refuses to render if a locked item differs, so an edit cannot change them by accident."),
+    "lock_base": ("job_id of an earlier render of this key whose scene the locked items must match (it must have been rendered "
+                  "while scene locks were on; its job shows scene_fingerprint)."),
+    "scene_name": ("A .blend with several scenes: the scene to render (scene_info lists them in 'scenes'); empty = the scene "
+                   "that was active when the file was saved. Use the same value for the preview and the final."),
+    "ocio_config": ("Relative name of an OCIO config you sent in assets (with its LUT files in the same folders), e.g. "
+                    "'ocio/config.ocio': Blender renders with that color management (its view transforms, looks and color "
+                    "spaces). Use the same value for the preview and the final."),
+    "file_outputs": ("True: also return what the scene's compositor File Output nodes write for each frame (PNG and OpenEXR; "
+                     "Blender 5.0 or newer). The files come back named fo<node>s<item>_<frame> and the job's file_outputs "
+                     "section says which node and item each belongs to. Not with cameras, split or region."),
+    "region": ("With region_of: [x0, y0, x1, y1] in pixels (top-left origin) of the part to render again; only that part is "
+               "rendered with the scene you send now and pasted into the earlier image, so the GPU time is that area's share. "
+               "For a fix that stays inside the box (a label, a material, one object); shadows or reflections it casts "
+               "outside the box keep the old look."),
+    "region_of": "With region: job_id of the earlier single-image PNG final to patch (same key, same width and height).",
+    "split": ("One still (frame_start = frame_end, PNG) split across GPUs that render at the same time: 2 (two strips), 4 (2x2) "
+              "or 9 (3x3); the parts overlap and are joined into one frame_0001.png. GPU time is about the same as one frame, "
+              "the wait is shorter. 0 = not split."),
+    "estimate_id": ("The estimate_id from render_estimate with the same settings: the render is refused, with nothing charged, "
+                    "if the estimate is for another scene, has expired (10 minutes) or the render would now hold more than the "
+                    "price the estimate showed. Pass it after the user agreed to that price."),
+    "upload_url": ("A pre-signed HTTPS PUT URL of the user's own storage (S3, R2, GCS, Azure SAS ...): when the render is done the "
+                   "service uploads the result there once (the video, the single image, or a zip of the frames), with that "
+                   "file's Content-Type. The job's upload section says whether it went through. No password or key is stored."),
 }
 
 
@@ -878,6 +991,107 @@ def opt_in(tool: str) -> tuple[list[str], str]:
     """道具ごとの (道具の一覧に出さない引数, 道具の説明に足す文)。旗が OFF なら ([...], "")。"""
     hidden = [param for flag, t, param, _ in OPT_IN if t == tool and not flag_on(flag)]
     return hidden, "".join(doc for flag, t, _, doc in OPT_IN if t == tool and doc and flag_on(flag))
+
+
+def open_arguments() -> dict[str, list[str]]:
+    """全員に開いている旗つきの引数: 道具 → 引数の並び（受付の /v1/capabilities の optional_arguments。旗の名前は外に出さない）。
+    どの旗も開いていなければ {}（欄そのものを出さない）。運営の鍵だけ（ops）の旗は入らない。"""
+    out: dict[str, list[str]] = {}
+    for flag, tool, param, _ in OPT_IN:
+        if flag_on(flag) and param not in out.setdefault(tool, []):
+            out[tool].append(param)
+    return {t: v for t, v in out.items() if v}
+
+
+# 手元で動かす MCP（stdio）の道具の一覧を、受付が全員に開けている旗つきの引数に合わせる（11/12）。
+# 旗つきの引数は起動時の env で決まるので、受付の旗を開けても、利用者の PC で動く MCP の道具の一覧には出なかった（11/5 からの旗も）。
+# 起動時に受付の /v1/capabilities を 1 回読み、optional_arguments に載っている引数の旗を、手元の env にまだ無いものだけ入れる。
+#   - 入れるのは OPT_IN にある旗だけ・値は "1" だけ（受付の返事で、ほかの環境変数は変えられない）
+#   - 手元の env に旗がもう在れば（"0" でも）触らない。JR_FLAGS_FROM_SERVER=0 で読みに行かない
+#   - 読めなかったときは、前に読めた結果（~/.janction-render-options.json、7 日まで）を使う。それも無ければ今までどおり
+#   - 送るのは版の入った User-Agent だけ（鍵もシーンも送らない）
+FLAGS_SYNC_ENV = "JR_FLAGS_FROM_SERVER"
+FLAGS_CACHE_DAYS = 7
+
+
+def _options_cache() -> Any:
+    from pathlib import Path
+    return Path(os.environ.get("JANCTION_RENDER_OPTIONS_CACHE") or (Path.home() / ".janction-render-options.json"))
+
+
+def _cached_arguments(server: str, now: float) -> Optional[tuple[dict[str, Any], list[Any]]]:
+    try:
+        d = json.loads(_options_cache().read_text(encoding="utf-8")).get(server)
+        if isinstance(d, dict) and now - float(d.get("at") or 0) <= FLAGS_CACHE_DAYS * 86400 and isinstance(d.get("optional_arguments"), dict):
+            presets = d.get("optional_presets")
+            return d["optional_arguments"], (presets if isinstance(presets, list) else [])
+    except (OSError, ValueError, TypeError, AttributeError):
+        pass
+    return None
+
+
+def _remember_arguments(server: str, args: dict[str, Any], now: float, presets: Optional[list[Any]] = None) -> None:
+    try:
+        p = _options_cache()
+        try:
+            all_ = json.loads(p.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            all_ = {}
+        if not isinstance(all_, dict):
+            all_ = {}
+        all_[server] = {"at": now, "optional_arguments": args, "optional_presets": list(presets or [])}
+        p.write_text(json.dumps(all_), encoding="utf-8")
+    except OSError:
+        pass
+
+
+def sync_open_arguments(server: str = "", timeout: float = 2.5, fetch: Any = None, now: Optional[float] = None) -> list[str]:
+    """受付が全員に開けている旗つきの引数に、手元の env の旗を合わせる。入れた旗の名前を返す（何もしなければ []）。
+    道具を登録する前（opt_in_snapshot の前）に 1 回だけ呼ぶ。失敗しても例外は出さない。"""
+    import time as _time
+    if (os.environ.get(FLAGS_SYNC_ENV) or "").strip().lower() in ("0", "false", "off", "no"):
+        return []
+    from .client import DEFAULT_SERVER
+    server = (server or os.environ.get("JANCTION_RENDER_SERVER") or DEFAULT_SERVER).rstrip("/")
+    t = _time.time() if now is None else now
+    args: Optional[dict[str, Any]] = None
+    presets: list[Any] = []
+    try:
+        if fetch is None:
+            import requests
+            from . import __version__
+
+            def fetch(url: str) -> Any:
+                r = requests.get(url, timeout=timeout, headers={"User-Agent": f"janction-render-mcp/{__version__} (options)"})
+                return r.json() if r.status_code == 200 else None
+        body = fetch(server + "/v1/capabilities")
+        if isinstance(body, dict):
+            got = body.get("optional_arguments")
+            args = got if isinstance(got, dict) else {}
+            pr = body.get("optional_presets")
+            presets = pr if isinstance(pr, list) else []
+            _remember_arguments(server, args, t, presets)
+    except Exception:  # noqa: BLE001 — 読めなければ前の結果か、今までどおり
+        args = None
+    if args is None:
+        cached = _cached_arguments(server, t)
+        if cached is not None:
+            args, presets = cached
+    if not isinstance(args, dict):
+        return []
+    turned: list[str] = []
+    for flag, name in OPEN_PRESETS:            # 11/12 旗つきのプリセットの値（勧めの判定に使う。引数は前から出ている）
+        if os.environ.get(flag) is None and isinstance(presets, list) and name in presets:
+            os.environ[flag] = "1"
+            turned.append(flag)
+    for flag, tool, param, _ in OPT_IN:
+        if flag in turned or os.environ.get(flag) is not None:
+            continue
+        listed = args.get(tool)
+        if isinstance(listed, list) and param in listed:
+            os.environ[flag] = "1"
+            turned.append(flag)
+    return turned
 
 
 def final_opt_in() -> tuple[list[str], str]:
@@ -902,12 +1116,39 @@ OFFER_FEATURES: dict[str, tuple[str, str]] = {
     "deliver": ("render_final", "deliver"),
     "compare_to": ("render_final", "compare_to"),
     "auto_samples": ("render_final", "auto_samples"),
+    "draft_video": ("render_preview", "draft_video"),      # 11/12 アニメ全体の下描き動画（旗 JR_DRAFT_VIDEO）
+    # 11/12 スキャン向けのプリセット（旗 JR_SCAN_PRESET）。preset は前からある引数なので、どの道具の一覧にも出ている
+    "scan_preset": ("render_preview", "preset"),
 }
+
+
+# 引数がいつも道具の一覧に出ている（前からある引数の新しい値の）機能: 起動時にこの旗が全員に ON のときだけ勧める（ops は勧めない。
+# ほかの勧めと同じ）。手元の MCP には、受付の /v1/capabilities の optional_presets で届く（sync_open_arguments）
+OFFER_FEATURE_FLAGS = {"scan_preset": "JR_SCAN_PRESET"}
+# 前からある preset 引数の、旗つきの値（11/12）: (旗, 値)
+OPEN_PRESETS = (("JR_SCAN_PRESET", "scan"),)
+
+
+# 11/13 引数が増えない旗つきの機能（受付の /v1/capabilities の optional_features）。アドオンと作業台は、これで部品を出すか決める
+OPEN_FEATURES = (("JR_NOTIFY_CHAT", "notify_chat"), ("JR_FARM_BAKE", "bake_simulations"),
+                 ("JR_RENDER_MEMORY", "render_memory"), ("JR_PRINT_STILLS", "print_stills"),
+                 ("JR_PROJECT_TAG", "project_tag"))      # 11/13 v2 REN-05 案件の印（アドオンが .blend の案件の番号を送る）
+
+
+def open_features() -> list[str]:
+    """全員に開いている、引数の増えない旗つきの機能の名前。無ければ []（欄を出さない＝今までと同じ形）。"""
+    return [name for flag, name in OPEN_FEATURES if flag_on(flag)]
+
+
+def open_presets() -> list[str]:
+    """全員に開いている旗つきのプリセットの値（受付の /v1/capabilities の optional_presets）。無ければ []。"""
+    return [name for flag, name in OPEN_PRESETS if flag_on(flag)]
 
 
 def offerable(snapshot: dict[str, tuple[list[str], str]]) -> list[str]:
     """起動時の道具の形（opt_in_snapshot の結果）で呼べる、勧められる機能の名前。旗が OFF・ops なら空。"""
-    return [f for f, (tool, param) in OFFER_FEATURES.items() if tool in snapshot and param not in snapshot[tool][0]]
+    return [f for f, (tool, param) in OFFER_FEATURES.items() if tool in snapshot and param not in snapshot[tool][0]
+            and (f not in OFFER_FEATURE_FLAGS or flag_on(OFFER_FEATURE_FLAGS[f]))]
 
 
 def opt_in_values(**values: Any) -> dict[str, Any]:

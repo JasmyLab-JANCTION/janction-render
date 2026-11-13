@@ -47,7 +47,11 @@ def estimate_brief(e: dict[str, Any] | None) -> dict[str, Any] | None:
             # 11/9 シーンと違う設定・シーンの設定で描く値（受付の旗 JR_SCENE_DIFF・JR_SCENE_SETTINGS。OFF なら無い）
             "scene_diff", "scene_settings",
             # 11/9 最終の経路での試し描きのコマ・見積もり・値段（受付の旗 JR_FINAL_TEST。OFF なら無い）
-            "test")
+            "test",
+            # 11/13 見積もりの ID（受付の旗 JR_ESTIMATE_ID。OFF なら無い）。render_final(estimate_id=...) に渡す
+            "estimate_id",
+            # 11/13 人に見せる計画（受付の旗 JR_PLAN_REQUIRED。OFF なら無い）: 描くもの・天井・時間・送り先
+            "plan")
     return {k: e[k] for k in keep if e.get(k) is not None}
 
 
@@ -58,6 +62,8 @@ FINAL_W, FINAL_H, FINAL_SPP = 1920, 1080, 128
 PRESET_FINALS: dict[str, dict[str, Any]] = {
     "product": {"what": "4 product shots (PNG, 0/90/180/270 degrees)", "width": 1440, "height": 1440, "samples": 128},
     "turntable": {"what": "a 360-degree turntable MP4", "width": 1280, "height": 720, "samples": 64},
+    # 11/12 スキャン向け（受付の旗 JR_SCAN_PRESET。旗が効いた試し描きだけが params.preset に scan を持つ）
+    "scan": {"what": "a 4-second sweep around the scan (MP4)", "width": 1280, "height": 720, "samples": 64},
 }
 
 
@@ -146,9 +152,12 @@ def final_body_after_preview(j: dict[str, Any]) -> dict[str, Any] | None:
         # 10/14: preset='product' の試し描きのあとに preset なしの仕上げを勧めていた（4 枚の PNG ではなく 1080p の 4 コマの回転になる）。
         # 同じ preset で仕上げる（大きさ・出力は受付が preset から決める）
         body = {"scene_id": j["scene_id"], "kind": "final", "preset": pre}
-        for k in ("engine", "blender", "transparent"):
+        for k in ("engine", "blender", "transparent", "subject_only", "reduce_points", "ocio_config", "scene_name",
+                  "camera_move", "camera_angle"):
             if p.get(k):
                 body[k] = p[k]
+        if pre == "scan" and not p.get("subject_only"):
+            body["subject_only"] = False       # 試し描きで周りを残した（か、その旗が効いていない）なら、仕上げも同じに
         return body
     frames = [int(x) for x in (j.get("frames") or []) if isinstance(x, (int, float))]
     body: dict[str, Any] = {"scene_id": j["scene_id"], "kind": "final", "width": FINAL_W, "height": FINAL_H, "samples": FINAL_SPP}
@@ -169,7 +178,8 @@ def final_body_after_preview(j: dict[str, Any]) -> dict[str, Any] | None:
         body["frame_start"], body["frame_end"] = min(frames), max(frames)
     else:
         body["frame_start"] = body["frame_end"] = int(j.get("frame_start") or 1)
-    for k in ("engine", "blender", "camera", "transparent"):
+    for k in ("engine", "blender", "camera", "transparent", "subject_only", "reduce_points", "ocio_config", "scene_name",
+              "camera_move", "camera_angle"):
         if p.get(k):
             body[k] = p[k]
     env = p.get("environment")
@@ -477,7 +487,11 @@ def preview_presentation(j: dict[str, Any], fu: dict[str, Any] | None, image_url
                 f"the project now (curl -L -o preview.png '{image_url}'); in a chat app, tell the user to save the image. "
                 "render_share makes a page that stays (unlisted).")
     else:
-        keep = f"Saved to {saved_to}; the files stay there (the service deletes its own copy 24 hours after the last use)." if saved_to else ""
+        # 11/13: 「24 時間」と決め打ちしていた。払った鍵（累計 500 円以上）は 7 日・月額は 30 日なので、仕事の expires_at で言う
+        until = str(j.get("expires_at") or "").strip()
+        when = (f"keeps its own copy until {until}, counted from the last use" if until
+                else "deletes its own copy after a while from the last use (24 hours, 7 days for keys that paid 500 JPY or more)")
+        keep = f"Saved to {saved_to}; the files stay there (the service {when})." if saved_to else ""
     out: dict[str, Any] = {"show_user": show, "show_user_ja": show_ja, "next_actions": actions}
     if keep:
         out["keep"] = keep
@@ -656,6 +670,7 @@ def brief(j: dict[str, Any]) -> dict[str, Any]:
         "job_id": j["job_id"],
         "kind": j["kind"],
         "status": j["status"],
+        **({"news": j["news"]} if isinstance(j.get("news"), dict) else {}),   # 11/13 伝えてもいい話（受付が描き終えた結果に 1 回）
         **({"stage": j["stage"]} if j.get("stage") and j.get("stage") != j.get("status") else {}),   # rendering / assembling（10/14）
         "scene_id": j["scene_id"],
         "frames": j["frames"] if j.get("frames") else f"{j['frame_start']}-{j['frame_end']}",

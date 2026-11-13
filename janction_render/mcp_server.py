@@ -8,6 +8,8 @@
     JANCTION_RENDER_SERVER   受付の URL（既定 https://render.janction.jp。手元の受付なら http://127.0.0.1:8340）
     JANCTION_RENDER_API_KEY  API キー（無ければ一時キーを自動で取る）
     JANCTION_RENDER_OUT      仕事の保管の親フォルダ（既定 ~/janction-render。その下に <job_id>）
+    JR_FLAGS_FROM_SERVER     0 で、起動時に受付へ「全員に開いている追加の引数」を聞きに行かない（既定は聞く。11/12、
+                             mcp_common.sync_open_arguments。聞けなければ前の結果か、手元の env のまま）
     JANCTION_RENDER_DELIVER  利用者が開く仕上げの動画の届け先（既定 そのユーザーの Downloads。docs/101 RCV-03）
     JANCTION_RENDER_NOTIFY   0 で、仕上げの見張り（終わったら動画を届け先へ・デスクトップの通知）を止める（既定 1。11/9）
 """
@@ -86,8 +88,8 @@ mcp = MCPServer(
         "render_status / render_download. Always tell the user the time estimate (estimate.human / eta.human). "
         "Every finished preview also returns final_estimate (how long the same scene takes as a final render) and quota_left_today: say both before asking the user. "
         "cameras=['CamA','CamB',...] renders the same frame from several named cameras in ONE job (preview: tiled in one sheet; final: one PNG per camera, camera_files maps names to files): use it for product shots from fixed angles instead of one job per camera. "
-        "Blender 5.0 or 5.2 with Cycles on GPU (a .blend opens with the version it was saved in; scripts and 3D files use 5.0 unless blender='5.2'; blender='4.5', '4.2' or '3.6' picks an older Blender, and a script that stops on Blender 5 because of an older API is rendered again on 4.5, 4.2 or 3.6 automatically); engine='eevee' switches to EEVEE "
-        "(about half the per-frame cost on animations of a few dozen frames or more; each job pays ~7 s of shader compilation, so previews stay on Cycles); output='png'|'exr' returns frames, 'mp4'|'webm'|'prores' a video. Blender 5.0 API notes for scripts: materials always use nodes, so set a color on the Principled BSDF (mat.node_tree.nodes['Principled BSDF'].inputs['Base Color'].default_value = (r, g, b, 1)); mat.diffuse_color only affects the viewport. Animate with obj.keyframe_insert(); obj.animation_data.action.fcurves no longer exists (set bpy.context.preferences.edit.keyframe_new_interpolation_type='LINEAR' before inserting keyframes for constant-speed motion); do not set Material.use_nodes; leave resolution, samples and denoising to the service. Inputs: a .blend, a bpy "
+        "Blender 5.0, 5.2 or 5.3 with Cycles on GPU (a .blend opens with the version it was saved in; scripts and 3D files use 5.0 unless blender='5.2' or '5.3'; blender='4.5', '4.2' or '3.6' picks an older Blender, and a script that stops on Blender 5 because of an older API is rendered again on 4.5, 4.2 or 3.6 automatically); engine='eevee' switches to EEVEE "
+        "(about two-thirds of the Cycles per-frame cost on longer animations; every GPU chunk pays about 7-9 s of loading and shader compilation, so below about 100 frames Cycles is usually as cheap or cheaper, and previews stay on Cycles); output='png'|'exr' returns frames, 'mp4'|'webm'|'prores' a video. Blender 5.0 API notes for scripts: materials always use nodes, so set a color on the Principled BSDF (mat.node_tree.nodes['Principled BSDF'].inputs['Base Color'].default_value = (r, g, b, 1)); mat.diffuse_color only affects the viewport. Animate with obj.keyframe_insert(); obj.animation_data.action.fcurves no longer exists (set bpy.context.preferences.edit.keyframe_new_interpolation_type='LINEAR' before inserting keyframes for constant-speed motion); do not set Material.use_nodes; leave resolution, samples and denoising to the service. Inputs: a .blend, a bpy "
         "script, or a 3D file (FBX, glTF/GLB, USD, OBJ, STL, PLY, Alembic) that is imported into an empty scene; images "
         "and other assets can be sent with the scene (assets=[...]). environment='studio'|'sunset'|'overcast'|'night' "
         "lights the scene with a bundled HDRI for a good-looking first render. Inputs and results are deleted 24 hours "
@@ -153,12 +155,12 @@ ENV_DOC, POLYHAVEN_DOC = _D["ENV_DOC"], _D["POLYHAVEN_DOC"]
 
 # ---- 引数の説明（スキーマに出る。Glama の品質点と、各 AI が引数を正しく埋める助け。10/7）
 P: dict[str, str] = {
-    "scene_path": "Local path to the scene: a .blend file, a bpy .py script, or a 3D file (.glb/.gltf/.fbx/.usd/.obj/.stl/.ply/.abc, imported into an empty scene). Uploaded once; reuse the returned scene_id afterwards.",
+    "scene_path": "Local path to the scene: a .blend file, a bpy .py script, or a 3D file (.glb/.gltf/.fbx/.usd/.obj/.stl/.ply/.abc, imported into an empty scene; a Gaussian splat .spz or 3DGS .ply opens with Blender 5.3). Uploaded once; reuse the returned scene_id afterwards.",
     "scene_id": "scene_id returned by an earlier call (reuses the uploaded scene without sending it again).",
-    "scene_script": "The scene as bpy Python code (text). No file and no local Blender needed; the service runs it in Blender 5.0 (5.2 with blender='5.2').",
+    "scene_script": "The scene as bpy Python code (text). No file and no local Blender needed; the service runs it in Blender 5.0 (5.2 or 5.3 with blender='5.2' / '5.3').",
     "scene_url": f"https link to a .blend, a .py script or a 3D file; the service fetches it (e.g. the sample {SAMPLE_URL}, or a 12-hour /upload link).",
     "assets": "Extra files sent with the scene: local paths (textures, glTF .bin), 'polyhaven:<id>' CC0 assets, or https URLs.",
-    "blender": "Blender version: '' (default: a .blend opens with the version it was saved in, other scenes with 5.0) or '5.0' / '5.2' (also '4.5', '4.2', '3.6'; a script that stops on Blender 5 because of an older API is rendered again on those automatically) to choose.",
+    "blender": "Blender version: '' (default: a .blend opens with the version it was saved in, other scenes with 5.0) or '5.0' / '5.2' / '5.3' (also '4.5', '4.2', '3.6'; a script that stops on Blender 5 because of an older API is rendered again on those automatically) to choose.",
     "frames": "Preview frames: '' = frame 1; '12' = one frame; '1,8,16,24' or '1-24' = up to 4 frames tiled in one labeled image.",
     "camera": "Name of the camera object to render from (default: the scene's active camera, or an automatic camera if none).",
     "cameras": "Several camera object names (up to 8) to render the same frame from in one job; the preview tiles them, the final returns one file per camera. Leave empty for the normal single camera.",
@@ -730,20 +732,39 @@ def render_preview(
     transparent: Annotated[bool, D("transparent", False)] = False,
     preset: Annotated[str, D("preset", "")] = "",
     variations: Annotated[Optional[list[mcp_common.Variant]], D("variations", None)] = None,
+    subject_only: Annotated[bool, D("subject_only", False)] = False,
+    full_turn: Annotated[bool, D("full_turn", False)] = False,
+    reduce_points: Annotated[bool, D("reduce_points", False)] = False,
+    ocio_config: Annotated[str, D("ocio_config", "")] = "",
+    scene_name: Annotated[str, D("scene_name", "")] = "",
+    lock: Annotated[Optional[list[str]], D("lock", None)] = None,
+    lock_base: Annotated[str, D("lock_base", "")] = "",
+    draft_video: Annotated[bool, D("draft_video", False)] = False,
+    camera_move: Annotated[str, D("camera_move", "")] = "",
+    camera_angle: Annotated[float, D("camera_angle", 0.0)] = 0.0,
 ) -> list[Any]:
     """Render a fast, cheap preview of a Blender scene on a JANCTION GPU and show the image. (full description on the tool)."""
     c = _client()
     try:
         preset = _preset_of(preset)
-        frame_list = parse_frames(frames) if (frames or not (orbit or preset)) else None
+        frame_list = parse_frames(frames) if (frames or not (orbit or preset or draft_video or camera_move)) else None
         sid = _resolve_scene(c, scene_path, scene_id, scene_script, assets, scene_url=scene_url)
-        if preset == "animation" and frame_list is None:
-            _ensure_scene_info(c, sid)
+        if (preset == "animation" or draft_video) and frame_list is None:
+            _ensure_scene_info(c, sid)       # 11/12 draft_video もシーンのコマ範囲が要る
         params = dict(frames=frame_list, camera=camera or None, cameras=(list(cameras) if cameras else None),
                       variations=(list(variations) if variations else None),
                       width=width, height=height, samples=samples, transparent=(True if transparent else None),
                       **_job_params(environment, environment_strength, environment_visible, blender, orbit, orbit_frames,
-                                    orbit_elevation, orbit_target, orbit_distance, engine=engine))
+                                    orbit_elevation, orbit_target, orbit_distance, engine=engine),
+                      **mcp_common.opt_in_values(subject_only=(True if subject_only else None),   # 11/12 旗 JR_SPLAT_SUBJECT
+                                                 full_turn=(True if full_turn else None),         # 11/12 旗 JR_FULL_TURN
+                                                 reduce_points=(True if reduce_points else None),  # 11/12 旗 JR_SPLAT_REDUCE
+                                                 ocio_config=ocio_config or None,                 # 11/12 旗 JR_CUSTOM_OCIO
+                                                 scene_name=scene_name or None,                   # 11/12 旗 JR_SCENE_SELECT
+                                                 lock=(list(lock) if lock else None), lock_base=lock_base or None,   # 11/13 旗 JR_SCENE_LOCK
+                                                 draft_video=(True if draft_video else None),     # 11/12 旗 JR_DRAFT_VIDEO（False なら送らない）
+                                                 camera_move=camera_move or None,                 # 11/12 旗 JR_CAMERA_MOVE（空なら送らない）
+                                                 camera_angle=(float(camera_angle) if camera_move and camera_angle else None)))
         j = c.submit(sid, kind="preview", **_with_preset(params, preset, "preview"))
         _log(f"preview job {j['job_id']} submitted frames={frame_list}")
         j = _wait_unless_gated(c, j, PREVIEW_WAIT_S)
@@ -805,6 +826,9 @@ def _shown_image(path: Path) -> Optional[Any]:
 
 
 # 旗つきの引数（11/5、mcp_common.OPT_IN）: 旗が OFF の引数は道具の一覧に出さず、説明の 1 文も足さない。起動時の手元の env で 1 回読む
+# 11/12: その前に、受付が全員に開けている旗つきの引数を手元の env に合わせる（mcp_common.sync_open_arguments。試験の中では
+# 読みに行かない。JR_FLAGS_FROM_SERVER=0 で止められる）
+SYNCED_FLAGS: list[str] = [] if "pytest" in sys.modules else mcp_common.sync_open_arguments()
 OPT_IN_NOW = mcp_common.opt_in_snapshot()
 mcp.tool(annotations=_ann(WRITE, "Render preview"), structured_output=False, meta=_ui_meta(),
          description=RENDER_PREVIEW_DESCRIPTION + OPT_IN_NOW["render_preview"][1])(
@@ -972,6 +996,22 @@ def render_final(
     exr_codec: Annotated[str, D("exr_codec", "")] = "",
     test: Annotated[str, D("test", "")] = "",
     test_frames: Annotated[int, D("test_frames", 0)] = 0,
+    subject_only: Annotated[bool, D("subject_only", False)] = False,
+    reduce_points: Annotated[bool, D("reduce_points", False)] = False,
+    split: Annotated[int, D("split", 0)] = 0,
+    ocio_config: Annotated[str, D("ocio_config", "")] = "",
+    scene_name: Annotated[str, D("scene_name", "")] = "",
+    lock: Annotated[Optional[list[str]], D("lock", None)] = None,
+    lock_base: Annotated[str, D("lock_base", "")] = "",
+    compare_allow: Annotated[Optional[list[list[int]]], D("compare_allow", None)] = None,
+    color_spec: Annotated[Optional[dict[str, Any]], D("color_spec", None)] = None,
+    upload_url: Annotated[str, D("upload_url", "")] = "",
+    estimate_id: Annotated[str, D("estimate_id", "")] = "",
+    region: Annotated[Optional[list[int]], D("region", None)] = None,
+    region_of: Annotated[str, D("region_of", "")] = "",
+    camera_move: Annotated[str, D("camera_move", "")] = "",
+    camera_angle: Annotated[float, D("camera_angle", 0.0)] = 0.0,
+    file_outputs: Annotated[bool, D("file_outputs", False)] = False,
 ) -> str:
     """Render the final frames (or a video) of a Blender scene on JANCTION GPUs. (full description on the tool)."""
     c = _client()
@@ -995,7 +1035,22 @@ def render_final(
         # 既定値（空）で呼ばれるので本文は今までと同じ
         extra.update(mcp_common.opt_in_values(colors=colors, compare_to=compare_to, passes=passes, deliver=deliver,
                                               allow_missing=allow_missing,      # 11/9 旗 JR_PREFLIGHT_BLOCK_FINAL（False なら送らない）
-                                              exr_depth=exr_depth, exr_codec=exr_codec))     # 11/9 旗 JR_PRO_EXR（空なら送らない）
+                                              exr_depth=exr_depth, exr_codec=exr_codec,     # 11/9 旗 JR_PRO_EXR（空なら送らない）
+                                              subject_only=(True if subject_only else None),       # 11/12 旗 JR_SPLAT_SUBJECT
+                                              reduce_points=(True if reduce_points else None),     # 11/12 旗 JR_SPLAT_REDUCE
+                                              split=(int(split) if split else None),               # 11/12 旗 JR_SPLIT_STILL（0 なら送らない）
+                                              ocio_config=ocio_config or None,                     # 11/12 旗 JR_CUSTOM_OCIO
+                                              scene_name=scene_name or None,                      # 11/12 旗 JR_SCENE_SELECT（空なら送らない）
+                                              lock=(list(lock) if lock else None), lock_base=lock_base or None,   # 11/13 旗 JR_SCENE_LOCK
+                                              compare_allow=([list(b) for b in compare_allow] if compare_allow else None),   # 11/13 JR_COMPARE_REGIONS
+                                              color_spec=(dict(color_spec) if color_spec else None),   # 11/13 JR_COLOR_SPEC
+                                              upload_url=upload_url or None,      # 11/12 旗 JR_DELIVER_URL（空なら送らない）
+                                              estimate_id=estimate_id or None,    # 11/13 旗 JR_ESTIMATE_ID（空なら送らない）
+                                              region=(list(region) if region else None),          # 11/12 旗 JR_REGION_RENDER
+                                              region_of=region_of or None,
+                                              camera_move=camera_move or None,                    # 11/12 旗 JR_CAMERA_MOVE（空なら送らない）
+                                              camera_angle=(float(camera_angle) if camera_move and camera_angle else None),
+                                              file_outputs=(True if file_outputs else None)))    # 11/12 旗 JR_FILE_OUTPUTS
         params = dict(frame_start=frame_start, frame_end=frame_end,
                       width=width, height=height, samples=samples, fps=fps, output=output,
                       camera=camera or None, transparent=(True if transparent else None), notify_url=notify_url or None,

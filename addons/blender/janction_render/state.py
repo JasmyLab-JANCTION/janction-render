@@ -24,6 +24,8 @@ _STATE: dict[str, Any] = {
     "checkout_url": "",     # the top-up page (Stripe Checkout) after a 402 payment_required; cleared by the next job
     "pending_notice": None,  # (done|failed, 文) 終わりを Blender の中で知らせる（11/9、タイマーが 1 回だけ出す）
     "deps": [],             # Files の一覧（assets.Collected.deps、11/9）
+    "checks": [],           # 手元の点検（checks.py、11/13 v2 QAD-01）: (level, code, text)
+    "checks_summary": "",
     "deps_summary": "",
 }
 
@@ -95,6 +97,28 @@ def set_quota(me: dict[str, Any]) -> None:
             }
         else:
             _STATE["quota"] = None
+
+
+def set_capabilities(caps: dict[str, Any]) -> None:
+    """/v1/capabilities の答えから、受付が全員に開けている旗つきの引数と、静止画の上限を残す（11/13）。
+    旗が全部 OFF の受付は optional_arguments を出さないので、パネルも送る物も今までと同じ。"""
+    opt = caps.get("optional_arguments") if isinstance(caps, dict) else None
+    res = caps.get("resolution") if isinstance(caps, dict) else None
+    with _LOCK:
+        _STATE["open_args"] = {str(t): [str(a) for a in v] for t, v in opt.items() if isinstance(v, list)}             if isinstance(opt, dict) else {}
+        _STATE["stills_max_pixels"] = int((res or {}).get("max_prepaid_credit_stills_pixels") or 0)             if isinstance(res, dict) else 0
+        feats = caps.get("optional_features") if isinstance(caps, dict) else None
+        _STATE["open_features"] = [str(f) for f in feats] if isinstance(feats, list) else []
+
+
+def open_feature(name: str) -> bool:
+    with _LOCK:
+        return name in (_STATE.get("open_features") or [])
+
+
+def open_arg(tool: str, name: str) -> bool:
+    with _LOCK:
+        return name in (_STATE.get("open_args") or {}).get(tool, [])
 
 
 def quota_text() -> str:

@@ -52,9 +52,10 @@ spend_caps:                            # 支出の上限の既定（鍵ごとに
   per_day_yen: 100000                 # 11/2 本人「全部進めて」: 1 日の既定も撤回（ハードの上限と同じ＝実質なし）。前払いの残高が歯止め。鍵ごとの上限・max_yen・オートチャージの月の上限と 1 日 3 回は残す
   hard_max_yen: 100000
 
-monthly_plans:
-  - {id: starter, name: Starter, price_yen: 2980, credit_yen: 3500}
-  - {id: pro, name: Pro, price_yen: 9800, credit_yen: 12000}
+monthly_plans:                         # 11/11 18:55 本番（docs/107）。受付は env の JR_MONTHLY_PLANS で、コードの既定（Starter・Pro の 2 段）は変えない
+  - {id: basic, name: Basic, price_yen: 1500, credit_yen: 1650}
+  - {id: standard, name: Standard, price_yen: 4500, credit_yen: 5400}
+  - {id: pro, name: Pro, price_yen: 15000, credit_yen: 19500}
 
 # これらの数字を受付で実現する環境変数（gpu004 の env/server.env と同じであること。tests/test_terms_sync.py はこの
 # 組み合わせで全公開ページを描き、上の数字と禁止の言い方を確かめる）
@@ -73,6 +74,7 @@ env_profile:
   JR_TTL_HOURS: "24"
   JR_PAID_TTL_HOURS: "168"
   JR_PAID_MIN_YEN: "500"
+  JR_MONTHLY_PLANS: "basic:Basic:1500:1650,standard:Standard:4500:5400,pro:Pro:15000:19500"
   JR_SPEND_CAP_PER_JOB_YEN: "100000"          # 11/2 本人「1 仕事の上限 3,000 円は撤回」。本番の server.env もこの値に（残すと撤回が効かない）
   JR_SPEND_CAP_PER_KEY_PER_DAY_YEN: "100000"
 

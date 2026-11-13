@@ -35,7 +35,7 @@ PAID_MIN_YEN = 500
 SPEND_CAP_JOB_YEN = 100000
 SPEND_CAP_DAY_YEN = 100000
 SPEND_CAP_HARD_MAX_YEN = 100000
-MONTHLY_PLANS = [{'id': 'starter', 'name': 'Starter', 'price_yen': 2980, 'credit_yen': 3500}, {'id': 'pro', 'name': 'Pro', 'price_yen': 9800, 'credit_yen': 12000}]
+MONTHLY_PLANS = [{'id': 'basic', 'name': 'Basic', 'price_yen': 1500, 'credit_yen': 1650}, {'id': 'standard', 'name': 'Standard', 'price_yen': 4500, 'credit_yen': 5400}, {'id': 'pro', 'name': 'Pro', 'price_yen': 15000, 'credit_yen': 19500}]
 # 公開物に 1 件でもあれば CI が落ちる言い方（正規表現、大文字小文字を区別しない）と、その理由
 FORBIDDEN_PATTERNS: list[tuple[str, str]] = [
     ('free[ -]beta', '無料ベータは 2026-10-08 に終わった'),
@@ -69,6 +69,7 @@ ENV_PROFILE: dict[str, str] = {
     'JR_TTL_HOURS': '24',
     'JR_PAID_TTL_HOURS': '168',
     'JR_PAID_MIN_YEN': '500',
+    'JR_MONTHLY_PLANS': 'basic:Basic:1500:1650,standard:Standard:4500:5400,pro:Pro:15000:19500',
     'JR_SPEND_CAP_PER_JOB_YEN': '100000',
     'JR_SPEND_CAP_PER_KEY_PER_DAY_YEN': '100000',
 }

@@ -330,6 +330,10 @@ class Client:
         """GET /v1/me: usage, the free GPU time left and the credit for this key."""
         return self._json("GET", "/v1/me", timeout=15)
 
+    def capabilities(self) -> dict[str, Any]:
+        """/v1/capabilities: 全員に開いている旗つきの引数（optional_arguments）と上限。パネルはこれで出す物を決める（11/13）。"""
+        return self._json("GET", "/v1/capabilities")
+
     def health(self) -> dict[str, Any]:
         """GET /v1/health (no key): workers, queue, features."""
         return self._json("GET", "/v1/health", auth=False, timeout=10)
@@ -624,6 +628,10 @@ class Client:
 
     def job(self, job_id: str) -> dict[str, Any]:
         return self._json("GET", f"/v1/jobs/{job_id}", timeout=20)
+
+    def project_history(self, project: str, limit: int = 20) -> dict[str, Any]:
+        """11/13 v2 REN-05（受付の旗 JR_PROJECT_TAG）: この .blend の案件の仕事（ファイルの消えた物も記録として）。"""
+        return self._json("GET", f"/v1/jobs?project={urllib.parse.quote(project)}&limit={int(limit)}", timeout=20)
 
     def cancel(self, job_id: str) -> dict[str, Any]:
         """DELETE /v1/jobs/{job_id} (what the service implements for cancel)."""

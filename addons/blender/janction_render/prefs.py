@@ -127,6 +127,9 @@ class JRPreferences(bpy.types.AddonPreferences):
         description="Where results are saved. Empty: a janction_render folder next to the .blend ('//' = relative to the .blend)")
     notify_when_done: BoolProperty(name="Notify when a render finishes", default=True)
     # 円の額と支出の上限を出すか（既定 OFF。料金の文は本人の承認が要るので、承認までは出さない）
+    # 11/13 受付が Discord・Slack の通知を全員に開けているときだけ設定に出す（受付の optional_features の notify_chat）
+    chat_webhook: StringProperty(name="Discord / Slack webhook", subtype='PASSWORD', default="",
+                                 description="A final render posts its result here when it finishes")
     show_costs: BoolProperty(name="Show costs (JPY) and a spending cap", default=False,
                              description="Show the estimated cost in JPY and send a per-render spending cap")
 
@@ -144,6 +147,8 @@ class JRPreferences(bpy.types.AddonPreferences):
         col.prop(self, "blender_version")
         layout.prop(self, "open_results")
         layout.prop(self, "notify_when_done")
+        if state.open_feature("notify_chat"):
+            layout.prop(self, "chat_webhook")
         layout.prop(self, "download_dir")
         row = layout.row(align=True)
         row.prop(self, "asset_roots")

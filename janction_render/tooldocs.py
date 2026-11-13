@@ -75,8 +75,8 @@ def _assets_param(flavor: str) -> str:
 
 # ------------------------------------------------------------------ 指示文
 
-_WHEN = ("WHEN TO USE: the user wants to render, preview, animate or turntable a Blender scene (a .blend, a bpy script you "
-         "write, or a glTF/GLB/FBX/USD/OBJ file), or product shots / a 360-degree product video, and has no NVIDIA GPU or "
+_WHEN = ("WHEN TO USE: the user wants to render, preview, animate or turntable a Blender scene (a .blend, a bpy script, a "
+         "glTF/GLB/FBX/USD/OBJ or a splat .spz), or product shots / a 360-degree product video, and has no NVIDIA GPU or "
          "local rendering is slow.")
 _DONT = ("DO NOT USE: to edit a scene open in the user's Blender (a local Blender MCP does that); for one still on a machine "
          "with its own NVIDIA GPU (local is faster); for non-Blender video or other GPU work.")
@@ -381,15 +381,15 @@ def _script_notes(flavor: str) -> str:
 def param_docs(flavor: str, wait_cap_s: int = 50) -> dict[str, str]:
     remote = flavor == "remote"
     return {
-        "scene_path": "Local path to the scene: a .blend file, a bpy .py script, or a 3D file (.glb/.gltf/.fbx/.usd/.obj/.stl/.ply/.abc, imported into an empty scene). Uploaded once; reuse the returned scene_id afterwards.",
+        "scene_path": "Local path to the scene: a .blend file, a bpy .py script, or a 3D file (.glb/.gltf/.fbx/.usd/.obj/.stl/.ply/.abc, imported into an empty scene; a Gaussian splat .spz or 3DGS .ply opens with Blender 5.3). Uploaded once; reuse the returned scene_id afterwards.",
         "scene_id": "scene_id returned by an earlier call (reuses the uploaded scene without sending it again).",
         "resume_limit": "How many projects to return (1-20, default 3).",
         "resume_cursor": "next_cursor from the previous call, to see more projects. Leave empty for the newest.",
-        "scene_script": "The scene as bpy Python code (text). No file and no local Blender needed; the service runs it in Blender 5.0 (5.2 with blender='5.2')." + _script_notes(flavor),
-        "scene_url": f"https link to a .blend, a .py script or a 3D file (.glb/.gltf/.fbx/.usd/.obj/.stl/.ply/.abc); the service fetches it (e.g. the sample {SAMPLE_URL}, or a {UPLOAD_LINK_HOURS}-hour /upload link). A .gltf or .obj also brings its .bin / .mtl / textures from the same folder.",
+        "scene_script": "The scene as bpy Python code (text). No file and no local Blender needed; the service runs it in Blender 5.0 (5.2 or 5.3 with blender='5.2' / '5.3')." + _script_notes(flavor),
+        "scene_url": f"https link to a .blend, a .py script or a 3D file (.glb/.gltf/.fbx/.usd/.obj/.stl/.ply/.abc; a Gaussian splat .spz or 3DGS .ply opens with Blender 5.3); the service fetches it (e.g. the sample {SAMPLE_URL}, or a {UPLOAD_LINK_HOURS}-hour /upload link). A .gltf or .obj also brings its .bin / .mtl / textures from the same folder.",
         "asset_urls": "Extra files sent with the scene: https links (textures, glTF .bin) or 'polyhaven:<id>' CC0 assets from asset_search ('polyhaven:<id>@2k' for 2k textures). A .blend finds them through relative paths (same folder); a script through os.environ['JR_ASSETS_DIR'] or the jr_assets helpers.",
         "assets": "Extra files sent with the scene: local paths (textures, glTF .bin), https links, or 'polyhaven:<id>' CC0 assets from asset_search. A .blend finds them through relative paths (same folder); a script through os.environ['JR_ASSETS_DIR'] or the jr_assets helpers.",
-        "blender": "Blender version: '' (default: a .blend opens with the version it was saved in, other scenes with 5.0) or '5.0' / '5.2' (also '4.5', '4.2', '3.6'; a script that stops on Blender 5 because of an older API is rendered again on those automatically) to choose.",
+        "blender": "Blender version: '' (default: a .blend opens with the version it was saved in, other scenes with 5.0) or '5.0' / '5.2' / '5.3' (also '4.5', '4.2', '3.6'; a script that stops on Blender 5 because of an older API is rendered again on those automatically) to choose.",
         "frames": f"Preview frames: '' = frame 1; '12' = one frame; '1,8,16,24' or '1-24' = up to {PREVIEW_FRAMES_MAX} frames tiled in one labeled image (to judge camera motion and animation; same GPU time as one 720p frame).",
         "camera": "Name of the camera object to render from (default: the scene's active camera, or an automatic camera if there is none). Ignored with orbit=True; not combinable with cameras.",
         "cameras": "Several camera object names (up to 8) rendered from the same frame in one job: the preview tiles them in one labeled sheet, the final returns one PNG/EXR per camera (camera_files maps names to files). For product shots from fixed angles. Not combinable with orbit, environment='compare' or camera.",
@@ -410,7 +410,7 @@ def param_docs(flavor: str, wait_cap_s: int = 50) -> dict[str, str]:
         "idempotency_key": "Any string up to 128 characters that identifies this order: sending the same key again returns the first job instead of rendering twice (a different body with the same key is refused).",
         "orbit_target": "Object name or 'x,y,z' to centre the orbit on (default: the scene's main objects).",
         "orbit_distance": "Multiplier for the orbit camera distance (default 1.0).",
-        "engine": "'' or 'cycles' (path tracing, default) | 'eevee' (real-time rasterizer: about half the per-frame cost on animations of a few dozen frames or more; each job pays about 7 s of shader compilation, so previews stay on Cycles).",
+        "engine": "'' or 'cycles' (path tracing, default) | 'eevee' (real-time rasterizer: about two-thirds of the Cycles per-frame cost on longer animations; every GPU chunk pays about 7-9 s of loading and shader compilation, so below about 100 frames Cycles is usually as cheap or cheaper, and previews stay on Cycles).",
         "transparent": "True renders on a transparent background (alpha) for product shots and overlays; png / exr / webm / gif / webp keep it, mp4 and prores cannot. The preview sheet shows it over dark grey.",
         "frame_start": "First frame to render (inclusive).",
         "frame_end": "Last frame to render (inclusive); equal to frame_start for a single image. With orbit=True and no frame_end, one full turn is rendered.",

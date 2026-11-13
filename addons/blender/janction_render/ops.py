@@ -192,6 +192,131 @@ def _common_body(context, prefs, settings) -> dict[str, Any]:
     }
 
 
+# ---- 受付が開けている旗つきの引数を、Blender の設定から拾う（11/13） -----------------------------------------
+# ボタンは増やさない。旗が全部 OFF の受付（optional_arguments が無い）には、今までと 1 字も同じ本文を送る。
+
+SPLIT_MIN_PIXELS = 3840 * 2160      # これより大きい 1 枚の静止画は、分けて描く（待ちが短い。GPU の時間はほぼ同じ）
+
+
+def _has_file_output(scene) -> bool:
+    for attr in ("compositing_node_group", "node_tree"):       # 5.0 以降は compositing_node_group
+        tree = getattr(scene, attr, None)
+        for node in (getattr(tree, "nodes", None) or []):
+            if getattr(node, "bl_idname", "") == "CompositorNodeOutputFile" and not getattr(node, "mute", False):
+                return True
+    return False
+
+
+def border_region(scene, width: int, height: int) -> Optional[list[int]]:
+    """描く範囲の枠（Render Region）をピクセルの [x0, y0, x1, y1]（左上が原点）に。枠が無い・全体なら None。"""
+    r = scene.render
+    if not getattr(r, "use_border", False):
+        return None
+    x0, x1 = float(r.border_min_x), float(r.border_max_x)
+    y0, y1 = float(r.border_min_y), float(r.border_max_y)   # Blender は下が 0
+    box = [int(round(x0 * width)), int(round((1.0 - y1) * height)), int(round(x1 * width)), int(round((1.0 - y0) * height))]
+    if box[2] - box[0] < 8 or box[3] - box[1] < 8 or box == [0, 0, width, height]:
+        return None
+    return box
+
+
+def ocio_assets() -> tuple[str, list[tuple[str, str]]]:
+    """Blender を OCIO=... で起動していれば、その色管理の設定と LUT を ocio/ の下に送る。(config の名前, 送る物)。"""
+    path = os.environ.get("OCIO") or ""
+    cfg = Path(path) if path else None
+    if cfg is None or cfg.suffix.lower() != ".ocio" or not cfg.is_file():
+        return "", []
+    root = cfg.parent
+    out: list[tuple[str, str]] = []
+    total = 0
+    for p in sorted(root.rglob("*")):
+        if not p.is_file() or p.suffix.lower() not in OCIO_EXTENSIONS:
+            continue
+        rel = p.relative_to(root).as_posix()
+        if len(rel.split("/")) > 4 or not assets_mod.NAME_RE.match(f"ocio/{rel}"):
+            continue
+        total += p.stat().st_size
+        if total > OCIO_MAX_BYTES or len(out) >= 30:
+            return "", []                     # 大きすぎる色管理は送らない（今までどおり受付の既定で描く）
+        out.append((f"ocio/{rel}", str(p)))
+    return f"ocio/{cfg.name}", out
+
+
+OCIO_EXTENSIONS = {".ocio", ".cube", ".spi1d", ".spi3d", ".spimtx", ".csp", ".clf", ".ctf", ".3dl", ".cc", ".ccc", ".cdl", ".icc"}
+OCIO_MAX_BYTES = 200 * 1024 * 1024
+
+
+def scene_extras(context, tool: str, body: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:
+    """旗つきの引数のうち、受付が全員に開けている物だけを Blender の設定から足す。(足す物, 一言)。"""
+    scene = context.scene
+    add: dict[str, Any] = {}
+    notes: list[str] = []
+    if state.open_arg(tool, "scene_name") and len(getattr(bpy.data, "scenes", []) or []) > 1:
+        add["scene_name"] = str(scene.name)
+    if state.open_arg(tool, "ocio_config"):
+        name, _files = ocio_assets()
+        if name:
+            add["ocio_config"] = name
+    if state.open_feature("project_tag"):
+        # 11/13 v2 REN-05（受付の旗 JR_PROJECT_TAG）: .blend が持つ案件の番号（無ければ作ってシーンに残す。保存すれば次も同じ）
+        pid = project_id(scene)
+        if pid:
+            add["project"] = pid
+            add["project_name"] = project_name(scene)
+    if tool != "render_final":
+        return add, notes
+    single = int(body.get("frame_start", 0)) == int(body.get("frame_end", -1))
+    w, h = int(body.get("width") or 0), int(body.get("height") or 0)
+    if state.open_arg(tool, "file_outputs") and _has_file_output(scene):
+        add["file_outputs"] = True
+    last = state.get("last_still") or {}
+    box = border_region(scene, w, h) if single else None
+    if (box and state.open_arg(tool, "region") and body.get("output") == "png" and not add.get("file_outputs")
+            and last.get("job_id") and (last.get("width"), last.get("height")) == (w, h)):
+        add["region"] = box
+        add["region_of"] = str(last["job_id"])
+        notes.append(f"Rendering only the region {box[2] - box[0]}x{box[3] - box[1]} into {last['job_id']}")
+    elif (single and body.get("output") == "png" and w * h > SPLIT_MIN_PIXELS and state.open_arg(tool, "split")
+          and not add.get("file_outputs")):
+        add["split"] = 9 if w * h > 2 * SPLIT_MIN_PIXELS else 4
+    return add, notes
+
+
+PROJECT_PROP = "janction_project_id"
+
+
+def project_id(scene, create: bool = True) -> str:
+    """シーンのカスタムプロパティに残した案件の番号。無ければ作る（create）。読めない・書けないシーンは ""。"""
+    try:
+        pid = scene.get(PROJECT_PROP)
+    except Exception:  # noqa: BLE001 — カスタムプロパティを持たないもの
+        return ""
+    if isinstance(pid, str) and pid.startswith("prj_"):
+        return pid
+    if not create:
+        return ""
+    pid = "prj_" + uuid.uuid4().hex[:24]
+    try:
+        scene[PROJECT_PROP] = pid
+    except Exception:  # noqa: BLE001
+        return ""
+    return pid
+
+
+def project_name(scene) -> str:
+    path = str(getattr(bpy.data, "filepath", "") or "")
+    base = os.path.splitext(os.path.basename(path))[0] if path else ""
+    return (base or str(getattr(scene, "name", "") or ""))[:80]
+
+
+def draft_body(context, prefs, settings) -> dict[str, Any]:
+    """アニメ全体の下描き動画（受付の旗 JR_DRAFT_VIDEO）: コマは受付が選ぶので frames を送らない。"""
+    body = preview_body(context, prefs, settings)
+    body.pop("frames", None)
+    body.update({"draft_video": True, "frame_start": int(context.scene.frame_start), "frame_end": int(context.scene.frame_end)})
+    return body
+
+
 def preview_body(context, prefs, settings) -> dict[str, Any]:
     scene = context.scene
     body = _common_body(context, prefs, settings)
@@ -200,6 +325,7 @@ def preview_body(context, prefs, settings) -> dict[str, Any]:
         "frames": preview_frames(scene.frame_start, scene.frame_end, scene.frame_current),
         "samples": _samples(scene, settings, PREVIEW_SAMPLES_MAX),
     })
+    body.update(scene_extras(context, "render_preview", body)[0])
     return body
 
 
@@ -214,13 +340,16 @@ def final_body(context, prefs, settings) -> tuple[dict[str, Any], list[str]]:
     if fe - fs + 1 > MAX_FRAMES_PER_INSTRUCTION:
         fe = fs + MAX_FRAMES_PER_INSTRUCTION - 1
         notes.append(f"One render takes at most {MAX_FRAMES_PER_INSTRUCTION} frames; rendering {fs}-{fe}")
-    w, h = fit_pixels(body["width"], body["height"])
+    output = str(settings.output)
+    # 11/13: 受付が印刷向けの大きな静止画（8K まで）を全員に開けていれば、1 枚の PNG・EXR はその上限まで
+    stills_cap = int(state.get("stills_max_pixels") or 0)
+    cap = stills_cap if (fe == fs and output in ("png", "exr", "mp4") and stills_cap > MAX_PIXELS) else MAX_PIXELS
+    w, h = fit_pixels(body["width"], body["height"], cap)
     if (w, h) != (body["width"], body["height"]):
-        notes.append(f"Resolution reduced to {w}x{h} (4K cap per render)")
+        notes.append(f"Resolution reduced to {w}x{h} ({'8K' if cap > MAX_PIXELS else '4K'} cap per render)")
     elif w * h > FREE_MAX_PIXELS:
         notes.append("Above 1920x1080 needs prepaid credit (free time renders up to 1080p)")
         body["width"], body["height"] = w, h
-    output = str(settings.output)
     if fe == fs and output == "mp4":
         output = "png"
     body.update({
@@ -230,6 +359,12 @@ def final_body(context, prefs, settings) -> tuple[dict[str, Any], list[str]]:
         "samples": _samples(scene, settings, FINAL_SAMPLES_MAX),
         "output": output,                  # mp4 / png / exr（11/9、1 層の OpenEXR。受付は前から受ける）
     })
+    extra, extra_notes = scene_extras(context, "render_final", body)
+    body.update(extra)
+    notes.extend(extra_notes)
+    hook = str(getattr(prefs, "chat_webhook", "") or "").strip() if prefs is not None else ""
+    if hook.startswith("https://") and state.open_feature("notify_chat"):
+        body["notify_url"] = hook               # 11/13 Discord・Slack の Webhook に、終わったら結果が届く
     # 支出の上限（円）は、料金を出す設定（既定 OFF、文面は本人の承認待ち）を入れた人だけが送る
     if prefs is not None and getattr(prefs, "show_costs", False):
         cap = int(getattr(settings, "max_yen", 0) or 0)
@@ -432,10 +567,15 @@ class Runner(threading.Thread):
                 self._forget()
                 state.fail("The render finished but produced no image")
                 return
-            dest = self.client.artifact(job_id, name, self.out_dir / f"preview_{stamp()}.png")
+            tag = stamp()
+            dest = self.client.artifact(job_id, name, self.out_dir / f"preview_{tag}.png")
+            result = dest
+            if "draft.mp4" in names:      # 下描き動画（11/13）: 一覧の絵は Blender で開き、動画はフォルダから
+                result = self.client.artifact(job_id, "draft.mp4", self.out_dir / f"draft_{tag}.mp4")
             self._forget()
-            state.update(phase="done", result=str(dest), pending_image=str(dest), message=f"Preview ready{took}",
-                         pending_notice=("done", f"Preview ready{took}"))
+            word = "Draft" if result is not dest else "Preview"
+            state.update(phase="done", result=str(result), pending_image=str(dest), message=f"{word} ready{took}",
+                         pending_notice=("done", f"{word} ready{took}"))
             return
         if "output.mp4" in names:
             dest = self.client.artifact(job_id, "output.mp4", self.out_dir / f"final_{stamp()}.mp4")
@@ -457,6 +597,11 @@ class Runner(threading.Thread):
                 self._fetch(job_id, n, folder / PART_PREFIX_RE.sub("", n))
             result = folder
         self._forget()
+        frames_done = [n for n in names if FRAME_RE.match(n)]
+        if self.body.get("output") == "png" and len(frames_done) == 1 and "output.mp4" not in names:
+            # 次に描く範囲の枠だけ描き直すときの元（11/13、受付の旗 JR_REGION_RENDER）
+            state.update(last_still={"job_id": job_id, "width": int(self.body.get("width") or 0),
+                                     "height": int(self.body.get("height") or 0)})
         state.update(phase="done", result=str(result), message=f"Final render ready{took}",
                      pending_open=str(result) if self.open_when_done else "",
                      pending_notice=("done", f"Final render ready{took}: {result}"))
@@ -620,10 +765,22 @@ def _roots(prefs: Any) -> list[str]:
     return assets_mod.parse_roots(str(getattr(prefs, "asset_roots", "") or "")) if prefs is not None else []
 
 
+def local_checks(context) -> list:
+    """11/13 v2 QAD-01: ネットを使わない手元の点検（checks.py）。結果は state.checks（Files の上に出す）。"""
+    from . import checks
+    try:
+        found = checks.run(context.scene, tuple(getattr(getattr(bpy, "app", None), "version", (5, 0, 0))))
+    except Exception as exc:  # noqa: BLE001 — 点検が落ちても送る・描くは止めない
+        found = [("info", "check_failed", f"Local checks could not run: {exc}")]
+    state.update(checks=found, checks_summary=checks.summary(found))
+    return found
+
+
 def scan_files(context, prefs: Any) -> "assets_mod.Collected":
-    """依存を集めて、Files の一覧（state.deps）を新しくする。"""
+    """依存を集めて、Files の一覧（state.deps）を新しくする。手元の点検（local_checks）も一緒に。"""
     collected = assets_mod.collect_from_bpy(scene=getattr(context, "scene", None), roots=_roots(prefs))
     state.update(deps=list(collected.deps), deps_summary=collected.summary())
+    local_checks(context)
     return collected
 
 
@@ -637,6 +794,13 @@ def start_job(context, kind: str, body: dict[str, Any], notes: list[str], report
     if state.busy():
         report({'WARNING'}, "A render is already running")
         return False
+    # 11/13 v2 QAD-01: 送る前に手元で分かる止まる理由（新しすぎる版・使えない描画方式）なら、何も送らずに止める
+    blocking = [c for c in local_checks(context) if c[0] == "block"]
+    if blocking:
+        msg = blocking[0][2]
+        state.fail(msg)
+        report({'ERROR'}, msg)
+        return False
     tmp_dir = Path(tempfile.mkdtemp(prefix="janction_render_"))
     try:
         state.start_job(kind, notes)
@@ -644,6 +808,8 @@ def start_job(context, kind: str, body: dict[str, Any], notes: list[str], report
         collected = scan_files(context, prefs)
         scene_path = _save_copy(tmp_dir, collected.remaps)
         # 11/9 夜（0.1.12）: リンクした .blend の入れ子・外のフォルダの付け替えの組（受付の旗 JR_LINKED_BLEND の受付が読む）
+        if body.get("ocio_config"):
+            collected.assets.extend(ocio_assets()[1])
         map_file = _write_library_map(tmp_dir, collected.library_map)
         if map_file is not None:
             collected.assets.append((assets_mod.libplan.MAP_NAME, str(map_file)))
@@ -685,6 +851,23 @@ class JR_OT_preview(bpy.types.Operator):
     def execute(self, context):
         settings = context.scene.jr_settings
         body = preview_body(context, get_prefs(context), settings)
+        return {'FINISHED'} if start_job(context, "preview", body, [], self.report) else {'CANCELLED'}
+
+
+class JR_OT_draft(bpy.types.Operator):
+    """Preview the whole animation as a quick, small draft video"""
+    bl_idname = "jr.draft"
+    bl_label = "Draft video"
+    bl_options = {'REGISTER'}
+
+    @classmethod
+    def poll(cls, context):
+        scene = getattr(context, "scene", None)
+        return (not state.busy() and state.open_arg("render_preview", "draft_video")
+                and scene is not None and scene.frame_end > scene.frame_start)
+
+    def execute(self, context):
+        body = draft_body(context, get_prefs(context), context.scene.jr_settings)
         return {'FINISHED'} if start_job(context, "preview", body, [], self.report) else {'CANCELLED'}
 
 
@@ -791,6 +974,33 @@ class JR_OT_open_results(bpy.types.Operator):
         return {'FINISHED'}
 
 
+class JR_OT_project_history(bpy.types.Operator):
+    """Show the renders of this .blend's project (also from other sessions and computers)"""
+    bl_idname = "jr.project_history"
+    bl_label = "Project history"
+    bl_options = {'REGISTER'}
+
+    @classmethod
+    def poll(cls, context):
+        scene = getattr(context, "scene", None)
+        return state.open_feature("project_tag") and scene is not None and bool(project_id(scene, create=False))
+
+    def execute(self, context):
+        prefs = get_prefs(context)
+        if prefs is None or not prefs.api_key:
+            self.report({'ERROR'}, "No API key yet")
+            return {'CANCELLED'}
+        try:
+            got = make_client(prefs).project_history(project_id(context.scene, create=False))
+        except JRError as exc:
+            self.report({'ERROR'}, f"Could not read the project history: {exc}")
+            return {'CANCELLED'}
+        rows = got.get("jobs") or []
+        state.update(project_history=rows[:10])
+        self.report({'INFO'}, f"{len(rows)} render(s) in this project")
+        return {'FINISHED'}
+
+
 class JR_OT_refresh_quota(bpy.types.Operator):
     """Fetch today's remaining free GPU minutes for this key"""
     bl_idname = "jr.refresh_quota"
@@ -803,10 +1013,15 @@ class JR_OT_refresh_quota(bpy.types.Operator):
             self.report({'ERROR'}, "No API key yet")
             return {'CANCELLED'}
         try:
-            state.set_quota(make_client(prefs).me())
+            client = make_client(prefs)
+            state.set_quota(client.me())
         except JRError as exc:
             self.report({'ERROR'}, f"Could not read the quota: {exc}")
             return {'CANCELLED'}
+        try:
+            state.set_capabilities(client.capabilities())
+        except JRError:
+            pass
         self.report({'INFO'}, state.quota_text() or "Quota unknown")
         return {'FINISHED'}
 
@@ -886,8 +1101,8 @@ class JR_OT_forget_job(bpy.types.Operator):
         return {'FINISHED'}
 
 
-CLASSES = (JR_OT_preview, JR_OT_final, JR_OT_estimate, JR_OT_cancel, JR_OT_open_results, JR_OT_refresh_quota,
-           JR_OT_scan_files, JR_OT_copy_file_list, JR_OT_resume_job, JR_OT_forget_job)
+CLASSES = (JR_OT_preview, JR_OT_draft, JR_OT_final, JR_OT_estimate, JR_OT_cancel, JR_OT_open_results, JR_OT_refresh_quota,
+           JR_OT_scan_files, JR_OT_copy_file_list, JR_OT_resume_job, JR_OT_forget_job, JR_OT_project_history)
 
 
 def register() -> None:

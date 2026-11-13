@@ -1,5 +1,66 @@
 # Changelog
 
+## 0.4.296 - 2026-11-13
+
+- Workbench: a reopened preview's tag shows its frame count and size (it read "Preview" twice), a sheet shows how many frames it holds, and a reopened preview whose critic was not ok shows that verdict instead of "Preview ready".
+- CLI: preview --full-turn (the whole turn in one sheet, labelled in degrees) and --draft-video (a draft video of a long animation; the range from --frames START-END or the scene's own).
+
+## 0.4.295 - 2026-11-13
+
+- Workbench: Try the sample bottle always renders the sample (after a link such as the paper boat was reopened it could render that scene). Works made on the page open again from the works list, a reopened preview keeps its name, finish and scene length, and a draft video plays in the preview with a Grid/Play toggle. A link's first preview no longer shows the previous picture.
+- Workbench on phones: no large gap under the monthly plan description.
+- Preview replies state when the files are really deleted (7 days for keys that paid 500 JPY or more) instead of always 24 hours.
+- Gaussian splats: when every angle of a splat is dark or hazy, the critic suggests moving the camera back instead of adding light (a splat's light is baked), and haze in only part of the frame is flagged.
+
+## 0.4.294 - 2026-11-13
+
+- The workbench settings (Credit) show JANCTION Storage (beta) to everyone: monthly plans include it (10 GiB, 200 GiB, or 1 TiB for 3 people), and the monthly plan buttons say how much storage comes with each. The monthly plan row no longer wraps into a narrow column.
+
+## 0.4.293 - 2026-11-13
+
+- Groundwork for features that open one at a time in the coming days. Nothing changes in how the service works until each one opens; each opening is announced on its own.
+
+## 0.4.292 - 2026-11-13
+
+- News from JANCTION now also reaches people who render from the command line (janction-render CLI), from an MCP server installed on their own computer, and from AI apps that call the HTTP API: once, after a finished render, as one line at the end. Update the CLI or the local MCP server to 0.4.292 to see it.
+- News for a campaign stops by itself when the campaign ends.
+- People on a monthly plan who use only the browser can now open JANCTION Storage (beta) from the workbench settings (Credit), without rendering a final first. The workbench also states how long results are kept: 24 hours, 7 days for keys that have paid 500 JPY or more in total, 30 days on a monthly plan.
+
+## 0.4.291 - 2026-11-13
+
+- The MCP tool descriptions name Blender 5.3 and Gaussian splats (.spz, or a 3D Gaussian Splatting .ply) again, so AI apps no longer tell people these are unsupported. (The ChatGPT/Codex app keeps the wording that is in its directory review until the review is finished.)
+- A scene_url that redirects to a download link without a file extension (a Hugging Face /resolve/ link or a GitHub release asset) keeps its file name and type; before, such a .ply, .glb or .spz was refused as "not a .blend file".
+
+## 0.4.290 - 2026-11-13
+
+- News from JANCTION (such as a campaign) is kept apart from messages about your account: it comes once, only with a finished render, as optional information your AI app may mention at the end, never as an instruction. Messages about your account work as before.
+- The top-up page now also shows the bonus on the amount that covers the render you were quoted, like the other amounts.
+
+## 0.4.289 - 2026-11-13
+
+- An AI app that sends the same final render again right after the first one (for example after a time-out) now always gets the first job back, also when the two calls fall on either side of the two-minute window; before, it could be rendered and charged twice.
+
+## 0.4.288 - 2026-11-13
+
+- JANCTION Storage (beta) now comes with monthly plans only. One-off top-ups keep results for 7 days (keys that have paid 500 JPY or more in total), and the top-up page no longer shows Storage next to one-off amounts.
+
+## 0.4.287 - 2026-11-13
+
+- Every monthly plan now keeps JANCTION Storage (beta) items while subscribed: Basic includes 10 GiB with no expiry (before, Basic had the 90-day keeping of a paid key). The top-up page says so above the monthly plans.
+
+## 0.4.286 - 2026-11-13
+
+- The top-up page shows the JANCTION Storage (beta) space that comes with a payment: 10 GiB once a key has paid 500 JPY or more in total, 200 GiB with Standard, 1 TiB for 3 people with Pro; monthly plans also say results are kept 30 days.
+- Delivery checks no longer call it flicker when an orbit camera brings a wall into view and the brightness changes by a few percent; real jumps are still reported.
+- Operations: the morning AIO check retries a site that does not answer before calling it unknown, and the pricing source lists the monthly plans that are live.
+
+## 0.4.285 - 2026-11-13
+
+- Connect codes: when another AI app or browser joins an account with a code, the account's AI apps get a one-time link (7 days) that removes just that connection.
+- A key that was replaced (rotated) can no longer connect a new AI app during its grace period.
+- The earlier account a browser remembers is kept for 7 days only and can be forgotten on the connection page; /connect/code gives codes only for the account the browser uses now.
+- Stricter checks that connect-code forms come from JANCTION Render's own pages.
+
 ## 0.4.284 - 2026-11-13
 
 - The pricing page's warning before a first top-up in a browser without a key also says how to bring in the account an AI app uses (a connect code), since some AI apps cannot hand out payment links.
