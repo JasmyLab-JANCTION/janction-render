@@ -16,7 +16,7 @@
       "license": "MIT"
     },
     {
-      "name": "render-skills",
+      "name": "janction-render-skills",
       "source": "./plugins/render-skills",
       "description": "10 free skills for rendering Blender with an AI agent: scene preflight, render settings, color management, lighting, product shots, turntables, clay and wireframe, animation delivery checks, reference matching and a director. Work with a local Blender or with JANCTION Render.",
       "category": "productivity",

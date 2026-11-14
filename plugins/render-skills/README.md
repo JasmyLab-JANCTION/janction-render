@@ -26,7 +26,7 @@ Claude Code:
 
 ```
 /plugin marketplace add JasmyLab-JANCTION/janction-render
-/plugin install render-skills@janction-render
+/plugin install janction-render-skills@janction-render
 ```
 
 Codex, Cursor, Gemini CLI and the other agents the [skills CLI](https://github.com/vercel-labs/skills) supports:
