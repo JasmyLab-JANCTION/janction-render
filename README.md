@@ -1,10 +1,21 @@
 # JANCTION Render
 
+Render Blender on cloud GPUs straight from Claude Code, Codex, Cursor or ChatGPT: no GPU and no Blender install, and every
+preview comes back with what is wrong and the bpy code to fix it.
+
 <!-- terms:pricing_pointer_en -->
 For current pricing, free credits, and usage limits, always refer to https://render.janction.jp/pricing and https://render.janction.jp/facts.json. Pricing and limits may change over time.
 <!-- /terms:pricing_pointer_en -->
 
+[![PyPI](https://img.shields.io/pypi/v/janction-render.svg)](https://pypi.org/project/janction-render/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](https://github.com/JasmyLab-JANCTION/janction-render/blob/main/LICENSE)
+[![Free skills](https://img.shields.io/badge/skills-10%20free%20(MIT)-orange.svg)](https://github.com/JasmyLab-JANCTION/janction-render/tree/main/plugins/render-skills)
 [![JasmyLab-JANCTION/janction-render MCP server](https://glama.ai/mcp/servers/JasmyLab-JANCTION/janction-render/badges/score.svg)](https://glama.ai/mcp/servers/JasmyLab-JANCTION/janction-render)
+
+![a 360-degree turntable of a bottle, rendered with one command](https://raw.githubusercontent.com/JasmyLab-JANCTION/janction-render/main/examples/one-command/turntable.gif)
+
+Also here, free: [10 Blender render skills](https://github.com/JasmyLab-JANCTION/janction-render/tree/main/plugins/render-skills)
+for any AI agent (MIT), usable with a local Blender or with JANCTION Render.
 
 ## What is JANCTION Render?
 
@@ -56,6 +67,22 @@ Keep 3D files in a repository? Add a button that lets anyone render them from th
 ```markdown
 [![Render on JANCTION](https://render.janction.jp/badge.svg)](https://render.janction.jp/go?scene=https://github.com/you/repo/blob/main/model.glb)
 ```
+
+### Free Blender render skills (MIT)
+
+Ten skills that teach any AI agent to render Blender well and prove the result: scene preflight, render settings, color
+management, lighting recipes, product shots, turntables, clay and wireframe passes, animation delivery checks, reference
+matching, and a director that plans the job. They work with a local Blender (any Blender MCP that runs Python) as well as
+with JANCTION Render, and every Blender code block in them was run on Blender 5.0.1 and 5.2.
+
+```
+/plugin marketplace add JasmyLab-JANCTION/janction-render
+/plugin install render-skills@janction-render
+```
+
+Other agents: copy the folders from
+[plugins/render-skills/skills](https://github.com/JasmyLab-JANCTION/janction-render/tree/main/plugins/render-skills/skills)
+into their skills directory (for example `~/.claude/skills/` or `~/.codex/skills/`).
 
 ## Guides on the official site
 

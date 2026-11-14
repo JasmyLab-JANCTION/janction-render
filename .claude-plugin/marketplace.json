@@ -14,6 +14,15 @@
       "tags": ["blender", "rendering", "gpu", "3d", "mcp"],
       "homepage": "https://render.janction.jp",
       "license": "MIT"
+    },
+    {
+      "name": "render-skills",
+      "source": "./plugins/render-skills",
+      "description": "10 free skills for rendering Blender with an AI agent: scene preflight, render settings, color management, lighting, product shots, turntables, clay and wireframe, animation delivery checks, reference matching and a director. Work with a local Blender or with JANCTION Render.",
+      "category": "productivity",
+      "tags": ["blender", "rendering", "skills", "cycles", "3d"],
+      "homepage": "https://github.com/JasmyLab-JANCTION/janction-render/tree/main/plugins/render-skills",
+      "license": "MIT"
     }
   ]
 }
