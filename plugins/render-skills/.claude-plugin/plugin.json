@@ -11,6 +11,10 @@
   "homepage": "https://github.com/JasmyLab-JANCTION/janction-render/tree/main/plugins/render-skills",
   "repository": "https://github.com/JasmyLab-JANCTION/janction-render",
   "license": "MIT",
+  "documentationUrl": "https://github.com/JasmyLab-JANCTION/janction-render/blob/main/plugins/render-skills/README.md",
+  "supportUrl": "https://github.com/JasmyLab-JANCTION/janction-render/issues",
+  "privacyPolicyUrl": "https://render.janction.jp/privacy",
+  "termsOfServiceUrl": "https://render.janction.jp/terms",
   "keywords": [
     "blender",
     "rendering",
