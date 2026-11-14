@@ -1,0 +1,27 @@
+{
+  "$schema": "https://skills.sh/schemas/skills.sh.schema.json",
+  "paths": ["./plugins/render-skills/skills"],
+  "groupings": [
+    {
+      "title": "Blender render skills",
+      "description": "Free skills (MIT) for rendering Blender with any AI agent, with a local Blender or with JANCTION Render.",
+      "skills": [
+        "blender-render-director",
+        "blender-scene-preflight",
+        "blender-render-settings",
+        "blender-color-management",
+        "blender-lighting-recipes",
+        "blender-product-shots",
+        "blender-turntable",
+        "blender-clay-wireframe",
+        "blender-animation-delivery",
+        "blender-reference-match"
+      ]
+    },
+    {
+      "title": "Cloud GPU rendering",
+      "description": "Render Blender scenes and 3D models on JANCTION's GPUs from an AI agent.",
+      "skills": ["janction-render"]
+    }
+  ]
+}

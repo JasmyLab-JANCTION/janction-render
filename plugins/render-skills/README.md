@@ -29,7 +29,13 @@ Claude Code:
 /plugin install render-skills@janction-render
 ```
 
-Any agent that reads Agent Skills folders (`SKILL.md`): copy the folders under `skills/` into its skills directory,
+Codex, Cursor, Gemini CLI and the other agents the [skills CLI](https://github.com/vercel-labs/skills) supports:
+
+```
+npx skills add JasmyLab-JANCTION/janction-render
+```
+
+Or, for any agent that reads Agent Skills folders (`SKILL.md`), copy the folders under `skills/` into its skills directory,
 for example `.claude/skills/` in a project or `~/.claude/skills/` for Claude Code, or `~/.codex/skills/` for Codex.
 
 ```

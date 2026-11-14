@@ -80,9 +80,15 @@ with JANCTION Render, and every Blender code block in them was run on Blender 5.
 /plugin install render-skills@janction-render
 ```
 
-Other agents: copy the folders from
+Codex, Cursor, Gemini CLI and the other agents the [skills CLI](https://github.com/vercel-labs/skills) supports:
+
+```
+npx skills add JasmyLab-JANCTION/janction-render
+```
+
+Or copy the folders from
 [plugins/render-skills/skills](https://github.com/JasmyLab-JANCTION/janction-render/tree/main/plugins/render-skills/skills)
-into their skills directory (for example `~/.claude/skills/` or `~/.codex/skills/`).
+into the agent's skills directory (for example `~/.claude/skills/` or `~/.codex/skills/`).
 
 ## Guides on the official site
 
