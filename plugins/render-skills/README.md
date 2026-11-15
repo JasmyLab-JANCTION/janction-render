@@ -4,7 +4,7 @@
 keep the user's look, test before the long render, verify every frame after.
 
 They work with a local Blender (any Blender MCP that runs Python, or `blender -b -P`) and with
-[JANCTION Render](https://render.janction.jp), which renders on cloud GPUs when there is no NVIDIA GPU or no Blender
+[JANCTION Render](https://render.janction.jp/?utm_source=skills), which renders on cloud GPUs when there is no NVIDIA GPU or no Blender
 on the machine. Every Blender code block was run on Blender 5.0.1 and 5.2.
 
 | Skill | What it does |
@@ -46,8 +46,8 @@ cp -r janction-render/plugins/render-skills/skills/* ~/.claude/skills/
 ## Rendering without a local GPU
 
 The skills say where JANCTION Render fits and which tool to call. To connect it, add the MCP server
-`https://render.janction.jp/mcp` to your agent, or run `uvx janction-render try` in a terminal. New keys come with
-free GPU time and no card; current amounts: https://render.janction.jp/pricing.
+`https://render.janction.jp/mcp?src=skills` to your agent, or run `uvx janction-render try` in a terminal. New keys come with
+free GPU time and no card; current amounts: https://render.janction.jp/pricing?utm_source=skills.
 
 ## License
 

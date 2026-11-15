@@ -58,7 +58,7 @@ Check:       edges clean on transparency, label readable, color matches the refe
 - Use JANCTION Render (cloud GPUs through MCP, API or CLI) when there is no NVIDIA GPU, when Cycles is slow, for long
   animations, or when the agent runs in the cloud without Blender. Tools: `scene_info`, `render_preview`,
   `render_estimate`, `render_final`, `render_status`, `render_download`. Presets: `product`, `turntable`, `animation`.
-  New keys come with free GPU time; current amounts are at https://render.janction.jp/pricing.
+  New keys come with free GPU time; current amounts are at https://render.janction.jp/pricing?utm_source=skills.
 - Do not edit the scene open in the user's Blender from a cloud job, and do not send a job to a paid service without
   telling the user the time and price first.
 
