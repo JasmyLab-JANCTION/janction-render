@@ -4,7 +4,7 @@ description: Builds a seamless 360-degree turntable animation in Blender - orbit
 license: MIT
 metadata:
   author: JasmyLab Inc. (https://render.janction.jp)
-  version: "0.1.0"
+  version: "0.1.1"
   related-skills: blender-product-shots, blender-lighting-recipes, blender-animation-delivery
 ---
 
@@ -51,11 +51,31 @@ def turntable(target_objs, frames=120, fps=30, rotate="camera", elevation_deg=18
     s.collection.objects.link(cam)
     r = s.render
     aspect = (r.resolution_x * r.pixel_aspect_x) / (r.resolution_y * r.pixel_aspect_y)
-    fov = 2 * math.atan(math.tan(cam_data.angle / 2) * min(aspect, 1 / aspect))
-    dist = radius / math.sin(fov / 2) / fill
+    t = math.tan(cam_data.angle / 2)
+    tx, ty = (t, t / aspect) if aspect >= 1 else (t * aspect, t)   # sensor_fit AUTO: the angle spans the longer side
     e = math.radians(elevation_deg)
-    cam.location = center + Vector((0, -math.cos(e), math.sin(e))) * dist
-    cam.rotation_euler = (center - cam.location).to_track_quat("-Z", "Y").to_euler()
+    fwd, right = Vector((0, math.cos(e), -math.sin(e))), Vector((1, 0, 0))
+    up = right.cross(fwd)
+    turn = []                                             # every corner at every 15 degrees of the turn
+    for k in range(24):
+        ca, sa = math.cos(math.tau * k / 24), math.sin(math.tau * k / 24)
+        for p in pts:
+            v = p - center
+            v = Vector((v.x * ca - v.y * sa, v.x * sa + v.y * ca, v.z))
+            turn.append((v.dot(right), v.dot(up), v.dot(fwd)))
+
+    def fit(shift):                                       # closest distance that keeps every corner inside fill
+        return max([radius * 1.05] + [max(abs(x) / (tx * fill), abs(y - shift) / (ty * fill)) - z for x, y, z in turn])
+
+    shift = 0.0
+    for _ in range(3):                                    # centre the band the object sweeps vertically
+        dist = fit(shift)
+        ys = [(y - shift) / ((dist + z) * ty) for x, y, z in turn]
+        shift += (max(ys) + min(ys)) / 2 * dist * ty
+    dist = fit(shift)
+    aim = center + up * shift
+    cam.location = aim - fwd * dist
+    cam.rotation_euler = (aim - cam.location).to_track_quat("-Z", "Y").to_euler()
     cam_data.clip_end = max(cam_data.clip_end, dist * 4)
     s.camera = cam
     bpy.context.view_layer.update()                       # matrix_world is current before parenting
