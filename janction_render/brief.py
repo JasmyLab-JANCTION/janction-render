@@ -110,6 +110,21 @@ def pay_words(cost: dict[str, Any] | None, quota: dict[str, Any] | None = None, 
                        "この 1 本を仕上げるか聞いて、はいなら render_final")}
     short = max(0, held - bal)
     card_yen = int(w.get("card_bonus_yen") or 0) if w.get("card_bonus_available") else 0
+    # 11/16 受付の旗 JR_PLAN_FIRST: 見積もりに月額の案内（cost.monthly_offer）が付いていれば、月額を先に、1 回きりのチャージを
+    # 「もできます」で後ろに言う。カード登録（0 円）があるときはカード登録と月額の 2 つ。付いていなければ今までの文
+    mo = c.get("monthly_offer") or {}
+    mo_en, mo_ja = str(mo.get("summary") or ""), str(mo.get("summary_ja") or "")
+    if card_yen and card_yen >= held and mo_en and mo_ja:
+        return {"mode": "card", "card_bonus_yen": card_yen, "monthly_offer": mo,
+                "en": (f"about {est} JPY; the credit is {bal} JPY. Two ways, give the user both. Registering a card adds {card_yen} "
+                       "JPY of free GPU time and covers this render (the registration costs nothing and the card is not charged; one "
+                       f"page). The other way: {mo_en}. A one-time top-up is also possible. Ask the user which; then call "
+                       "render_final: its answer carries the links, and the render starts by itself once the card is saved or the "
+                       "payment arrives"),
+                "ja": (f"料金 約 {est} 円・残高 {bal} 円。道は 2 つあり、両方を利用者に伝えます。カードを登録すると {card_yen} 円分の"
+                       "無料の GPU 時間が足され、この仕上げはそれで描けます（登録は 0 円、カードに請求は行われません。ページは 1 つ）。"
+                       f"もう 1 つは、{mo_ja}。今回だけのチャージもできます。どれにするか利用者に聞いて、render_final: その返事に"
+                       "リンクが付き、カードの登録か支払いが済むと描画が自動で始まります")}
     if card_yen and card_yen >= held:
         return {"mode": "card", "card_bonus_yen": card_yen,
                 "en": (f"about {est} JPY; the credit is {bal} JPY. Registering a card adds {card_yen} JPY of free GPU time and covers "
@@ -128,6 +143,15 @@ def pay_words(cost: dict[str, Any] | None, quota: dict[str, Any] | None = None, 
            "ja": (f"料金 約 {est} 円・残高 {bal} 円（不足 {short} 円）。{topup} 円のチャージでこの仕上げ"
                   + (f"と、同じくらいの仕上げが約 {more} 回分" if more else "") + "描けます。利用者に聞いて、はいなら render_final: "
                   "その返事に決済のリンクが 1 つ付き、払うと描画が自動で始まります")}
+    if mo_en and mo_ja:
+        out["monthly_offer"] = mo
+        out["en"] = (f"about {est} JPY; the credit is {bal} JPY ({short} JPY short). Two ways to pay, give the user both. {mo_en}. "
+                     f"Or a one-time top-up of {topup} JPY covers this render" + (f" and about {more} more like it" if more else "")
+                     + ". Ask the user which; then call render_final: its answer carries both links, and the render starts by itself "
+                     "after payment")
+        out["ja"] = (f"料金 約 {est} 円・残高 {bal} 円（不足 {short} 円）。払い方は 2 つあり、両方を利用者に伝えます。{mo_ja}。"
+                     f"今回だけなら {topup} 円のチャージでも、この仕上げ" + (f"と同じくらいの仕上げ 約 {more} 回分が" if more else "が")
+                     + "描けます。どちらにするか利用者に聞いて、render_final: その返事にリンクが 2 つ付き、払うと描画が自動で始まります")
     fs = c.get("free_short") or {}
     ch = fs.get("change") or {}
     if ch:

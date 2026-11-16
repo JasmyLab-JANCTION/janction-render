@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.4.316 - 2026-11-16
+
+- Monthly plans: llms.txt, facts.json, the FAQ and the MCP server instructions now say that every monthly plan includes JANCTION Storage (beta) and keeps renders and scenes for as long as you are subscribed. New guides: how long render farms keep your renders, and keeping Blender renders and scenes.
+
+## 0.4.315 - 2026-11-16
+
+- Monthly plans: the charge page, the pricing cards and the studio now say that .blend files can be uploaded up to 10 GB.
+- Charge page on a phone: each monthly plan keeps its name on one line, with what it includes on the next line.
+
 ## 0.4.314 - 2026-11-16
 
 - Operations: a monthly plan granted by the operator now ends by itself at the end of its period.

@@ -132,9 +132,18 @@ PREVIEW_FRAMES_MAX = 4
 UPLOAD_LINK_HOURS = _env_int_doc("JR_DROP_TTL_HOURS", 12)
 
 
+def _plan_keep() -> str:
+    """11/16 月額＋JANCTION Storage（β）: 月額なら契約中ずっと残る（server.storage_aio。旗が OFF・読めないときは空）。"""
+    try:
+        from .server import storage_aio
+        return storage_aio.mcp_clause()
+    except Exception:  # noqa: BLE001  指示文の飾り
+        return ""
+
+
 def _limits() -> str:
     return (f"LIMITS: {_free_offer(short=True)}; up to {MAX_FRAMES_PER_INSTRUCTION:,} frames per call (parts of {FREE_MAX_FRAMES}), "
-            f"{FREE_MAX_SIZE} free / {PAID_MAX_SIZE} prepaid; kept {RETENTION_HOURS} h ({PAID_RETENTION_DAYS} d if topped up).")
+            f"{FREE_MAX_SIZE} free / {PAID_MAX_SIZE} prepaid; kept {RETENTION_HOURS} h ({PAID_RETENTION_DAYS} d if topped up{_plan_keep()}).")
 
 
 def _presets(flavor: str) -> str:
@@ -171,12 +180,12 @@ def instructions(flavor: str) -> str:
                 "wait_seconds=45) until the links come back; tell the user eta.human, and if the GPU is lent out tell them the "
                 "wait, do not poll.")
         return " ".join([head, _WHEN, _DONT, _FIRST, flow, _presets(flavor), _limits(), _SCRIPTS, _more()])
-    head = ("JANCTION Render: Blender rendering on cloud GPUs for AI agents, from the terminal (no local GPU or Blender; key "
+    head = ("JANCTION Render: Blender rendering on cloud GPUs for AI agents, from the terminal (no local GPU/Blender; key "
             "made on first use).")
-    local = "LOCAL FILES: scene_path (.blend, .py or 3D file); files in ~/janction-render/<job_id>, a final's MP4 in Downloads."
-    flow = ("FLOW: render_preview (image + critic verdict with fix code; fix, repeat) -> ask the user "
-            "-> render_estimate when long or the quota is uncertain -> render_final -> render_status (tell eta.human) "
-            "-> render_download(job_id, only='mp4'); GPU lent out? say the wait, do not poll.")
+    local = "LOCAL FILES: scene_path (.blend, .py, 3D file); output in ~/janction-render/<job_id>, final MP4 in Downloads."
+    flow = ("FLOW: render_preview (image + verdict with fix code; fix, retry) -> ask the user "
+            "-> render_estimate if long or quota unsure -> render_final -> render_status (tell eta.human) "
+            "-> render_download(job_id, only='mp4'); GPU lent out? say the wait, no polling.")
     return " ".join([head, _WHEN, _DONT, _FIRST, local, flow, _presets(flavor), _limits(), _SCRIPTS, _more()])
 
 

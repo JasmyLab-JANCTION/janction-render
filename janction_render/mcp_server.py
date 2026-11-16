@@ -471,6 +471,10 @@ def _payment_block(exc: ClientError) -> Optional[dict[str, Any]]:
     after = ("after they paid (or registered the card) the render starts by itself: tell them so and follow it with "
              "render_status(job_id=resume.order_id); do not upload or submit it again (a resend returns the same job)"
              if p.get("resume") else "after they paid, call billing() to confirm the balance, then submit the same job again")
+    plan_first = mcp_common.monthly_offer_next(p, after)     # 11/16 受付の旗 JR_PLAN_FIRST: 月額の案内が付いた 402 は、月額を先に
+    if plan_first:
+        p["next"] = plan_first
+        return p
     if p.get("card_offer"):
         # 0 円のカード登録で無料の GPU 時間が足される鍵には、その道を先に（docs/62 P0-1）。チャージは代わりの道
         p["next"] = ("first tell the user card_offer.tell_user in their own language (registering a card costs nothing and adds free "

@@ -1145,6 +1145,22 @@ def open_presets() -> list[str]:
     return [name for flag, name in OPEN_PRESETS if flag_on(flag)]
 
 
+def monthly_offer_next(x: dict[str, Any], after: str) -> str | None:
+    """402 に月額の案内（monthly_offer、受付の旗 JR_PLAN_FIRST、11/16）が付いているときの次の一手。付いていなければ None
+    （呼ぶ側の今までの文）。カード登録があればカード登録と月額の 2 つ、無ければ月額を先に・1 回きりのチャージを後ろに。
+    どれにするかは利用者が選ぶ（AI が選ばない）。"""
+    if not x.get("monthly_offer"):
+        return None
+    if x.get("card_offer"):
+        return ("give the user the two ways in their own language: registering a card (card_offer.tell_user: it costs nothing and "
+                "adds free GPU time; they open card_offer.link in a browser) and the monthly plan (monthly_offer.tell_user, "
+                "monthly_offer.tell_user_ja in Japanese, with monthly_offer.link); add that a one-time top-up at checkout_url is "
+                "also possible; the user picks, do not pick for them; " + after)
+    return ("relay tell_user to the user in their own language: what this render costs, the monthly plan first (monthly_offer.link) "
+            "and the one-time top-up as the other way (checkout_url); show both links; the user picks, do not pick for them; "
+            + after + "; " + SMALLER_IS_USERS_CHOICE)
+
+
 def offerable(snapshot: dict[str, tuple[list[str], str]]) -> list[str]:
     """起動時の道具の形（opt_in_snapshot の結果）で呼べる、勧められる機能の名前。旗が OFF・ops なら空。"""
     return [f for f, (tool, param) in OFFER_FEATURES.items() if tool in snapshot and param not in snapshot[tool][0]

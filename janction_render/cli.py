@@ -1393,7 +1393,20 @@ def main(argv: list[str] | None = None) -> int:
         if pay:
             print(f"payment required: {exc.detail}", file=sys.stderr)
             order = (pay.get("resume") or {}).get("order_id")
-            if pay.get("card_offer"):
+            mo = pay.get("monthly_offer") or {}
+            if mo.get("tell_user"):
+                # 11/16 受付の旗 JR_PLAN_FIRST: カード登録（0 円、あれば）→ 月額 → 1 回きりのチャージの順。どれで払っても
+                # 預かった仕事は自動で始まる
+                if pay.get("card_offer"):
+                    print(_card_line(pay["card_offer"], starts_by_itself=bool(order)), file=sys.stderr)
+                print(mo["tell_user"], file=sys.stderr)
+                print(f"a one-time top-up is also possible, {pay.get('topup_yen') or ''} JPY: {pay['checkout_url']}", file=sys.stderr)
+                if order:
+                    print("the render starts by itself after any of them (nothing to run again); follow it with: "
+                          f"janction-render status {_arg(order) or 'ORDER_ID'}", file=sys.stderr)
+                else:
+                    print("then run the command again", file=sys.stderr)
+            elif pay.get("card_offer"):
                 # 10/26: 0 円で済む道を先に（Web の 402 の欄と同じ順）。カードの分で描けると、預かった仕事が自動で始まる
                 print(_card_line(pay["card_offer"], starts_by_itself=bool(order)), file=sys.stderr)
                 print(f"or pay {pay.get('topup_yen') or ''} JPY: {pay['checkout_url']}"
