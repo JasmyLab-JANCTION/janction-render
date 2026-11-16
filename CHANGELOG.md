@@ -1,5 +1,35 @@
 # Changelog
 
+## 0.4.314 - 2026-11-16
+
+- Operations: a monthly plan granted by the operator now ends by itself at the end of its period.
+
+## 0.4.313 - 2026-11-16
+
+- Front page: a New section (phone scans as Gaussian splats, draft video, the whole turn in one sheet), the rate card and "What one key can do" show the monthly plans (.blend up to 10 GB, kept 30 days, Storage beta), and .spz is listed wherever the accepted files are.
+- Front page and workbench layout: at half width the masthead is one column and the key facts are two by two; the usage table fits on a phone without sideways scrolling.
+
+## 0.4.312 - 2026-11-16
+
+- Studio: the monthly plan line says .blend files up to 10 GB and that the bonus part of the credit is usable only while subscribed.
+
+## 0.4.311 - 2026-11-16
+
+- The charge page and the studio's monthly plan buttons now say each plan takes .blend files up to 10 GB.
+
+## 0.4.310 - 2026-11-16
+
+- Every monthly plan, from Basic, now takes .blend files up to 10 GB (before, only Pro); a file over the 5 GB paid limit points to the monthly plans.
+
+## 0.4.309 - 2026-11-16
+
+- Monthly plans: the billing reply to AI apps and the subscribe page now say which JANCTION Storage (beta) tier comes with each plan.
+
+## 0.4.308 - 2026-11-16
+
+- Monthly plans now include JANCTION Storage (beta) by tier, kept with no time limit while subscribed: Basic gets Personal (200 GiB), Standard gets Pro (1 TiB, 3 people) and Pro gets Team (5 TiB, 5 people).
+- Monthly plans: the bonus part of each month's credit is used first and is usable while the plan is active; the part equal to the monthly fee stays usable after you cancel. The subscribe page, the terms and the legal notice say so.
+
 ## 0.4.307 - 2026-11-17
 
 - CLI: --asset sends the files a scene script reads, including a scan (.spz or .ply) for jr_assets.import_splat; a server that does not take scans as assets leaves them out with the reason.

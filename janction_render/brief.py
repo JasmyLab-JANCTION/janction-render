@@ -824,11 +824,16 @@ def plan_fields(me: dict[str, Any]) -> dict[str, Any]:
     out: dict[str, Any] = {"autocharge": b.get("autocharge"), "monthly_plan": b.get("subscription"),
                            "monthly_plans": [{k: p.get(k) for k in ("id", "name", "price_yen", "credit_yen")}
                                              # 11/11 受付の旗 JR_PLAN_RENDERS・JR_PLAN_PERKS が ON のときだけ届く欄（無ければ今の形のまま）
-                                             | {k: p[k] for k in ("renders_estimate", "renders", "keep_days_after_last_use") if k in p}
+                                             | {k: p[k] for k in ("renders_estimate", "renders", "keep_days_after_last_use", "storage",
+                                                                 "blend_upload_max_bytes") if k in p}
                                              for p in plans]}
     if any("renders_estimate" in p for p in plans):
         out["monthly_plans_note"] = ("describe each monthly plan by how many renders it covers: renders.en / renders.ja "
                                      "(1080p 240-frame animations, about 160 JPY each), then the price")
+    if any("storage" in p for p in plans):
+        # 11/16 docs/115: 月額に付く JANCTION Storage（β）の容量（受付の旗 JR_STORAGE_PLANS が ON のときだけ届く）
+        out["monthly_plans_storage_note"] = ("each monthly plan includes JANCTION Storage (beta): storage.plan, storage.quota_gib and "
+                                             "storage.seats; files stay with no time limit while subscribed")
     if links:
         out["links"] = links
         out["links_note"] = ("each link opens a confirmation page where the user decides on Stripe; share one only when the user "
