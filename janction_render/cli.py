@@ -100,9 +100,20 @@ def _asset_root_arg(s: argparse.ArgumentParser) -> None:
 
 
 def _roots_kw(args: argparse.Namespace) -> dict[str, Any]:
-    """--asset-root を書いたときだけ upload に渡す（書かなければ今までと同じ呼び方。既定は .blend のフォルダの中だけ）。"""
+    """--asset-root を書いたときだけ upload に渡す（書かなければ今までと同じ呼び方。既定は .blend のフォルダの中だけ）。
+    11/16: --asset（スクリプトが読む素材。スキャンの .spz・.ply も）を書いたときは assets も渡す。"""
     roots = getattr(args, "asset_root", None)
-    return {"asset_roots": list(roots)} if roots else {}
+    out: dict[str, Any] = {"asset_roots": list(roots)} if roots else {}
+    assets = getattr(args, "asset", None)
+    if assets:
+        out["assets"] = list(assets)
+    return out
+
+
+def _asset_arg(s: argparse.ArgumentParser) -> None:
+    s.add_argument("--asset", action="append", default=None, metavar="FILE",
+                   help="a file the scene script reads (a model, texture, or a scan .spz/.ply for jr_assets.import_splat), "
+                        "sent with the scene; repeat for more files. Files must be in the script's folder or below")
 
 
 def _scene(c: Client, args: argparse.Namespace) -> str:
@@ -266,6 +277,53 @@ def _scene_frame_range(c: Client, sid: str, args: argparse.Namespace) -> tuple[i
     return int(info.get("frame_start") or 1), int(info.get("frame_end") or 1)
 
 
+def _splat_options(args: argparse.Namespace) -> dict[str, Any]:
+    """11/16 スキャン（.spz・3DGS の .ply）の指定（受付の旗 JR_SPLAT_SUBJECT・JR_SPLAT_REDUCE）。付けたときだけ送る。"""
+    out: dict[str, Any] = {}
+    if getattr(args, "subject_only", False):
+        out["subject_only"] = True
+    if getattr(args, "reduce_points", False):
+        out["reduce_points"] = True
+    return out
+
+
+PRESET_CHOICES = ("product", "turntable", "animation", "scan")
+CAMERA_MOVE_CHOICES = ("arc", "push_in", "pull_back", "rise")
+
+
+def _move_preset_options(args: argparse.Namespace) -> dict[str, Any]:
+    """11/16 カメラの動き（受付の旗 JR_CAMERA_MOVE）と用途のプリセット（scan は旗 JR_SCAN_PRESET）。付けたときだけ送る。"""
+    out: dict[str, Any] = {}
+    if getattr(args, "preset", None):
+        out["preset"] = args.preset
+    if getattr(args, "camera_move", None):
+        out["camera_move"] = args.camera_move
+        if getattr(args, "camera_angle", None) is not None:
+            out["camera_angle"] = float(args.camera_angle)
+    elif getattr(args, "camera_angle", None) is not None:
+        raise SystemExit("--camera-angle goes with --camera-move (the center of the move, in the degrees of a --full-turn sheet)")
+    return out
+
+
+def _move_preset_args(s: argparse.ArgumentParser) -> None:
+    s.add_argument("--preset", choices=PRESET_CHOICES, default=None,
+                   help="purpose preset: product (4 studio shots), turntable (360 video), animation (the scene's frames), "
+                        "scan (a phone scan to a video: subject only, full-turn preview, an arc for the final)")
+    s.add_argument("--camera-move", choices=CAMERA_MOVE_CHOICES, default=None,
+                   help="a camera move made by the service instead of a full turn: arc (80 degrees around the subject), "
+                        "push_in, pull_back or rise (48 frames unless --frames)")
+    s.add_argument("--camera-angle", type=float, default=None,
+                   help="with --camera-move: the center of the move in degrees (0 = front; the labels of a --full-turn sheet)")
+
+
+def _splat_args(s: argparse.ArgumentParser) -> None:
+    s.add_argument("--subject-only", action="store_true",
+                   help="a scan (.spz or 3DGS .ply): keep the scanned subject and what it stands on, remove the surroundings")
+    s.add_argument("--reduce-points", action="store_true",
+                   help="a scan over the point limit: render its most visible splats up to the limit (at most half are left "
+                        "out; the file is not changed). Use the same value for the preview and the final")
+
+
 def cmd_preview(c: Client, args: argparse.Namespace) -> int:
     if getattr(args, "full_turn", False) and getattr(args, "draft_video", False):
         raise SystemExit("--full-turn and --draft-video do not go together: one is a turn around the subject, the other the scene's animation")
@@ -285,6 +343,14 @@ def cmd_preview(c: Client, args: argparse.Namespace) -> int:
             raise SystemExit("the scene has one frame; --draft-video is for an animation (pass --frames START-END)")
         frames, what = None, f"a draft video of frames {rng[0]}-{rng[1]}"
         extra.update(draft_video=True, frame_start=rng[0], frame_end=rng[1])
+    extra.update(_splat_options(args))
+    mp = _move_preset_options(args)
+    if mp:
+        # 11/16 カメラの動き・用途のプリセット: コマは受付が決める（--frames を渡したときだけそのコマ）
+        extra.update(mp)
+        if not args.frames and frames == [args.frame]:
+            frames = None
+        what = ", ".join(f"{k}={v}" for k, v in mp.items()) + (f", frames {frames}" if frames else "")
     j = c.submit(sid, kind="preview", frames=frames, camera=args.camera, width=w, height=h,
                  samples=args.samples, engine=args.engine, max_yen=args.max_yen, **extra)
     print(f"job {j['job_id']} queued: {what} (estimate ~{j['estimate']['seconds']}s)", file=sys.stderr)
@@ -451,10 +517,13 @@ def cmd_render(c: Client, args: argparse.Namespace) -> int:
         return 2
     sid = _scene(c, args)
     scene = bool(getattr(args, "scene_settings", False))
-    d = _defaults(args, scene)
+    mp = _move_preset_options(args)
+    # 11/16 --preset は渡さなかった大きさ・サンプル数・fps をプリセットの既定に任せる（CLI の既定で上書きしない）
+    d = _defaults(args, scene or bool(mp.get("preset")))
     w, h = d["size"] or (None, None)
-    if args.frames is None and not scene:
+    if args.frames is None and not scene and not mp:
         # --output blend は描かない（シーンを .blend で返すだけ）のでコマは要らない（10/15）
+        # 11/16 カメラの動き・プリセットはコマを受付が決める（回るカメラのコマ数）なので、ここに来ない
         if (args.output or "") != "blend":
             print("--frames is required (e.g. 1-240 or 12); only --output blend works without it", file=sys.stderr)
             return 2
@@ -463,7 +532,13 @@ def cmd_render(c: Client, args: argparse.Namespace) -> int:
     params: dict[str, Any] = dict(frame_start=fs, frame_end=fe, width=w, height=h,
                                   samples=d["samples"], fps=d["fps"], output=args.output, camera=args.camera, engine=args.engine,
                                   transparent=args.transparent or None, notify_url=args.notify_url or None,
-                                  max_yen=args.max_yen, idempotency_key=args.idempotency_key or None)
+                                  max_yen=args.max_yen, idempotency_key=args.idempotency_key or None,
+                                  upload_url=getattr(args, "upload_url", None) or None,
+                                  estimate_id=getattr(args, "estimate_id", None) or None)
+    params.update(_splat_options(args))
+    params.update(mp)
+    if mp.get("preset") and (args.output or "auto") == "auto":
+        params["output"] = None             # プリセットの形式（scan・turntable は MP4、product は PNG）
     if scene:
         params["settings"] = "scene"
     test = _test_mode(args)
@@ -480,6 +555,7 @@ def cmd_render(c: Client, args: argparse.Namespace) -> int:
         print(f"job {j['job_id']} was already submitted with this idempotency key (nothing new queued or charged)", file=sys.stderr)
     if scene:
         _say_scene_settings(j)
+    if scene or mp:                          # 11/16 カメラの動き・プリセットはコマを受付が決める
         fs, fe = j.get("frame_start"), j.get("frame_end")
     n = (fe - fs + 1) if isinstance(fs, int) and isinstance(fe, int) else "?"
     print(f"job {j['job_id']} queued: {n} frames in {j['progress']['chunks_total']} chunks, "
@@ -838,6 +914,11 @@ def cmd_estimate(c: Client, args: argparse.Namespace) -> int:
     pv = est.get("pricing") or {}
     if pv.get("mode") in ("card_needed", "topup_needed", "purchase_required") and pv.get("en"):
         print(pv["en"], file=sys.stderr)      # 10/26: カードで足りる（0 円）か、いくら払うか、を払う前に
+    if est.get("estimate_id") and not getattr(args, "preview", False):
+        # 11/16 見積もりの ID（受付の旗 JR_ESTIMATE_ID）: 同じ設定の仕上げに渡すと、この額を超えるなら描かずに断る
+        print(f"to render at this estimate: janction-render render ... --estimate-id {est['estimate_id']} "
+              "(same settings; valid for 10 minutes)",
+              file=sys.stderr)
     print(_j({"scene_id": sid, **est}))
     if args.max_yen is not None and cost.get("within_max_yen") is False:
         print(f"over budget: this job may hold {cost.get('reserved_yen')} JPY, above --max-yen {args.max_yen}", file=sys.stderr)
@@ -1108,6 +1189,9 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--draft-video", action="store_true",
                    help="a long animation as a draft: up to 24 small frames across --frames START-END (default: the scene's range), "
                         "one sheet plus draft.mp4 at the real length, with the estimate for every frame")
+    _splat_args(s)
+    _move_preset_args(s)
+    _asset_arg(s)
     _asset_root_arg(s)
     s.set_defaults(fn=cmd_preview)
 
@@ -1127,7 +1211,15 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--output", choices=["auto", "png", "exr", "mp4", "webm", "prores", "gif", "webp", "blend"], default="auto",
                    help="png/exr = frames, mp4/webm/prores/gif/webp = video (auto: mp4 for a range, png for one frame)")
     s.add_argument("--transparent", action="store_true", help="transparent background (png/exr/webm/gif/webp)")
-    s.add_argument("--notify-url", default=None, help="https URL that receives one JSON POST when the job finishes")
+    s.add_argument("--notify-url", default=None, help="https URL that receives one JSON POST when the job finishes "
+                   "(a Discord or Slack webhook gets a chat message with the result)")
+    # 11/16 受付の旗 JR_DELIVER_URL・JR_ESTIMATE_ID の入口（MCP と作業台にはあった）
+    s.add_argument("--upload-url", default=None, metavar="URL",
+                   help="a signed URL that takes one PUT (S3, R2, GCS, Azure SAS): the finished video, image or zip of frames "
+                        "is sent there when the render is done")
+    s.add_argument("--estimate-id", default=None, metavar="ID",
+                   help="the estimate_id from 'janction-render estimate' with the same settings: the render is refused, "
+                        "with nothing charged, if it would cost more than that estimate or the estimate expired")
     s.add_argument("--camera", default=None)
     s.add_argument("--out", default=None)
     s.add_argument("--wait", action="store_true", help="wait until done and download")
@@ -1141,6 +1233,9 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--test-frames", type=int, default=None, help="with --test: how many contiguous frames to test (1-24)")
     s.add_argument("--test-spread", action="store_true", help="like --test, but test the first, middle and last frame")
     s.add_argument("--yes", action="store_true", help="with --test: render the full range without asking if the test passes")
+    _splat_args(s)
+    _move_preset_args(s)
+    _asset_arg(s)
     _asset_root_arg(s)
     s.set_defaults(fn=cmd_render)
 
@@ -1316,7 +1411,15 @@ def main(argv: list[str] | None = None) -> int:
             print(_j(pay))
             return 3
         print(f"error: {exc}", file=sys.stderr)
-        if exc.status == 413 or exc.error == "too_large":
+        if exc.error == "splat_too_large":
+            # 11/16 点の数が上限を超えたスキャン。ファイルの大きさの話ではないので /upload は勧めない（同じく断られる）
+            if (exc.extra or {}).get("reduce_points"):
+                print("instead: run the same command with --reduce-points (renders the most visible splats up to the limit; "
+                      "the file is not changed)", file=sys.stderr)
+            else:
+                print("instead: reduce the point count of the scan (prune or downsample it in the tool that made it) and "
+                      "send it again", file=sys.stderr)
+        elif exc.status == 413 or exc.error == "too_large":
             # 10/14 IF-03: 大きすぎるファイルの代わりの道（ブラウザで分けて送る /upload → 出たリンクを --url / scene_url に）
             from .mcp_common import upload_page_hint
             print(f"instead: {upload_page_hint(c.server, 'the scene argument in place of the file')}", file=sys.stderr)

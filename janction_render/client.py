@@ -49,6 +49,8 @@ BASE_ASSET_EXTENSIONS = frozenset({".png", ".jpg", ".jpeg", ".exr", ".hdr", ".ti
 PRO_ASSET_EXTENSIONS = frozenset({".vdb", ".bphys", ".blob", ".uni", ".gz", ".avi", ".mkv", ".webm"})
 # 旗 JR_LINKED_BLEND の受付だけが受ける型（リンクした .blend、11/9 夜、server/linked_blend.py）。旗の無い受付は 400 unsupported
 LIBRARY_ASSET_EXTENSIONS = frozenset({".blend"})
+# 11/16 旗 JR_SPLAT_ASSETS の受付だけが受ける型（スクリプトが jr_assets.import_splat で読むスキャン）。旗の無い受付は 400 unsupported
+SPLAT_ASSET_EXTENSIONS = frozenset({".spz", ".ply"})
 LIBRARY_FILES_MAX = 500      # リンクした .blend 1 つが読むファイルとして送る数の上限（材質の大きなライブラリで送りすぎない）
 _ASSET_NAME_RE = re.compile(r"^[A-Za-z0-9_.\-]{1,120}(/[A-Za-z0-9_.\-]{1,120}){0,4}$")
 # ワーカーは .blend を scene.blend として開くので、既定の点のキャッシュ（//blendcache_<名前>/）は blendcache_scene/ で送る
@@ -333,6 +335,11 @@ def is_pro_asset(name: str) -> bool:
     """旗 JR_PRO_ASSETS の受付だけが受ける型か（.vdb・.bphys・.blob・.uni・.bobj.gz・.avi など）。"""
     ext = Path(name).suffix.lower()
     return ext in PRO_ASSET_EXTENSIONS and ext not in BASE_ASSET_EXTENSIONS
+
+
+def is_splat_asset(name: str) -> bool:
+    """旗 JR_SPLAT_ASSETS の受付だけが受ける型（素材のスキャン .spz・.ply）か（11/16）。"""
+    return Path(name).suffix.lower() in SPLAT_ASSET_EXTENSIONS
 
 
 def is_library_asset(name: str) -> bool:
@@ -977,7 +984,9 @@ class Client:
         pro = [(n, ap) for n, ap in todo if is_pro_asset(n)]
         # 11/9 夜: リンクした .blend（旗 JR_LINKED_BLEND）も別に送る。受付が受けなければ外し、付け替えの組も送らない
         libs = [(n, ap) for n, ap in todo if is_library_asset(n)]
-        todo = [(n, ap) for n, ap in todo if not is_pro_asset(n) and not is_library_asset(n)]
+        # 11/16: 素材のスキャン（旗 JR_SPLAT_ASSETS）も別に送る。受付が受けなければ外して理由を書く（描画は続ける）
+        splats = [(n, ap) for n, ap in todo if is_splat_asset(n)]
+        todo = [(n, ap) for n, ap in todo if not is_pro_asset(n) and not is_library_asset(n) and not is_splat_asset(n)]
         scene_id = out["scene_id"]
         if todo:
             out = self.upload_assets(scene_id, todo)
@@ -988,6 +997,14 @@ class Client:
                 if exc.status != 400 or exc.error != "unsupported":
                     raise
                 missing += [f"{n} (this server does not take {Path(n).suffix.lower()} files yet)" for n, _ in pro]
+        if splats:
+            try:
+                out = self.upload_assets(scene_id, splats)
+            except ClientError as exc:
+                if exc.status != 400 or exc.error != "unsupported":
+                    raise
+                missing += [f"{n} (this server does not take scans as assets yet; send the scan itself as the scene)"
+                            for n, _ in splats]
         if libs:
             try:
                 out = self.upload_assets(scene_id, libs)
@@ -1656,6 +1673,7 @@ ASSET_SUFFIXES = frozenset({
     ".png", ".jpg", ".jpeg", ".exr", ".hdr", ".tif", ".tiff", ".webp", ".bmp", ".tga", ".gif", ".dds", ".psd",
     ".bin", ".mtl", ".fbx", ".glb", ".gltf", ".obj", ".usd", ".usda", ".usdc", ".usdz", ".abc", ".stl", ".ply", ".dae", ".vdb",
     ".blend", ".ttf", ".otf", ".woff", ".woff2",
+    ".spz",                           # 11/16 素材のスキャン（jr_assets.import_splat、旗 JR_SPLAT_ASSETS。受けるかは受付が決める）
     ".bphys", ".blob", ".uni",        # 焼いたキャッシュ（11/9 JR_PRO_ASSETS。受けるかは受付が決める）
     ".wav", ".mp3", ".ogg", ".flac", ".m4a", ".mp4", ".mov", ".webm", ".avi", ".mkv", ".m4v",
 })

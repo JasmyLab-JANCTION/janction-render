@@ -1,5 +1,63 @@
 # Changelog
 
+## 0.4.307 - 2026-11-17
+
+- CLI: --asset sends the files a scene script reads, including a scan (.spz or .ply) for jr_assets.import_splat; a server that does not take scans as assets leaves them out with the reason.
+- CLI: render takes --estimate-id (refused, with nothing charged, when it would cost more than that estimate) and --upload-url (the result is sent to your signed URL); estimate prints the line to pass its id.
+
+## 0.4.306 - 2026-11-16
+
+- CLI: preview and render take --preset (product, turntable, animation or scan), --camera-move (arc, push_in, pull_back, rise) and --camera-angle; the service picks the frames unless --frames is given.
+- A scan refused for too many points: the fix in the reply now starts with reduce_points=True when that renders it.
+- Studio (English): the too-many-points message names the checkbox as shown (Fewer points).
+- Card page: says prepaid cards do not qualify before the card is entered.
+
+## 0.4.305 - 2026-11-16
+
+- A .blend saved compressed from Blender 5.3 now opens with Blender 5.3 from the start (before, it was opened with 5.2 first, stopped and queued again).
+- Studio: a file over the upload limit now shows its size, the limit and how to raise it (a top-up from 500 JPY opens .blend files up to 5 GB), with a button; the file stays selected, so it can be sent again after paying.
+- Monthly plans: the Pro plan now sends .blend files up to 10 GB (other paid keys 5 GB) and keeps up to 50 GB of scenes per key; a 5-10 GB file that is refused points to the Pro plan.
+
+## 0.4.304 - 2026-11-16
+
+- CLI: preview and render take --subject-only (a scan: keep the scanned subject, remove the surroundings) and --reduce-points (a scan over the point limit: render its most visible splats). A scan refused for too many points now suggests --reduce-points instead of the upload page.
+- Studio: a scan over the point limit now offers Fewer points (it showed only the refusal), and switching Subject only redraws the preview so the final matches what was shown.
+
+## 0.4.303 - 2026-11-15
+
+- Operations: the audit-log integrity check now reads under the same lock as the writer, so a record written during the check no longer shows up as a false "HEAD ahead of the files" alert.
+
+## 0.4.302 - 2026-11-15
+
+- Gaussian splats (a 3DGS .ply or .spz sent as the scene) now render with the Standard view transform, so their colors match the capture (the default AgX muted saturated colors: red 0.8,0.2,0.2 came out 190,63,53 instead of 204,51,51). Scenes, scripts and files with meshes keep their own color settings.
+- Preview critic: when a Gaussian splat blends into the background, it no longer suggests adding a light (a light does not change a splat); it suggests a transparent or darker background instead.
+
+## 0.4.301 - 2026-11-15
+
+- Free Blender render skills 0.1.1: the turntable skill frames the subject larger and keeps it centred through the whole turn (every angle stays inside the frame).
+
+## 0.4.300 - 2026-11-15
+
+- Finals that need payment: a final larger than the free size (1920x1080) now answers with the payment request, as before, instead of a size-limit error from the attempt to render its first frames on free time.
+- Try page: picking only a .gltf no longer fails on the GPU. The page reads the .gltf first and names the .bin and image files it needs; picked together, they are stored where the .gltf points (for example textures/).
+- Try page: comparing four lights on a long animation no longer gets refused (it was sent together with the draft video).
+- Preview critic: a subject that is mostly near white on a plain opaque backdrop is reported as washed_out (check), as on a transparent background.
+- Try page settings: Created shows when the key was made, not the time of the oldest work in this browser.
+
+## 0.4.299 - 2026-11-15
+
+- Preview critic: on a transparent background, a subject that is mostly near white (its colors and shading washed out) is now reported as washed_out (check) with a fix that lowers the light, instead of passing with 100.
+- Connection page: when this browser remembers an earlier key, a line under Create a free key says a new key does not get that key's credit or renders.
+- Settings on the try page: a browser connected from an AI app no longer shows two ways to the same connect code page, and the sign-in row says to enter a connect code instead of pasting a key.
+
+## 0.4.298 - 2026-11-15
+
+- Settings on the try page: a browser connected from an AI app's connection page holds a sign-in for this browser, not the key itself, so the key's Copy button could not be pressed. It now shows Connect code instead (a one-time code to use the same account from another AI app, device or browser). A browser that holds the key still copies it.
+
+## 0.4.297 - 2026-11-15
+
+- Free previews after the welcome credit: the daily free preview time is shared by keys created on the same network, the same way the welcome credit already is. GET /v1/pricing says so in free_tier.previews_shared_by.
+
 ## 0.4.296 - 2026-11-13
 
 - Workbench: a reopened preview's tag shows its frame count and size (it read "Preview" twice), a sheet shows how many frames it holds, and a reopened preview whose critic was not ok shows that verdict instead of "Preview ready".
