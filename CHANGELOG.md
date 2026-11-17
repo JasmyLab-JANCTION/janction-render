@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.329 - 2026-11-17
+
+- Privacy: Google Analytics is no longer loaded in browsers that send Do Not Track or Global Privacy Control.
+
 ## 0.4.328 - 2026-11-17
 
 - Top-up screen: the mark on a monthly plan now appears only when that amount fits the plan's monthly credit.
