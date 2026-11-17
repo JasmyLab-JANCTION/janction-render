@@ -119,7 +119,8 @@ key is no longer known to the service, the tools create a new one once and retry
 - The exported file (USD / FBX / Alembic / what you picked) and the textures listed above. Nothing
   else from the scene. Identical bytes are not sent twice (`GET /v1/files/lookup?sha256=`).
 - Files render inside a disposable container with no network. Inputs, intermediate data and
-  results are deleted 24 hours after last use and are never used for training
+  results are deleted 24 hours after last use (kept longer for keys that have paid and on monthly
+  plans) and are never used for training
   (details: https://render.janction.jp/security).
 - Uploads are capped at 1 GB per file and 128 MB per asset; asset names must use letters, digits,
   `.` `_` `-` only, so the tools rename textures with other characters (printed in the app's console).

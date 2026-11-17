@@ -75,8 +75,8 @@ movies, linked libraries, sounds and volumes, and file names with characters
 other than letters, digits, `.`, `_`, `-` (for example Japanese names). Pack
 such files (File > External Data > Pack Resources) or rename them.
 
-Uploads and results are deleted 24 hours after last use. Nothing is used for
-training. Files run only inside a disposable container on the GPU worker.
+Uploads and results are deleted 24 hours after last use (they are kept longer for
+keys that have paid and on monthly plans). Nothing is used for training. Files run only inside a disposable container on the GPU worker.
 Details: https://render.janction.jp/security
 
 Results are written to a `janction_render` folder next to the .blend

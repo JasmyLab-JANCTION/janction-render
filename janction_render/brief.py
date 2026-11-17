@@ -919,6 +919,9 @@ def welcome_billing(w: dict[str, Any], me: dict[str, Any], synced: dict[str, Any
         out["first_topup_bonus"] = (f"the first top-up during the welcome period counts {1 + bonus:g}x"
                                     + (f", bonus up to {cap:,} JPY" if cap else "") + f" ({mt} JPY adds {credit:,} JPY of credit)")
     out.update(plan_fields(me))
+    if b.get("credit_expiry"):
+        # 11/17 受付が返すときだけ: チャージした分の残りと一番早い期限（購入の日から 6 か月）
+        out["credit_expiry"] = b["credit_expiry"]
     if w.get("in_window") and int(w.get("yen_left") or 0) < 100:
         out["next"] = ("tell the user the welcome credit is running out (" + summary + ")"
                        + (" and that the first top-up now counts " + f"{1 + bonus:g}x" if bonus else "")

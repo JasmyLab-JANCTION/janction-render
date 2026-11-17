@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.4.328 - 2026-11-17
+
+- Top-up screen: the mark on a monthly plan now appears only when that amount fits the plan's monthly credit.
+
+## 0.4.327 - 2026-11-17
+
+- Pricing: the pricing page and /v1/pricing now name only the payment methods you can use (USDC is mentioned only where it is enabled).
+
+## 0.4.326 - 2026-11-17
+
+- Workbench: on a monthly plan, Settings > Credits shows a bar with how much of this month's plan credit is used, what is left and when it resets.
+
+## 0.4.325 - 2026-11-17
+
+- Billing: the account and billing replies now show when top-up credit expires (six months after each purchase) and how much expires on that day.
+- Privacy Policy: the notices our team receives now show only part of the sender's IP address.
+
 ## 0.4.324 - 2026-11-17
 
 - AI answers about billing now say that a monthly plan's credit resets at each renewal.
