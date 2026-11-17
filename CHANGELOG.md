@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.320 - 2026-11-17
+
+- Home page: a card for JANCTION Storage (beta) with the monthly plans (renders and their scenes kept for as long as you are subscribed), and under a finished render a line on how long a monthly plan keeps results.
+- The five comparison pages now show the current welcome credit, top-ups, monthly plans and JANCTION Storage (beta), and how long each farm keeps results; other farms' prices re-read on 2026-11-17.
+- 8K stills: asking for one without prepaid credit now says PNG and EXR stills go up to 7680x4320 on credit; the published limits say the same.
+
 ## 0.4.319 - 2026-11-17
 
 - CLI: render takes --region X0,Y0,X1,Y1 with --region-of JOB_ID (render only that box again and put it into the earlier still) and --split 2|4|9, where the service offers them.
