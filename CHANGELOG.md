@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.331 - 2026-11-17
+
+- Fixed: the curl examples on the Products page and four guides, and the contact address on the Facts page, showed "[email protected]" instead of the real text (for example `-F file=@scene.blend`).
+
 ## 0.4.330 - 2026-11-17
 
 - The page that explains a held render now shows this account's last 30 days (GPU time used, top-ups) and each monthly plan in one line.
