@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.4.319 - 2026-11-17
+
+- CLI: render takes --region X0,Y0,X1,Y1 with --region-of JOB_ID (render only that box again and put it into the earlier still) and --split 2|4|9, where the service offers them.
+- Fixing part of a still: the edge of the box now blends into the earlier image, so no seam shows when the change lights what is around it.
+
+## 0.4.318 - 2026-11-16
+
+- New guide: Blender render farm GPUs and VRAM compared (2026), from each company's own pages.
+
+## 0.4.317 - 2026-11-16
+
+- Studio: above your works, one line now says when the earliest one is deleted and what a monthly plan keeps (results for 30 days, and JANCTION Storage (beta) for as long as you are subscribed).
+
 ## 0.4.316 - 2026-11-16
 
 - Monthly plans: llms.txt, facts.json, the FAQ and the MCP server instructions now say that every monthly plan includes JANCTION Storage (beta) and keeps renders and scenes for as long as you are subscribed. New guides: how long render farms keep your renders, and keeping Blender renders and scenes.

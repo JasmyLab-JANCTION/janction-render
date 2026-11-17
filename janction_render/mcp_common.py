@@ -1132,7 +1132,9 @@ OPEN_PRESETS = (("JR_SCAN_PRESET", "scan"),)
 # 11/13 引数が増えない旗つきの機能（受付の /v1/capabilities の optional_features）。アドオンと作業台は、これで部品を出すか決める
 OPEN_FEATURES = (("JR_NOTIFY_CHAT", "notify_chat"), ("JR_FARM_BAKE", "bake_simulations"),
                  ("JR_RENDER_MEMORY", "render_memory"), ("JR_PRINT_STILLS", "print_stills"),
-                 ("JR_PROJECT_TAG", "project_tag"))      # 11/13 v2 REN-05 案件の印（アドオンが .blend の案件の番号を送る）
+                 ("JR_PROJECT_TAG", "project_tag"),      # 11/13 v2 REN-05 案件の印（アドオンが .blend の案件の番号を送る）
+                 # 11/16 作業台の作品の一覧に「いちばん早い作品は あと N 時間で消えます。月額なら 30 日…」の 1 行（月額でない鍵にだけ）
+                 ("JR_KEEP_LINE", "keep_line"))
 
 
 def open_features() -> list[str]:

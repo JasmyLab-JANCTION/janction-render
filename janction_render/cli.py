@@ -62,6 +62,16 @@ def _size(s: str) -> tuple[int, int]:
         raise argparse.ArgumentTypeError("size must look like 1920x1080")
 
 
+def _region(s: str) -> list[int]:
+    try:
+        box = [int(v) for v in s.replace(" ", "").split(",")]
+    except ValueError:
+        box = []
+    if len(box) != 4 or box[0] >= box[2] or box[1] >= box[3] or min(box) < 0:
+        raise argparse.ArgumentTypeError("region must look like 200,100,440,260 (x0,y0,x1,y1 with x0<x1 and y0<y1)")
+    return box
+
+
 def _frames(s: str) -> tuple[int, int]:
     try:
         if "-" in s:
@@ -534,7 +544,14 @@ def cmd_render(c: Client, args: argparse.Namespace) -> int:
                                   transparent=args.transparent or None, notify_url=args.notify_url or None,
                                   max_yen=args.max_yen, idempotency_key=args.idempotency_key or None,
                                   upload_url=getattr(args, "upload_url", None) or None,
-                                  estimate_id=getattr(args, "estimate_id", None) or None)
+                                  estimate_id=getattr(args, "estimate_id", None) or None,
+                                  split=getattr(args, "split", None),
+                                  region=getattr(args, "region", None),
+                                  region_of=getattr(args, "region_of", None) or None)
+    if bool(params["region"]) != bool(params["region_of"]):
+        print("--region and --region-of go together: the box to render again and the job_id of the earlier still",
+              file=sys.stderr)
+        return 2
     params.update(_splat_options(args))
     params.update(mp)
     if mp.get("preset") and (args.output or "auto") == "auto":
@@ -1220,6 +1237,15 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--estimate-id", default=None, metavar="ID",
                    help="the estimate_id from 'janction-render estimate' with the same settings: the render is refused, "
                         "with nothing charged, if it would cost more than that estimate or the estimate expired")
+    # 11/17 受付の旗 JR_SPLIT_STILL・JR_REGION_RENDER の入口（MCP にはあった）
+    s.add_argument("--split", type=int, choices=[2, 4, 9], default=None,
+                   help="one PNG still on several GPUs at once: 2 strips, 4 (2x2) or 9 (3x3), joined into one image; "
+                        "about the same GPU time, a shorter wait")
+    s.add_argument("--region", type=_region, default=None, metavar="X0,Y0,X1,Y1",
+                   help="with --region-of: render only this box (pixels, top-left origin) of the scene you send and put it "
+                        "into the earlier image; GPU time is about that area's share of a frame")
+    s.add_argument("--region-of", default=None, metavar="JOB_ID",
+                   help="with --region: the earlier single-image PNG render to patch (same key, same size)")
     s.add_argument("--camera", default=None)
     s.add_argument("--out", default=None)
     s.add_argument("--wait", action="store_true", help="wait until done and download")
