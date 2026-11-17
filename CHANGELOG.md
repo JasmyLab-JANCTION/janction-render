@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.330 - 2026-11-17
+
+- The page that explains a held render now shows this account's last 30 days (GPU time used, top-ups) and each monthly plan in one line.
+
 ## 0.4.329 - 2026-11-17
 
 - Privacy: Google Analytics is no longer loaded in browsers that send Do Not Track or Global Privacy Control.
