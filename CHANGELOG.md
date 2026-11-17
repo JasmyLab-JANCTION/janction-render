@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.4.324 - 2026-11-17
+
+- AI answers about billing now say that a monthly plan's credit resets at each renewal.
+
+## 0.4.323 - 2026-11-17
+
+- Pricing: a monthly plan's credit now equals the monthly fee (Basic 1,500 JPY, Standard 4,500 JPY and Pro 15,000 JPY of credit) and resets at each renewal; unused plan credit does not carry over. The price per GPU-second is unchanged and each plan still includes JANCTION Storage (beta).
+- Top-ups: credit you buy is valid for six months from the purchase, and the bonus on larger top-ups has ended (the first top-up bonus in the welcome period stays). Credit bought before 2026-11-17, and plan credit added before that date, stay under the earlier terms.
+
 ## 0.4.322 - 2026-11-17
 
 - Terms of Service and Privacy Policy updated: the limit of liability and how the terms change, what monthly plans and JANCTION Storage (beta) keep, Google Analytics and the service providers we use, and how to ask for disclosure.

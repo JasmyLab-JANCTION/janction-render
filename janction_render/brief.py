@@ -852,8 +852,12 @@ def plan_fields(me: dict[str, Any]) -> dict[str, Any]:
                            "monthly_plans": [{k: p.get(k) for k in ("id", "name", "price_yen", "credit_yen")}
                                              # 11/11 受付の旗 JR_PLAN_RENDERS・JR_PLAN_PERKS が ON のときだけ届く欄（無ければ今の形のまま）
                                              | {k: p[k] for k in ("renders_estimate", "renders", "keep_days_after_last_use", "storage",
-                                                                 "blend_upload_max_bytes") if k in p}
+                                                                 "blend_upload_max_bytes", "credit_resets") if k in p}
                                              for p in plans]}
+    if any(p.get("credit_resets") for p in plans):
+        # 11/17 受付の旗 JR_PLAN_RESET が ON のときだけ届く: 月額のクレジットは毎月リセット（AI が一覧だけ読んでも分かるように）
+        out["monthly_plans_credit_note"] = ("each plan's credit_yen is added at every renewal and is usable until the next renewal; "
+                                            "unused plan credit does not carry over. Credit the user tops up is separate and is not reset")
     if any("renders_estimate" in p for p in plans):
         out["monthly_plans_note"] = ("describe each monthly plan by how many renders it covers: renders.en / renders.ja "
                                      "(1080p 240-frame animations, about 160 JPY each), then the price")

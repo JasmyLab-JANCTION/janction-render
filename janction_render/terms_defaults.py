@@ -8,7 +8,7 @@ from __future__ import annotations
 PUBLISHED_TERMS_DATE = "2026-10-26"
 CURRENCY = "JPY"
 YEN_PER_GPU_SECOND = 0.1
-PRICING_VERSION = "2026-10-08"
+PRICING_VERSION = "2026-11-17"
 PAID_SINCE = "2026-10-08"
 WELCOME_MODEL = "card"
 WELCOME_CARDLESS_YEN = 100
@@ -26,7 +26,7 @@ MAX_JOB_GPU_HOURS = 10
 MIN_TOPUP_YEN = 100
 TOPUP_STEP_YEN = 100
 TOPUP_PACKS_YEN = [100, 500, 2000, 5000, 10000]
-TOPUP_PACK_CREDIT_YEN = [100, 500, 2200, 5750, 12000]
+TOPUP_PACK_CREDIT_YEN = [100, 500, 2000, 5000, 10000]
 FIRST_TOPUP_MULTIPLIER = 1.5
 FIRST_TOPUP_BONUS_CAP_YEN = 500
 RETENTION_HOURS = 24
@@ -35,7 +35,7 @@ PAID_MIN_YEN = 500
 SPEND_CAP_JOB_YEN = 100000
 SPEND_CAP_DAY_YEN = 100000
 SPEND_CAP_HARD_MAX_YEN = 100000
-MONTHLY_PLANS = [{'id': 'basic', 'name': 'Basic', 'price_yen': 1500, 'credit_yen': 1650}, {'id': 'standard', 'name': 'Standard', 'price_yen': 4500, 'credit_yen': 5400}, {'id': 'pro', 'name': 'Pro', 'price_yen': 15000, 'credit_yen': 19500}]
+MONTHLY_PLANS = [{'id': 'basic', 'name': 'Basic', 'price_yen': 1500, 'credit_yen': 1500}, {'id': 'standard', 'name': 'Standard', 'price_yen': 4500, 'credit_yen': 4500}, {'id': 'pro', 'name': 'Pro', 'price_yen': 15000, 'credit_yen': 15000}]
 # 公開物に 1 件でもあれば CI が落ちる言い方（正規表現、大文字小文字を区別しない）と、その理由
 FORBIDDEN_PATTERNS: list[tuple[str, str]] = [
     ('free[ -]beta', '無料ベータは 2026-10-08 に終わった'),
@@ -69,7 +69,11 @@ ENV_PROFILE: dict[str, str] = {
     'JR_TTL_HOURS': '24',
     'JR_PAID_TTL_HOURS': '168',
     'JR_PAID_MIN_YEN': '500',
-    'JR_MONTHLY_PLANS': 'basic:Basic:1500:1650,standard:Standard:4500:5400,pro:Pro:15000:19500',
+    'JR_MONTHLY_PLANS': 'basic:Basic:1500:1500,standard:Standard:4500:4500,pro:Pro:15000:15000',
+    'JR_TOPUP_BONUS_TIERS': '',
+    'JR_PLAN_RESET': '1',
+    'JR_PLAN_RESET_SINCE': '2026-11-17',
+    'JR_PRICING_VERSION': '2026-11-17',
     'JR_SPEND_CAP_PER_JOB_YEN': '100000',
     'JR_SPEND_CAP_PER_KEY_PER_DAY_YEN': '100000',
 }
