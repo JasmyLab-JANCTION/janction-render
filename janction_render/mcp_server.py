@@ -746,6 +746,7 @@ def render_preview(
     draft_video: Annotated[bool, D("draft_video", False)] = False,
     camera_move: Annotated[str, D("camera_move", "")] = "",
     camera_angle: Annotated[float, D("camera_angle", 0.0)] = 0.0,
+    changed_since: Annotated[str, D("changed_since", "")] = "",
 ) -> list[Any]:
     """Render a fast, cheap preview of a Blender scene on a JANCTION GPU and show the image. (full description on the tool)."""
     c = _client()
@@ -768,7 +769,8 @@ def render_preview(
                                                  lock=(list(lock) if lock else None), lock_base=lock_base or None,   # 11/13 旗 JR_SCENE_LOCK
                                                  draft_video=(True if draft_video else None),     # 11/12 旗 JR_DRAFT_VIDEO（False なら送らない）
                                                  camera_move=camera_move or None,                 # 11/12 旗 JR_CAMERA_MOVE（空なら送らない）
-                                                 camera_angle=(float(camera_angle) if camera_move and camera_angle else None)))
+                                                 camera_angle=(float(camera_angle) if camera_move and camera_angle else None),
+                                                 changed_since=changed_since or None))  # 11/17 旗 JR_REGION_AUTO
         j = c.submit(sid, kind="preview", **_with_preset(params, preset, "preview"))
         _log(f"preview job {j['job_id']} submitted frames={frame_list}")
         j = _wait_unless_gated(c, j, PREVIEW_WAIT_S)

@@ -726,6 +726,9 @@ def brief(j: dict[str, Any]) -> dict[str, Any]:
         out["variants"] = list(prm["compare"])
         out["variants_note"] = ("environment='compare': the same frame in these lights, tiles left to right, top to bottom; "
                                 "the final takes one of them as environment=<name>")
+    if isinstance(j.get("changed_region"), dict):
+        # 11/17 試し描きの changed_since（受付の旗 JR_REGION_AUTO）: 変わった所の四角と、その四角だけ描き直す render_final の引数
+        out["changed_region"] = j["changed_region"]
     if j.get("eta"):
         out["eta"] = eta_brief(j["eta"])
     if j.get("first_run"):

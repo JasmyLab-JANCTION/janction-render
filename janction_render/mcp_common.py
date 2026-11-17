@@ -877,6 +877,8 @@ OPT_IN: tuple[tuple[str, str, str, str], ...] = (
     # 11/12 静止画の一部だけ描き直す（受付の旗 JR_REGION_RENDER、jobs._region）。道具の説明には足さない（引数の説明だけ）
     ("JR_REGION_RENDER", "render_final", "region", ""),
     ("JR_REGION_RENDER", "render_final", "region_of", ""),
+    # 11/17 試し描きを前の仕上げと比べ、変わった所の四角を返す（受付の旗 JR_REGION_AUTO、server/region_auto.py）
+    ("JR_REGION_AUTO", "render_preview", "changed_since", ""),
     # 11/12 独自の色管理（受付の旗 JR_CUSTOM_OCIO、server/ocio.py）。道具の説明には足さない（引数の説明だけ）
     ("JR_CUSTOM_OCIO", "render_preview", "ocio_config", ""),
     ("JR_CUSTOM_OCIO", "render_final", "ocio_config", ""),
@@ -962,6 +964,10 @@ OPT_IN_PARAM_DOCS: dict[str, str] = {
                "For a fix that stays inside the box (a label, a material, one object); shadows or reflections it casts "
                "outside the box keep the old look."),
     "region_of": "With region: job_id of the earlier single-image PNG final to patch (same key, same width and height).",
+    "changed_since": ("job_id of an earlier single-image PNG final of this key, previewed again after a change to the scene: "
+                      "the reply's changed_region gives the part that changed (with a margin for light that spills around "
+                      "it) and render_final_args that re-render only that box into the earlier image. One frame from the "
+                      "scene camera, same aspect ratio as that final."),
     "split": ("One still (frame_start = frame_end, PNG) split across GPUs that render at the same time: 2 (two strips), 4 (2x2) "
               "or 9 (3x3); the parts overlap and are joined into one frame_0001.png. GPU time is about the same as one frame, "
               "the wait is shorter. 0 = not split."),

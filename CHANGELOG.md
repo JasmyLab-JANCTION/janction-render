@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.4.322 - 2026-11-17
+
+- Terms of Service and Privacy Policy updated: the limit of liability and how the terms change, what monthly plans and JANCTION Storage (beta) keep, Google Analytics and the service providers we use, and how to ask for disclosure.
+- MCP: a preview with changed_since now returns changed_region (the changed box and the render_final arguments to re-render only that box).
+
+## 0.4.321 - 2026-11-17
+
+- Asking for a frame above 1920x1080 without prepaid credit now suggests topping up or a monthly plan, with a link to choose, instead of splitting the job.
+- CLI: preview takes --changed-since JOB_ID (which part of an earlier still changed) and render takes --region auto, where the service offers them.
+
 ## 0.4.320 - 2026-11-17
 
 - Home page: a card for JANCTION Storage (beta) with the monthly plans (renders and their scenes kept for as long as you are subscribed), and under a finished render a line on how long a monthly plan keeps results.

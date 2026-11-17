@@ -62,13 +62,15 @@ def _size(s: str) -> tuple[int, int]:
         raise argparse.ArgumentTypeError("size must look like 1920x1080")
 
 
-def _region(s: str) -> list[int]:
+def _region(s: str) -> Any:
+    if s.strip().lower() == "auto":
+        return "auto"       # 11/17 受付の旗 JR_REGION_AUTO: --changed-since の試し描きが決めた四角
     try:
         box = [int(v) for v in s.replace(" ", "").split(",")]
     except ValueError:
         box = []
     if len(box) != 4 or box[0] >= box[2] or box[1] >= box[3] or min(box) < 0:
-        raise argparse.ArgumentTypeError("region must look like 200,100,440,260 (x0,y0,x1,y1 with x0<x1 and y0<y1)")
+        raise argparse.ArgumentTypeError("region must look like 200,100,440,260 (x0,y0,x1,y1 with x0<x1 and y0<y1) or auto")
     return box
 
 
@@ -361,6 +363,8 @@ def cmd_preview(c: Client, args: argparse.Namespace) -> int:
         if not args.frames and frames == [args.frame]:
             frames = None
         what = ", ".join(f"{k}={v}" for k, v in mp.items()) + (f", frames {frames}" if frames else "")
+    if getattr(args, "changed_since", None):
+        extra["changed_since"] = args.changed_since       # 11/17 受付の旗 JR_REGION_AUTO: 前の仕上げから変わった所の四角
     j = c.submit(sid, kind="preview", frames=frames, camera=args.camera, width=w, height=h,
                  samples=args.samples, engine=args.engine, max_yen=args.max_yen, **extra)
     print(f"job {j['job_id']} queued: {what} (estimate ~{j['estimate']['seconds']}s)", file=sys.stderr)
@@ -372,9 +376,24 @@ def cmd_preview(c: Client, args: argparse.Namespace) -> int:
     paths = c.download(j["job_id"], out, on_progress=_say_err)
     print(_j({"job_id": j["job_id"], "scene_id": sid, "frames": frames, "files": [str(p) for p in paths],
               "warnings": j.get("warnings") or [], "gpu_seconds": j["gpu_seconds"], "device": j["device"],
-              "expires_at": j["expires_at"]}))
+              "expires_at": j["expires_at"], **({"changed_region": j["changed_region"]} if j.get("changed_region") else {})}))
+    _say_changed_region(j.get("changed_region"))
     _suggest_next(c, j["job_id"])
     return 0
+
+
+def _say_changed_region(cr: Any) -> None:
+    """11/17 --changed-since の答え: 変わった所の四角と、その四角だけ描き直す 1 行（標準エラー）。"""
+    if not isinstance(cr, dict):
+        return
+    if cr.get("tell_user"):
+        print(cr["tell_user"], file=sys.stderr)
+    a = cr.get("render_final_args") or {}
+    if a.get("region"):
+        print("to render only that box: janction-render render --scene-id {sid} --frames {f} --size {w}x{h} --output png "
+              "--region {r} --region-of {of}".format(sid=a.get("scene_id"), f=a.get("frame_start", 1), w=a.get("width"),
+                                                      h=a.get("height"), r=",".join(str(v) for v in a["region"]),
+                                                      of=a.get("region_of")), file=sys.stderr)
 
 
 # 仕上げの既定（受付の既定と同じ）。--scene-settings のときは送らず、.blend の値を受付が埋める（11/9）
@@ -1194,6 +1213,9 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--scene-id", default=None, help="reuse an uploaded scene")
     s.add_argument("--frame", type=int, default=1)
     s.add_argument("--frames", default="", help="e.g. 1,8,16,24 or 1-24 (4 evenly spaced) -> one tiled image")
+    s.add_argument("--changed-since", default=None, metavar="JOB_ID",
+                   help="an earlier single-image PNG final: say which part of it this preview changed, and print the "
+                        "render line that re-renders only that box")
     s.add_argument("--camera", default=None)
     s.add_argument("--size", type=_size, default=(1280, 720))
     s.add_argument("--samples", type=int, default=16)
@@ -1243,7 +1265,8 @@ def build_parser() -> argparse.ArgumentParser:
                         "about the same GPU time, a shorter wait")
     s.add_argument("--region", type=_region, default=None, metavar="X0,Y0,X1,Y1",
                    help="with --region-of: render only this box (pixels, top-left origin) of the scene you send and put it "
-                        "into the earlier image; GPU time is about that area's share of a frame")
+                        "into the earlier image; GPU time is about that area's share of a frame. 'auto' uses the box from "
+                        "the newest 'preview --changed-since' of the same scene")
     s.add_argument("--region-of", default=None, metavar="JOB_ID",
                    help="with --region: the earlier single-image PNG render to patch (same key, same size)")
     s.add_argument("--camera", default=None)
