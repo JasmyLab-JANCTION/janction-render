@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.335 - 2026-11-18
+
+- Fixed: the notice that a video's sound will not line up with the picture (the scene's frame rate differs from the video's) now appears; it is checked where the sound is laid onto the video.
+
 ## 0.4.334 - 2026-11-18
 
 - Previews with auto_fix: the MCP reply now names the next preview the service started by itself (auto_fix.next_job) and what to call for it. CLI: preview --auto-fix N.
