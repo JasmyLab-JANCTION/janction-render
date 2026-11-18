@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.336 - 2026-11-18
+
+- Fixed: a second final of the same scene with the same settings reused the earlier frames and came back without the scene's sound; it now reuses the earlier sound too, or renders the part that writes it.
+
 ## 0.4.335 - 2026-11-18
 
 - Fixed: the notice that a video's sound will not line up with the picture (the scene's frame rate differs from the video's) now appears; it is checked where the sound is laid onto the video.
