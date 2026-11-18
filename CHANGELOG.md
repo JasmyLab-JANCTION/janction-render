@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.334 - 2026-11-18
+
+- Previews with auto_fix: the MCP reply now names the next preview the service started by itself (auto_fix.next_job) and what to call for it. CLI: preview --auto-fix N.
+- Sound in the video: when the scene's frame rate differs from the video's, the reply says the sound will not line up and which fps to render at.
+- A .blend with its sound packed inside no longer lists that sound as a file that was not sent.
+
 ## 0.4.333 - 2026-11-18
 
 - Fixed: sound in the video was not written when the scene's sequencer had sound (the output folder did not exist yet before the first frame), so the video came back silent.

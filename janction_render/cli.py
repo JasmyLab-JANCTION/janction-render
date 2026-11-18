@@ -365,6 +365,8 @@ def cmd_preview(c: Client, args: argparse.Namespace) -> int:
         what = ", ".join(f"{k}={v}" for k, v in mp.items()) + (f", frames {frames}" if frames else "")
     if getattr(args, "changed_since", None):
         extra["changed_since"] = args.changed_since       # 11/17 受付の旗 JR_REGION_AUTO: 前の仕上げから変わった所の四角
+    if getattr(args, "auto_fix", None):
+        extra["auto_fix"] = args.auto_fix                 # 11/18 受付の旗 JR_AUTO_FIX: 点検の直しを当てて自分で描き直す（試し描きだけ）
     j = c.submit(sid, kind="preview", frames=frames, camera=args.camera, width=w, height=h,
                  samples=args.samples, engine=args.engine, max_yen=args.max_yen, **extra)
     print(f"job {j['job_id']} queued: {what} (estimate ~{j['estimate']['seconds']}s)", file=sys.stderr)
@@ -374,12 +376,29 @@ def cmd_preview(c: Client, args: argparse.Namespace) -> int:
         return 1
     out = Path(args.out) if args.out else Path("render_out") / safe_name(j["job_id"])
     paths = c.download(j["job_id"], out, on_progress=_say_err)
+    afu = None
+    if getattr(args, "auto_fix", None):
+        from .mcp_common import auto_fix_followup
+        afu = auto_fix_followup(j, lambda: c.job(j["job_id"]))
     print(_j({"job_id": j["job_id"], "scene_id": sid, "frames": frames, "files": [str(p) for p in paths],
               "warnings": j.get("warnings") or [], "gpu_seconds": j["gpu_seconds"], "device": j["device"],
-              "expires_at": j["expires_at"], **({"changed_region": j["changed_region"]} if j.get("changed_region") else {})}))
+              "expires_at": j["expires_at"], **({"changed_region": j["changed_region"]} if j.get("changed_region") else {}),
+              **({"auto_fix": afu} if afu else {})}))
     _say_changed_region(j.get("changed_region"))
+    _say_auto_fix(afu)
     _suggest_next(c, j["job_id"])
     return 0
+
+
+def _say_auto_fix(af: Any) -> None:
+    """11/18 --auto-fix の答え: 自分で出した次の試し描きと、それを取りに行く 1 行（標準エラー）。"""
+    if not isinstance(af, dict):
+        return
+    if af.get("next_job"):
+        print(f"auto-fix: the next preview {af['next_job']} applies {af.get('applied')} by itself; get it with: "
+              f"janction-render download {af['next_job']}", file=sys.stderr)
+    elif af.get("stopped"):
+        print(f"auto-fix: stopped ({af['stopped']}); no final was started", file=sys.stderr)
 
 
 def _say_changed_region(cr: Any) -> None:
@@ -1216,6 +1235,9 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--changed-since", default=None, metavar="JOB_ID",
                    help="an earlier single-image PNG final: say which part of it this preview changed, and print the "
                         "render line that re-renders only that box")
+    s.add_argument("--auto-fix", type=int, choices=[1, 2, 3], default=None, metavar="N",
+                   help="if the preview check suggests settings (light, framing), apply them and preview again by itself, "
+                        "up to N times (never starts a final)")
     s.add_argument("--camera", default=None)
     s.add_argument("--size", type=_size, default=(1280, 720))
     s.add_argument("--samples", type=int, default=16)

@@ -10,7 +10,8 @@ from __future__ import annotations
 
 import json
 import os
-from typing import Any, Optional
+import time
+from typing import Any, Callable, Optional
 
 from .decision_words import SMALLER_IS_USERS_CHOICE
 
@@ -1242,3 +1243,39 @@ def hide_params(fn: Any, *names: Any) -> Any:
                                     return_annotation=hints.get("return", sig.return_annotation))
     run.__annotations__ = {k: v for k, v in hints.items() if k not in hidden}
     return run
+
+
+# 11/18: auto_fix（旗 JR_AUTO_FIX）の試し描き。受付は試し描きが done になった後に裏で「次を出すか止めるか」を決めるので、
+# MCP の返事を作る時点ではまだ決まっていないことがある（本番で遠隔 MCP の返事が auto_fix: null になり、AI が次の試し描きに
+# 気づけなかった）。少しだけ待って決まりを読み、返事に auto_fix の欄と次の一言を載せる。
+AUTO_FIX_WAIT_S = 8.0
+
+
+def auto_fix_followup(job: dict[str, Any], reread: Callable[[], dict[str, Any]],
+                      wait_s: float = AUTO_FIX_WAIT_S) -> Optional[dict[str, Any]]:
+    """auto_fix を頼んだ試し描きなら、その欄（next_job か stopped まで少し待つ）。頼んでいなければ None。"""
+    if not isinstance((job.get("params") or {}).get("auto_fix"), dict) and not isinstance(job.get("auto_fix"), dict):
+        return None
+    deadline = time.monotonic() + max(0.0, wait_s)
+    j = job
+    while True:
+        af = j.get("auto_fix") if isinstance(j.get("auto_fix"), dict) else None
+        if af and (af.get("next_job") or af.get("stopped")):
+            break
+        if time.monotonic() >= deadline:
+            break
+        time.sleep(0.5)
+        try:
+            j = reread() or j
+        except Exception:  # noqa: BLE001 — 読み直せなければ、今わかっている分だけ
+            break
+    af = dict(j.get("auto_fix") or {}) if isinstance(j.get("auto_fix"), dict) else {}
+    if af.get("next_job"):
+        af["next"] = (f"auto_fix started the next preview {af['next_job']} by itself (applied {json.dumps(af.get('applied'))}): "
+                      f"show this image, then call render_status(job_id='{af['next_job']}') and render_download for the fixed "
+                      "preview. No final is started.")
+    elif not af.get("stopped"):
+        af["next"] = ("auto_fix is still deciding: call render_status(job_id) of this preview in a few seconds; its auto_fix "
+                      "names the next preview or why it stopped.")
+    return af
+

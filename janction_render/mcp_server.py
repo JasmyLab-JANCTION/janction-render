@@ -800,6 +800,10 @@ def render_preview(
         brief["next"] = PRESENT_FIRST + critic_next(j.get("critic")) + VARIANTS_NEXT + final_estimate_text(fu)
     _add_feature_offers(c, j, brief)
     _attach_upload_notes(brief)
+    afu = mcp_common.auto_fix_followup(j, lambda: c.job(j["job_id"]))   # 11/18 旗 JR_AUTO_FIX
+    if afu:
+        brief["auto_fix"] = afu
+        brief["next"] = afu.get("next", "") + " " + brief.get("next", "")
     result: list[Any] = [_j(brief)]
     if show is not None:
         img = _shown_image(show)
