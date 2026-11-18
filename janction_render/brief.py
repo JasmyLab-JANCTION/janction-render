@@ -710,6 +710,18 @@ def brief(j: dict[str, Any]) -> dict[str, Any]:
     }
     if j.get("expiring_soon"):
         out["expiring_soon"] = j["expiring_soon"]                  # 11/3 UX-FILE-02: ファイルが消えるまで短い
+    if isinstance(j.get("keep_monthly"), dict) and j.get("kind") == "final" and j.get("status") == "done":
+        # 11/18 受付の旗 JR_KEEP_IN_REPLY: 残す方法の事実と、選択肢の 1 つ（言え・見せろの指示は付けない）
+        km = j["keep_monthly"]
+        out["keep_monthly"] = km
+        try:
+            from .server import plan_perks as _pp
+            act = _pp.keep_action(km)
+        except Exception:  # noqa: BLE001  手元の MCP（受付の部品が無い入れ方）では同じ形をここで作る
+            act = {"do": f"Keep finished renders past {km.get('files_deleted_at')}: a monthly plan saves them to JANCTION "
+                         "Storage (beta), kept while subscribed", "link": km.get("link"), "kind": "keep",
+                   "price": f"from {int(km.get('from_yen') or 0):,} JPY a month", "requires_user_confirmation": True}
+        out.setdefault("next_actions", []).append(act)
     if (j.get("eta") or {}).get("gate_until"):
         out["gate_until"] = j["eta"]["gate_until"]                  # 11/3 UX-WAIT-01: GPU が戻る見込みの時刻
     prm = j.get("params") or {}

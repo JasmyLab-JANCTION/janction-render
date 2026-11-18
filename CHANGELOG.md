@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.337 - 2026-11-18
+
+- Fixed: the notice that a video's sound will not line up now names the scene's own frame rate (it said 28.846 fps for a 30 fps scene).
+
 ## 0.4.336 - 2026-11-18
 
 - Fixed: a second final of the same scene with the same settings reused the earlier frames and came back without the scene's sound; it now reuses the earlier sound too, or renders the part that writes it.
