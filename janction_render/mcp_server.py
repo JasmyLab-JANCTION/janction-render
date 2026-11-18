@@ -747,6 +747,7 @@ def render_preview(
     camera_move: Annotated[str, D("camera_move", "")] = "",
     camera_angle: Annotated[float, D("camera_angle", 0.0)] = 0.0,
     changed_since: Annotated[str, D("changed_since", "")] = "",
+    auto_fix: Annotated[int, D("auto_fix", 0)] = 0,
 ) -> list[Any]:
     """Render a fast, cheap preview of a Blender scene on a JANCTION GPU and show the image. (full description on the tool)."""
     c = _client()
@@ -762,6 +763,7 @@ def render_preview(
                       **_job_params(environment, environment_strength, environment_visible, blender, orbit, orbit_frames,
                                     orbit_elevation, orbit_target, orbit_distance, engine=engine),
                       **mcp_common.opt_in_values(subject_only=(True if subject_only else None),   # 11/12 旗 JR_SPLAT_SUBJECT
+                                                 auto_fix=(int(auto_fix) if auto_fix else None),  # 11/14 旗 JR_AUTO_FIX
                                                  full_turn=(True if full_turn else None),         # 11/12 旗 JR_FULL_TURN
                                                  reduce_points=(True if reduce_points else None),  # 11/12 旗 JR_SPLAT_REDUCE
                                                  ocio_config=ocio_config or None,                 # 11/12 旗 JR_CUSTOM_OCIO

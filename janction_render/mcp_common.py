@@ -857,6 +857,8 @@ OPT_IN: tuple[tuple[str, str, str, str], ...] = (
     # 11/12 スキャンの被写体だけ（受付の旗 JR_SPLAT_SUBJECT、server/splat.py）
     # 道具の説明には足さない（引数の説明だけ。11/9 の旗と同じ・審査中の道具の説明を変えない）
     ("JR_SPLAT_SUBJECT", "render_preview", "subject_only", ""),
+    # 11/14 v2 AGT-04 上限つきの自動の直し（受付の旗 JR_AUTO_FIX、server/auto_fix.py）。試し描きだけ
+    ("JR_AUTO_FIX", "render_preview", "auto_fix", ""),
     ("JR_SPLAT_SUBJECT", "render_final", "subject_only", ""),
     # 11/12 大きなスキャンを減らして描く（受付の旗 JR_SPLAT_REDUCE、server/splat.py）
     ("JR_SPLAT_REDUCE", "render_preview", "reduce_points", ""),
@@ -936,6 +938,9 @@ OPT_IN_PARAM_DOCS: dict[str, str] = {
                     "Leave frames out. The reply's final_estimate is the time and price of every frame at full quality."),
     "full_turn": ("True with orbit=True (or preset='turntable'): preview the whole turn as up to 24 small frames in one sheet "
                   "(labelled in degrees) instead of 4 angles; leave frames out. Preview only."),
+    "auto_fix": ("1-3: when the preview check says fix and suggests settings (fix_params), the service starts that many follow-up "
+                 "previews with them by itself and stops when the check is ok, the score does not improve or a preview would be "
+                 "charged; it never starts a final. Follow the reply's auto_fix.next_job with render_status. 0 = off."),
     "subject_only": ("Gaussian splats (.spz, 3DGS .ply) only: True keeps the scanned subject and what it stands on and removes the "
                      "rest of the capture (sky, far scenery, haze, the floor); the file is not changed. Use the same value for the "
                      "final as for the preview."),

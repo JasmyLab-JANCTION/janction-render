@@ -51,6 +51,8 @@ PRO_ASSET_EXTENSIONS = frozenset({".vdb", ".bphys", ".blob", ".uni", ".gz", ".av
 LIBRARY_ASSET_EXTENSIONS = frozenset({".blend"})
 # 11/16 旗 JR_SPLAT_ASSETS の受付だけが受ける型（スクリプトが jr_assets.import_splat で読むスキャン）。旗の無い受付は 400 unsupported
 SPLAT_ASSET_EXTENSIONS = frozenset({".spz", ".ply"})
+# 旗 JR_SCENE_AUDIO の受付だけが受ける型（シーケンサーの音のファイル、11/16、server/scene_audio.py）。旗の無い受付は 400 unsupported
+SOUND_ASSET_EXTENSIONS = frozenset({".wav", ".mp3", ".ogg", ".flac", ".aif", ".aiff", ".m4a"})
 LIBRARY_FILES_MAX = 500      # リンクした .blend 1 つが読むファイルとして送る数の上限（材質の大きなライブラリで送りすぎない）
 _ASSET_NAME_RE = re.compile(r"^[A-Za-z0-9_.\-]{1,120}(/[A-Za-z0-9_.\-]{1,120}){0,4}$")
 # ワーカーは .blend を scene.blend として開くので、既定の点のキャッシュ（//blendcache_<名前>/）は blendcache_scene/ で送る
@@ -340,6 +342,9 @@ def is_pro_asset(name: str) -> bool:
 def is_splat_asset(name: str) -> bool:
     """旗 JR_SPLAT_ASSETS の受付だけが受ける型（素材のスキャン .spz・.ply）か（11/16）。"""
     return Path(name).suffix.lower() in SPLAT_ASSET_EXTENSIONS
+def is_sound_asset(name: str) -> bool:
+    """旗 JR_SCENE_AUDIO の受付だけが受ける音のファイルか（11/16）。"""
+    return Path(name).suffix.lower() in SOUND_ASSET_EXTENSIONS
 
 
 def is_library_asset(name: str) -> bool:
@@ -354,7 +359,7 @@ def asset_name_problem(name: str) -> Optional[str]:
         return "the name has characters the service does not take (letters, digits, . _ - and up to 4 folders)"
     if ext == ".gz" and not name.lower().endswith(".bobj.gz"):
         return ".gz files other than fluid meshes (.bobj.gz) are not accepted"
-    if ext not in BASE_ASSET_EXTENSIONS and ext not in PRO_ASSET_EXTENSIONS:
+    if ext not in BASE_ASSET_EXTENSIONS and ext not in PRO_ASSET_EXTENSIONS and ext not in SOUND_ASSET_EXTENSIONS:
         return f"{ext or 'no extension'} files are not accepted; pack it into the .blend"
     return None
 
@@ -986,7 +991,10 @@ class Client:
         libs = [(n, ap) for n, ap in todo if is_library_asset(n)]
         # 11/16: 素材のスキャン（旗 JR_SPLAT_ASSETS）も別に送る。受付が受けなければ外して理由を書く（描画は続ける）
         splats = [(n, ap) for n, ap in todo if is_splat_asset(n)]
-        todo = [(n, ap) for n, ap in todo if not is_pro_asset(n) and not is_library_asset(n) and not is_splat_asset(n)]
+        # 11/16: シーケンサーの音のファイル（旗 JR_SCENE_AUDIO）も別に送る。受付が受けなければ外して理由を書く
+        sounds = [(n, ap) for n, ap in todo if is_sound_asset(n)]
+        todo = [(n, ap) for n, ap in todo if not is_pro_asset(n) and not is_library_asset(n) and not is_splat_asset(n)
+                and not is_sound_asset(n)]
         scene_id = out["scene_id"]
         if todo:
             out = self.upload_assets(scene_id, todo)
@@ -1005,6 +1013,14 @@ class Client:
                     raise
                 missing += [f"{n} (this server does not take scans as assets yet; send the scan itself as the scene)"
                             for n, _ in splats]
+        if sounds:
+            try:
+                out = self.upload_assets(scene_id, sounds)
+            except ClientError as exc:
+                if exc.status != 400 or exc.error not in ("unsupported", "unsupported_input"):
+                    raise
+                missing += [f"{n} (this server does not take sound files here; pack the sound into the .blend)"
+                            for n, _ in sounds]
         if libs:
             try:
                 out = self.upload_assets(scene_id, libs)

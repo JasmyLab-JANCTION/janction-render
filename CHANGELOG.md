@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.4.333 - 2026-11-18
+
+- Fixed: sound in the video was not written when the scene's sequencer had sound (the output folder did not exist yet before the first frame), so the video came back silent.
+
+## 0.4.332 - 2026-11-18
+
+- Sound in the video: a final in MP4, WebM or ProRes can carry the sound strips of the scene's video sequencer (placed, trimmed and at their volume), where the service offers it. The CLI and the local MCP also send the sound files a .blend uses.
+- Previews take auto_fix=1..3 (render_preview, POST /v1/jobs), where the service offers it: the service applies the preview check's suggested settings and previews again by itself, and never starts a final.
+- The delivery check of a final can also name flicker in one part of the picture (a lamp, a reflection, noise) and the frames, where the service offers it.
+
 ## 0.4.331 - 2026-11-17
 
 - Fixed: the curl examples on the Products page and four guides, and the contact address on the Facts page, showed "[email protected]" instead of the real text (for example `-F file=@scene.blend`).
