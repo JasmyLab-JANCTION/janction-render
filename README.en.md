@@ -446,7 +446,7 @@ As of 2026-10-26 (the current values are always at https://render.janction.jp/fa
 
 ## Docs
 
-- Fact sheet (the primary source when answers disagree): https://render.janction.jp/facts · JSON: `/facts.json`, `/version.json`, `/changelog.json`, `/status.json`
+- Fact sheet (the primary source when answers disagree): https://render.janction.jp/facts · JSON: `/facts.json`, `/version.json`, `/status.json` · What's New: https://render.janction.jp/changelog (`/updates.xml`)
 - For agents: https://render.janction.jp/llms.txt (full text of all guides: `/llms-full.txt`)
 - Guides: [render farm for agents](https://render.janction.jp/blender-render-farm) · [without a GPU](https://render.janction.jp/render-blender-without-gpu) ·
   [Cycles is slow on my MacBook](https://render.janction.jp/blender-slow-on-macbook) ·
@@ -517,6 +517,9 @@ mcp-name: io.github.JasmyLab-JANCTION/janction-render
 
 - This package (CLI, Python client, stdio MCP server): release notes in [CHANGELOG.md](https://github.com/JasmyLab-JANCTION/janction-render/blob/main/CHANGELOG.md)
   and [GitHub Releases](https://github.com/JasmyLab-JANCTION/janction-render/releases).
+- A new version of this package is published only when the package itself changes; updates to the hosted service
+  (web pages, API, remote MCP, GPU workers) do not need one. If the service ever needs a newer client, `/version.json`
+  says so in `min_client_version` and `janction-render doctor` reports it.
 - The service as a whole (new features, integrations, changes to pricing or terms): [What's New](https://render.janction.jp/changelog)
   ([Atom](https://render.janction.jp/updates.xml)).
 

@@ -1,6 +1,8 @@
 # PyPI へ上げる（Trusted Publishing。PyPI 側で「pending publisher」に
 #   owner=JasmyLab-JANCTION / repository=janction-render / workflow=publish.yml / environment=pypi を登録しておく）
 # タグ v0.1.0 を push すると走る。
+# 11/19: PyPI に出すのはクライアント（CLI・Python クライアント・stdio の MCP）が変わったときだけ。作った wheel を PyPI の最新と
+# 比べ（版の数字・RECORD・README の本文は除く）、違いが無ければ上げない（scripts/client_changed.py）。サービスだけの更新で版は要らない。
 name: publish
 on:
   push:
@@ -18,4 +20,14 @@ jobs:
         with:
           python-version: "3.12"
       - run: python -m pip install -U pip build && python -m build
-      - uses: pypa/gh-action-pypi-publish@release/v1
+      - name: Tag matches the package version
+        run: |
+          V=$(python -c "import tomllib;print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
+          test "v$V" = "${GITHUB_REF_NAME}" || { echo "tag ${GITHUB_REF_NAME} does not match pyproject version $V" >&2; exit 1; }
+      - name: Did the client change?
+        id: diff
+        run: python scripts/client_changed.py dist/*.whl
+      - if: steps.diff.outputs.changed == 'true'
+        uses: pypa/gh-action-pypi-publish@release/v1
+      - if: steps.diff.outputs.changed != 'true'
+        run: echo "::notice::No client change since the latest PyPI release; nothing published."
