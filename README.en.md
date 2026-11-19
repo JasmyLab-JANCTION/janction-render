@@ -453,7 +453,7 @@ As of 2026-10-26 (the current values are always at https://render.janction.jp/fa
   [Claude](https://render.janction.jp/claude-blender) · [ChatGPT](https://render.janction.jp/chatgpt-blender) · [Claude Code](https://render.janction.jp/claude-code-blender) ·
   [Codex](https://render.janction.jp/codex-blender) · [Cursor](https://render.janction.jp/cursor-blender) · [bpy scripts](https://render.janction.jp/bpy-script-cloud-gpu) ·
   [API](https://render.janction.jp/blender-render-api) · [compare](https://render.janction.jp/compare) · [products](https://render.janction.jp/products) · 日本語は `/ja/`
-- Status: https://render.janction.jp/status · Security and retention: https://render.janction.jp/security · Changelog: https://render.janction.jp/changelog
+- Status: https://render.janction.jp/status · Security and retention: https://render.janction.jp/security · What's New: https://render.janction.jp/changelog
 
 ## Features in detail
 
@@ -504,6 +504,21 @@ DCC tools.
 This server is listed in the official MCP registry as `io.github.JasmyLab-JANCTION/janction-render` (remote: `https://render.janction.jp/mcp`).
 
 mcp-name: io.github.JasmyLab-JANCTION/janction-render
+
+## Compatibility
+
+- Python 3.11, 3.12 and 3.13, on any OS (the package is pure Python; Blender and the GPU run on the service).
+- The CLI, the Python client and the stdio MCP server talk to the service's HTTP API (`/v1/...`). `janction-render doctor`
+  checks the connection, the key and the credit; `GET /v1/health` and `/version.json` show what the service runs.
+- Authentication: an API key (`X-API-Key: jr_...` or `Authorization: Bearer jr_...`), created on first use without sign-up,
+  or OAuth 2.1 for the remote MCP connector.
+
+## Releases and product updates
+
+- This package (CLI, Python client, stdio MCP server): release notes in [CHANGELOG.md](https://github.com/JasmyLab-JANCTION/janction-render/blob/main/CHANGELOG.md)
+  and [GitHub Releases](https://github.com/JasmyLab-JANCTION/janction-render/releases).
+- The service as a whole (new features, integrations, changes to pricing or terms): [What's New](https://render.janction.jp/changelog)
+  ([Atom](https://render.janction.jp/updates.xml)).
 
 ## Privacy and support
 

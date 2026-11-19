@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.338 - 2026-11-19
+
+- The README lists supported Python versions, how the client talks to the service, and where release notes and product updates are published (What's New: https://render.janction.jp/changelog).
+
 ## 0.4.337 - 2026-11-18
 
 - Fixed: the notice that a video's sound will not line up now names the scene's own frame rate (it said 28.846 fps for a 30 fps scene).
