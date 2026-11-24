@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.340 - 2026-11-24
+
+- The local MCP's job replies say when a stopped final can be rendered again with only its missing frames (call render_final with the same settings), and include the result of sending to your own storage (upload: status and host, never the signed URL).
+- `janction-render connect` tells ChatGPT users to install JANCTION Render from the ChatGPT plugin directory.
+
 ## 0.4.339 - 2026-11-24
 
 - `janction-render estimate` prints an estimate_id valid for 1 hour; `render --estimate-id` refuses, with nothing charged, a render that would now cost more than that estimate, long renders in parts included.
