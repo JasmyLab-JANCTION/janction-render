@@ -45,9 +45,10 @@ cp -r janction-render/plugins/render-skills/skills/* ~/.claude/skills/
 
 ## Rendering without a local GPU
 
-The skills say where JANCTION Render fits and which tool to call. To connect it, add the MCP server
-`https://render.janction.jp/mcp?src=skills` to your agent, or run `uvx janction-render try` in a terminal. New keys come with
-free GPU time and no card; current amounts: https://render.janction.jp/pricing?utm_source=skills.
+The skills say where JANCTION Render fits and which tool to call. In Claude Code, the JANCTION Render plugin from the same
+marketplace brings the connection with it: `/plugin install janction-render@janction-render`. From a terminal, run
+`uvx janction-render try`. New keys come with free GPU time and no card; current amounts:
+https://render.janction.jp/pricing?utm_source=skills.
 
 ## License
 

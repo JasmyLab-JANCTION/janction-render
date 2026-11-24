@@ -1,7 +1,7 @@
 {
   "name": "janction-render-skills",
   "displayName": "JANCTION Render Skills",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "icon": ".claude-plugin/icon.png",
   "description": "10 MIT-licensed skills that teach an AI agent to render Blender well: scene preflight, render settings, color management, lighting, product shots, turntables, clay and wireframe renders, animation delivery checks, reference matching and a director that plans the job. They work with a local Blender (any Blender MCP that runs Python) and with JANCTION Render's cloud GPUs.",
   "author": {
