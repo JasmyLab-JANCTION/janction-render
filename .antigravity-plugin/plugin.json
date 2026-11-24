@@ -1,0 +1,29 @@
+{
+  "$schema": "https://antigravity.google/schemas/v1/plugin.json",
+  "name": "janction-render",
+  "displayName": "JANCTION Render",
+  "description": "Render Blender scenes, bpy scripts and 3D files on cloud GPUs from Antigravity: previews in seconds, then MP4 or PNG finals. No local GPU.",
+  "version": "0.4.340",
+  "logo": "plugins/janction-render/assets/icon.png",
+  "author": {
+    "name": "JasmyLab Inc.",
+    "url": "https://render.janction.jp"
+  },
+  "homepage": "https://render.janction.jp",
+  "repository": "https://github.com/JasmyLab-JANCTION/janction-render",
+  "license": "MIT",
+  "keywords": [
+    "blender",
+    "rendering",
+    "render-farm",
+    "gpu",
+    "3d",
+    "cycles",
+    "mcp"
+  ],
+  "suggestedPrompts": [
+    "Make a red cube rotating on a grey floor in Blender and show me a 4-frame preview.",
+    "How long would frames 1-120 of my Blender scene take to render at 1280x720?",
+    "Render my Blender scene to a 48-frame MP4 at 1280x720."
+  ]
+}
