@@ -49,7 +49,7 @@ def estimate_brief(e: dict[str, Any] | None) -> dict[str, Any] | None:
             # 11/9 最終の経路での試し描きのコマ・見積もり・値段（受付の旗 JR_FINAL_TEST。OFF なら無い）
             "test",
             # 11/13 見積もりの ID（受付の旗 JR_ESTIMATE_ID。OFF なら無い）。render_final(estimate_id=...) に渡す
-            "estimate_id", "estimate_id_expires_at",
+            "estimate_id", "estimate_id_expires_at", "estimate_id_note",
             # 11/13 人に見せる計画（受付の旗 JR_PLAN_REQUIRED。OFF なら無い）: 描くもの・天井・時間・送り先
             "plan")
     return {k: e[k] for k in keep if e.get(k) is not None}

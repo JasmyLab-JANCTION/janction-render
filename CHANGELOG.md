@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.341 - 2026-11-24
+
+- The local MCP's estimate replies say how to get an estimate_id when the estimate had no scene_id (call scene_info, then estimate with the scene_id).
+
 ## 0.4.340 - 2026-11-24
 
 - The local MCP's job replies say when a stopped final can be rendered again with only its missing frames (call render_final with the same settings), and include the result of sending to your own storage (upload: status and host, never the signed URL).

@@ -291,7 +291,8 @@ in Claude Code: try_janction_render, render_my_scene, turntable_video, product_s
 | ChatGPT | Plugins → search "JANCTION Render" → Install plugin ([plugin page](https://chatgpt.com/plugins/plugin_asdk_app_6abd560972048191aa42f2cbb1980bd9)) |
 | Claude Code | `claude mcp add --transport http janction-render https://render.janction.jp/mcp`, then `/mcp` to authenticate |
 | Codex | `codex mcp add janction-render --url https://render.janction.jp/mcp` |
-| Gemini CLI / Antigravity CLI | `gemini extensions install https://github.com/JasmyLab-JANCTION/janction-render` (this repository carries `gemini-extension.json`) |
+| Antigravity CLI | `agy plugin install https://github.com/JasmyLab-JANCTION/janction-render`, then `/mcp` → janction-render → Enter → Authenticate |
+| Gemini CLI | `gemini extensions install https://github.com/JasmyLab-JANCTION/janction-render` (this repository carries `gemini-extension.json`) |
 | Kimi Code (Kimi K3 and other models) | `/plugins install https://github.com/JasmyLab-JANCTION/janction-render` (this repository carries `kimi.plugin.json`: the MCP server and the workflow skill), or `~/.kimi-code/mcp.json`: `{"mcpServers": {"janction-render": {"url": "https://render.janction.jp/mcp"}}}`, then `/mcp-config login janction-render` (OAuth) |
 | OpenCode | `~/.config/opencode/opencode.json`: `{"mcp": {"janction-render": {"type": "remote", "url": "https://render.janction.jp/mcp"}}}`, then `opencode mcp auth janction-render` (OAuth) |
 | Qwen Code | `qwen extensions install https://github.com/JasmyLab-JANCTION/janction-render` (this repository carries `qwen-extension.json`: the MCP server and the workflow skill), or `qwen mcp add --transport http janction-render https://render.janction.jp/mcp` |
