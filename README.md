@@ -121,7 +121,7 @@ into the agent's skills directory (for example `~/.claude/skills/` or `~/.codex/
 ## Quick start
 
 **Claude.ai (nothing to install).** Plugins (older menu: Customize → Connectors) → Add custom connector → `https://render.janction.jp/mcp` → Connect (a free key
-is created on the consent page). **ChatGPT:** Plugins (left sidebar) → Add → Create plugin → the same URL (OAuth; on Business workspaces an admin adds it). Then paste:
+is created on the consent page). **ChatGPT:** install [JANCTION Render from the plugin directory](https://chatgpt.com/plugins/plugin_asdk_app_6abd560972048191aa42f2cbb1980bd9) (Plugins → search "JANCTION Render" → Install plugin; on Business workspaces an admin may need to allow it). Then paste:
 
 > Render a preview of https://render.janction.jp/samples/cube_scene.py
 
@@ -288,7 +288,7 @@ in Claude Code: try_janction_render, render_my_scene, turntable_video, product_s
 |---|---|
 | Claude.ai (web, desktop, mobile) | Plugins (older menu: Customize → Connectors) → Add custom connector → paste the URL → Connect |
 | Claude Team / Enterprise | An owner adds the URL under Organization settings → Connectors; members press Connect. If the org turns Skills off, Claude Desktop blocks plugins from November 30, so use the connector URL |
-| ChatGPT | Settings → Connectors → Advanced → Developer mode → Create → paste the URL (OAuth) |
+| ChatGPT | Plugins → search "JANCTION Render" → Install plugin ([plugin page](https://chatgpt.com/plugins/plugin_asdk_app_6abd560972048191aa42f2cbb1980bd9)) |
 | Claude Code | `claude mcp add --transport http janction-render https://render.janction.jp/mcp`, then `/mcp` to authenticate |
 | Codex | `codex mcp add janction-render --url https://render.janction.jp/mcp` |
 | Gemini CLI / Antigravity CLI | `gemini extensions install https://github.com/JasmyLab-JANCTION/janction-render` (this repository carries `gemini-extension.json`) |

@@ -131,6 +131,31 @@ PREVIEW_MAX_SIZE = "1280x720"          # 試し描きの上限（server/capabili
 PREVIEW_FRAMES_MAX = 4
 UPLOAD_LINK_HOURS = _env_int_doc("JR_DROP_TTL_HOURS", 12)
 
+# 11/20 取り消しの料金の 1 句。旗 JR_CANCEL_BILL_FRAMES が全員に ON のときだけ ON の文（受付のページの pages.cancel_frames_note と
+# 同じ切り替え。ops・beta の鍵だけの間は今の動き＝描き終えた束の GPU 秒だけ、billing.settle → job_counted_seconds）
+CANCEL_BILL_FLAG = "JR_CANCEL_BILL_FRAMES"
+
+
+def cancel_charge_clause() -> str:
+    from .mcp_common import flag_on
+    if flag_on(CANCEL_BILL_FLAG):
+        return ("only frames that finished rendering and can be downloaded are charged; unfinished, unavailable or failed "
+                "frames are not charged")
+    return "only the GPU time of parts that finished rendering is charged, nothing extra"
+
+
+def upload_page_sizes() -> str:
+    """/upload のページで送れる大きさ（extra_pages.upload_html と同じ式・同じ env）。受付の外（stdio）では受付の設定を読めないので空。"""
+    try:
+        from .server.extra_pages import _mb_label, _size_caps, _upload_limits, big_upload_labels
+        from .server.uploads import uploads_mode
+        if uploads_mode() != "on":
+            return f"up to {_upload_limits()[0]} MB"
+        mx, nc, _ = _size_caps()
+        return f".blend up to {big_upload_labels()[0]}, other files up to {_mb_label(min(nc, mx) // (1024 * 1024))}"
+    except Exception:  # noqa: BLE001  説明の飾り
+        return ""
+
 
 def _plan_keep() -> str:
     """11/16 月額＋JANCTION Storage（β）: 月額なら契約中ずっと残る（server.storage_aio。旗が OFF・読めないときは空）。"""
@@ -301,8 +326,8 @@ def descriptions(flavor: str, wait_cap_s: int = 50) -> dict[str, str]:
     # 何が残るかが書かれていなかった。実装は routes_jobs.cancel_for・routes_shares.unshare_for・shares.remove）
     cancel = (
         "Stop a queued or running render job of this key (a j_... job, or a b_... job split into parts, which stops every part). "
-        "Effects: queued frames are dropped; frames already rendered are charged and stay downloadable until the job expires; "
-        "the rest of the GPU time held for the job is returned to the key at once. It cannot be undone or resumed: to render "
+        f"Effects: queued frames are dropped; {cancel_charge_clause()}; frames already rendered stay downloadable until the job "
+        "expires; the rest of the GPU time held for the job is returned to the key at once. It cannot be undone or resumed: to render "
         "again, call render_final again (a new job). A job that is already done, failed or canceled is returned unchanged, and "
         "a job whose frames are all rendered and is being assembled into the video cannot be stopped (nothing more is charged). "
         "Only the key that started the job can stop it; any other job_id returns not_found. Ask the user before cancelling a "
@@ -389,15 +414,21 @@ def _script_notes(flavor: str) -> str:
 
 def param_docs(flavor: str, wait_cap_s: int = 50) -> dict[str, str]:
     remote = flavor == "remote"
+    # 11/20: /upload のリンクは 1 ファイル（extra_pages.upload_html の決まり）。大きさは受付の設定から（リモートだけ）
+    sizes = upload_page_sizes() if remote else ""
+    upload = (f"a {UPLOAD_LINK_HOURS}-hour /upload link: the user drops one file at {SITE}/upload in a browser"
+              + (f" ({sizes})" if sizes else ""))
+    # 11/20: 別の .bin・テクスチャを使う .gltf は、それが届いていないと描く前に断る（submit._refuse_lone_gltf、料金なし）
+    refused = "a .gltf whose .bin or textures are missing is refused before rendering (gltf_external_files, no charge)"
     return {
-        "scene_path": "Local path to the scene: a .blend file, a bpy .py script, or a 3D file (.glb/.gltf/.fbx/.usd/.obj/.stl/.ply/.abc, imported into an empty scene; a Gaussian splat .spz or 3DGS .ply opens with Blender 5.3). Uploaded once; reuse the returned scene_id afterwards.",
+        "scene_path": "Local path to the scene: a .blend file, a bpy .py script, or a 3D file (.glb (recommended)/.gltf/.fbx/.usd/.obj/.stl/.ply/.abc, imported into an empty scene; a .gltf also sends the .bin and textures next to it; a Gaussian splat .spz or 3DGS .ply opens with Blender 5.3). Uploaded once; reuse the returned scene_id afterwards.",
         "scene_id": "scene_id returned by an earlier call (reuses the uploaded scene without sending it again).",
         "resume_limit": "How many projects to return (1-20, default 3).",
         "resume_cursor": "next_cursor from the previous call, to see more projects. Leave empty for the newest.",
         "scene_script": "The scene as bpy Python code (text). No file and no local Blender needed; the service runs it in Blender 5.0 (5.2 or 5.3 with blender='5.2' / '5.3')." + _script_notes(flavor),
-        "scene_url": f"https link to a .blend, a .py script or a 3D file (.glb/.gltf/.fbx/.usd/.obj/.stl/.ply/.abc; a Gaussian splat .spz or 3DGS .ply opens with Blender 5.3); the service fetches it (e.g. the sample {SAMPLE_URL}, or a {UPLOAD_LINK_HOURS}-hour /upload link). A .gltf or .obj also brings its .bin / .mtl / textures from the same folder.",
-        "asset_urls": "Extra files sent with the scene: https links (textures, glTF .bin) or 'polyhaven:<id>' CC0 assets from asset_search ('polyhaven:<id>@2k' for 2k textures). A .blend finds them through relative paths (same folder); a script through os.environ['JR_ASSETS_DIR'] or the jr_assets helpers.",
-        "assets": "Extra files sent with the scene: local paths (textures, glTF .bin), https links, or 'polyhaven:<id>' CC0 assets from asset_search. A .blend finds them through relative paths (same folder); a script through os.environ['JR_ASSETS_DIR'] or the jr_assets helpers.",
+        "scene_url": f"https link to a .blend, a .py script or a 3D file (.glb (recommended)/.gltf/.fbx/.usd/.obj/.stl/.ply/.abc; a Gaussian splat .spz or 3DGS .ply opens with Blender 5.3); the service fetches it (e.g. the sample {SAMPLE_URL}, or {upload}). A .gltf or .obj link also brings its .bin / .mtl / textures from the same folder; an /upload link carries one file, so a .gltf with separate files goes there as a .glb.",
+        "asset_urls": f"Extra files sent with the scene: https links (textures, glTF .bin; saved under the link's file name) or 'polyhaven:<id>' CC0 assets from asset_search ('polyhaven:<id>@2k' for 2k textures). A .blend finds them through relative paths (same folder); a script through os.environ['JR_ASSETS_DIR'] or the jr_assets helpers; {refused}.",
+        "assets": f"Extra files sent with the scene: local paths (textures, glTF .bin), https links, or 'polyhaven:<id>' CC0 assets from asset_search. A .blend finds them through relative paths (same folder); a script through os.environ['JR_ASSETS_DIR'] or the jr_assets helpers; {refused}.",
         "blender": "Blender version: '' (default: a .blend opens with the version it was saved in, other scenes with 5.0) or '5.0' / '5.2' / '5.3' (also '4.5', '4.2', '3.6'; a script that stops on Blender 5 because of an older API is rendered again on those automatically) to choose.",
         "frames": f"Preview frames: '' = frame 1; '12' = one frame; '1,8,16,24' or '1-24' = up to {PREVIEW_FRAMES_MAX} frames tiled in one labeled image (to judge camera motion and animation; same GPU time as one 720p frame).",
         "camera": "Name of the camera object to render from (default: the scene's active camera, or an automatic camera if there is none). Ignored with orbit=True; not combinable with cameras.",
@@ -428,7 +459,7 @@ def param_docs(flavor: str, wait_cap_s: int = 50) -> dict[str, str]:
         "notify_url": "Optional https URL that receives one JSON POST when the final render finishes (job.done / job.failed, with download links), so nobody has to poll.",
         "compare_to": "job_id of an earlier final render of this key to compare with: when this render finishes, compare.mp4 shows before / after side by side (frames matched by number), with compare.gif and compare.json (most changed frames).",
         "passes": "Render passes for compositing (Cycles, final only): 'depth', 'mist', 'normal', 'diffuse', 'glossy', 'emission', 'ao', 'shadow_catcher', 'crypto_object', 'crypto_material'. Each frame becomes one multilayer OpenEXR (beauty denoised as usual plus those passes); output must be 'exr' or 'auto'.",
-        "deliver": "Extra MP4s for posting an animation, made from the rendered frames at no extra GPU time: 'x' (H.264 with a silent AAC track that fits X: up to 2 min 20 s and 512 MB, 1920x1080 or 1280x720), 'vertical' (1080x1920) and 'square' (1080x1080), the whole frame on a blurred fill with nothing cropped.",
+        "deliver": "Extra MP4s for posting an animation, made from the rendered frames at no extra GPU time: 'x' (H.264 with a silent AAC track that fits X: up to 2 min 20 s and 512 MB, 1920x1080 or 1280x720), 'vertical' (1080x1920) and 'square' (1080x1080), which keep the subject whole: cropped around it when it fits, otherwise the whole frame on a blurred fill.",
         "kind": "'final' (frame_start..frame_end at width x height, samples) or 'preview' (frames like '1-24').",
         "job_id": "The job_id returned by render_preview or render_final (j_...; a long final split into parts is b_...). Only this key's jobs; in render_status, leave it empty to list them.",
         "wait_seconds": (f"Wait for the job to finish before returning the links (0 = do not wait). The service waits at most {wait_cap_s} s per call; call again while the job is still running."

@@ -488,8 +488,9 @@ def upload_page_hint(server: str, use_as: str = "scene_url") -> str:
     """大きすぎる・届かないファイルの代わりの道: /upload のページ（ブラウザで分けて送る、途中から再開）→ 出たリンクを scene_url に。
     use_as はリンクの渡し先（CLI はファイルの代わりにリンクを引数に）。"""
     base = (server or "https://render.janction.jp").rstrip("/")
-    return (f"open {base}/upload in a browser and drop the file there (it is sent in parts and resumes after a drop; textures "
-            f"can go with it), then pass the link the page shows as {use_as}")
+    # 11/20: リンクは 1 ファイルだけ（extra_pages.upload_html）。前は「テクスチャも一緒に」と書いていた
+    return (f"open {base}/upload in a browser and drop the file there (one file per link: a .glb or a .blend with "
+            f"packed textures), then pass the link the page shows as {use_as}")
 
 
 TERMINAL_UPLOAD = ("if you can run commands on the user's computer: pip install janction-render, then "
@@ -837,7 +838,8 @@ OPT_IN: tuple[tuple[str, str, str, str], ...] = (
      "ProRes 4444 .mov (alpha with transparent=True)."),
     ("JR_SOCIAL_EXPORT", "render_final", "deliver",
      " deliver=['x','vertical','square'] (animations): also returns social_x.mp4 (fits X: up to 2:20, 512 MB, 1080p or 720p), "
-     "social_vertical.mp4 (1080x1920) and social_square.mp4 (1080x1080); the whole frame on a blurred fill, no cropping."),
+     "social_vertical.mp4 (1080x1920) and social_square.mp4 (1080x1080); these keep the subject whole: cropped around it "
+     "when it fits, otherwise the whole frame on a blurred fill."),
     ("JR_AUTO_SAMPLES", "render_final", "auto_samples", ""),
     ("JR_AUTO_SAMPLES", "render_final", "probe_frame", ""),
     ("JR_AUTO_SAMPLES", "render_estimate", "auto_samples", ""),
@@ -912,7 +914,7 @@ OPT_IN_PARAM_DOCS: dict[str, str] = {
     "passes": ("Render passes for compositing (Cycles, final only): 'depth', 'mist', 'normal', 'diffuse', 'glossy', 'emission', "
                "'ao', 'shadow_catcher', 'crypto_object', 'crypto_material'; each frame becomes one multilayer EXR."),
     "deliver": ("Extra videos for social posts from an animation: 'x' (fits X's limits), 'vertical' (1080x1920), 'square' "
-                "(1080x1080); the whole frame on a blurred fill, nothing cropped."),
+                "(1080x1080); the subject is kept whole: cropped around it when it fits, otherwise the whole frame on a blurred fill."),
     **AUTO_SAMPLES_DOCS,
     "allow_missing": ("True renders even though scene_info found files the scene uses that were not sent (missing images render "
                       "pink or black, objects from a missing linked .blend are absent). Only when the user accepted that; "
@@ -978,7 +980,7 @@ OPT_IN_PARAM_DOCS: dict[str, str] = {
               "or 9 (3x3); the parts overlap and are joined into one frame_0001.png. GPU time is about the same as one frame, "
               "the wait is shorter. 0 = not split."),
     "estimate_id": ("The estimate_id from render_estimate with the same settings: the render is refused, with nothing charged, "
-                    "if the estimate is for another scene, has expired (10 minutes) or the render would now hold more than the "
+                    "if the estimate is for another scene, has expired (1 hour) or the render would now hold more than the "
                     "price the estimate showed. Pass it after the user agreed to that price."),
     "upload_url": ("A pre-signed HTTPS PUT URL of the user's own storage (S3, R2, GCS, Azure SAS ...): when the render is done the "
                    "service uploads the result there once (the video, the single image, or a zip of the frames), with that "

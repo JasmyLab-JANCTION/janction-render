@@ -198,7 +198,7 @@ def cmd_upload(c: Client, args: argparse.Namespace) -> int:
 def cmd_verify_package(c: Any, args: argparse.Namespace) -> int:
     """手元に落とした仕上げのフォルダを package.json（受付の旗 JR_DELIVERY_PACKAGE の納品の目録）と照らす（11/13、v2 QAD-08）。
     受付には何も送らない。欠け・中身違い・目録に無い納品物があれば 1 で終わる。"""
-    from .server import package
+    from . import package_check as package     # 11/24: 公開版には server/ が無い（照らす部分だけを分けた）
     folder = Path(args.folder)
     if not (folder / package.NAME).is_file():
         print(_j({"ok": False, "error": f"no {package.NAME} in {folder}"}))
@@ -972,7 +972,7 @@ def cmd_estimate(c: Client, args: argparse.Namespace) -> int:
     if est.get("estimate_id") and not getattr(args, "preview", False):
         # 11/16 見積もりの ID（受付の旗 JR_ESTIMATE_ID）: 同じ設定の仕上げに渡すと、この額を超えるなら描かずに断る
         print(f"to render at this estimate: janction-render render ... --estimate-id {est['estimate_id']} "
-              "(same settings; valid for 10 minutes)",
+              "(same settings; valid for 1 hour)",
               file=sys.stderr)
     print(_j({"scene_id": sid, **est}))
     if args.max_yen is not None and cost.get("within_max_yen") is False:

@@ -37,8 +37,8 @@ limits:
 topup:
   min_yen: 100                         # 最低チャージ額（JR_TOPUP_SHORTFALL の形）
   step_yen: 100
-  packs_yen: [100, 500, 2000, 5000, 10000]
-  pack_credit_yen: [100, 500, 2000, 5000, 10000]   # 12 月の料金（docs/117）: まとめ買いの上乗せをやめた（最初のチャージ 1.5 倍は残す）
+  packs_yen: [100, 500, 3000, 10000]       # 11/20: 本番の JR_TOPUP_PACKS（/pricing・/v1/pricing の札）に合わせる
+  pack_credit_yen: [100, 500, 3000, 10000]   # 12 月の料金（docs/117）: まとめ買いの上乗せをやめた（最初のチャージ 1.5 倍は残す）
   first_topup_multiplier: 1.5          # ようこそ期間中の最初のチャージ
   first_topup_bonus_cap_yen: 500
 
@@ -75,6 +75,7 @@ env_profile:
   JR_PAID_TTL_HOURS: "168"
   JR_PAID_MIN_YEN: "500"
   JR_MONTHLY_PLANS: "basic:Basic:1500:1500,standard:Standard:4500:4500,pro:Pro:15000:15000"   # docs/117: 毎月入る額＝月額
+  JR_TOPUP_PACKS: "100,500,3000,10000"        # 11/20: 本番の札（/v1/pricing の topup.packs と同じ）
   JR_TOPUP_BONUS_TIERS: ""                    # docs/117: スポットのまとめ買いの上乗せをやめる
   JR_PLAN_RESET: "1"                          # docs/117: 月額のクレジットは毎月リセット
   JR_PLAN_RESET_SINCE: "2026-11-17"           # docs/117: 切り替えの日（規約・特商法の経過の定めに出る。出す日がずれたらその日に）

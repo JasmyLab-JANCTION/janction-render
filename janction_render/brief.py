@@ -49,7 +49,7 @@ def estimate_brief(e: dict[str, Any] | None) -> dict[str, Any] | None:
             # 11/9 最終の経路での試し描きのコマ・見積もり・値段（受付の旗 JR_FINAL_TEST。OFF なら無い）
             "test",
             # 11/13 見積もりの ID（受付の旗 JR_ESTIMATE_ID。OFF なら無い）。render_final(estimate_id=...) に渡す
-            "estimate_id",
+            "estimate_id", "estimate_id_expires_at",
             # 11/13 人に見せる計画（受付の旗 JR_PLAN_REQUIRED。OFF なら無い）: 描くもの・天井・時間・送り先
             "plan")
     return {k: e[k] for k in keep if e.get(k) is not None}
@@ -683,7 +683,9 @@ CREATOR_FIELDS = ("extras", "compare", "deliver", "passes", "colors", "auto_samp
 # シーンと違う設定（scene_diff）・シーンの設定で描いた値（scene_settings）（11/9、受付の旗 JR_SCENE_DIFF・JR_SCENE_SETTINGS）。受付の形のまま
 SCENE_FIELDS = ("scene_diff", "scene_settings")
 # 色の管理（読んだだけ）と透過の形・EXR の書き方と点検（11/9、受付の旗 JR_PRO_EXR）。受付の形のまま
-PRO_EXR_FIELDS = ("color_management", "exr")
+PRO_EXR_FIELDS = ("color_management", "exr",
+                  "color_check",   # 11/24 色の仕様と照らした結果（受付の旗 JR_COLOR_SPEC）。MCP の返事に入っていなかった
+                  "package")       # 11/24 納品の目録の要約（受付の旗 JR_DELIVERY_PACKAGE）
 # 最終の経路での試し描き（final_test）と、前の仕上げから写したコマの数（frames_reused）（11/9、受付の旗 JR_FINAL_TEST）。受付の形のまま
 TEST_FIELDS = ("final_test", "frames_reused")
 

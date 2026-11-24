@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.339 - 2026-11-24
+
+- `janction-render estimate` prints an estimate_id valid for 1 hour; `render --estimate-id` refuses, with nothing charged, a render that would now cost more than that estimate, long renders in parts included.
+- `janction-render verify-package` works in the published package (it failed to start before) and checks long renders downloaded in parts (part-01_frame_0001.png and so on).
+
 ## 0.4.338 - 2026-11-19
 
 - The README lists supported Python versions, how the client talks to the service, and where release notes and product updates are published (What's New: https://render.janction.jp/changelog).

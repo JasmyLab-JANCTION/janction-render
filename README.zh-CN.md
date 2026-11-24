@@ -56,5 +56,6 @@ npx --registry=https://registry.npmmirror.com -y janction-render
 
 - 中文页面：[首页](https://render.janction.jp/zh) · [价格](https://render.janction.jp/zh/pricing) · [Blender MCP](https://render.janction.jp/zh/blender-mcp) · [免费云渲染](https://render.janction.jp/zh/free-blender-cloud-rendering) · [没有显卡](https://render.janction.jp/zh/render-blender-without-gpu) · [动画渲染](https://render.janction.jp/zh/render-blender-animation-online) · [产品 360 度视频](https://render.janction.jp/zh/product-turntable) · [渲染示例](https://render.janction.jp/zh/examples)
 - 给 AI 智能体：https://render.janction.jp/zh/llms.txt
+- 产品更新：https://render.janction.jp/changelog（英文）。本软件包（CLI、Python 客户端、本地 MCP）只在其自身有变化时发布新版本，发布说明见 [CHANGELOG.md](https://github.com/JasmyLab-JANCTION/janction-render/blob/main/CHANGELOG.md)。
 - 付款目前只支持信用卡（Stripe），以日元结算；暂不支持支付宝和微信支付。
 - 服务器在日本。部分网络环境下访问可能较慢。
