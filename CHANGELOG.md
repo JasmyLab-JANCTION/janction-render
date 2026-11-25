@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.342 - 2026-11-25
+
+- CLI: `--scene-name` (pick a scene of a .blend with several), `--lock` / `--lock-base` (refuse a render that changes what the user approved), and for `render`: `--colors` (including one material of an object, e.g. `{"Bottle": {"Label": "#cc2233"}}`), `--compare-to` / `--compare-allow` (before / after, and changes outside the boxes that were meant to change) and `--file-outputs` (what the compositor's File Output nodes write).
+- The local MCP's colors and variations say how to colour one material of an object, and job replies include the File Output list and the scene fingerprint.
+- A render refused because of a lock, a colour target the scene does not have, or baking a file that is not a .blend says what to change instead of asking to send it again.
+
 ## 0.4.341 - 2026-11-24
 
 - The local MCP's estimate replies say how to get an estimate_id when the estimate had no scene_id (call scene_info, then estimate with the scene_id).

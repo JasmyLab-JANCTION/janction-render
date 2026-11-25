@@ -328,6 +328,76 @@ def _move_preset_args(s: argparse.ArgumentParser) -> None:
                    help="with --camera-move: the center of the move in degrees (0 = front; the labels of a --full-turn sheet)")
 
 
+LOCK_CHOICES = ("camera", "lights", "geometry", "materials", "text", "color", "world")   # 受付の jobs.SCENE_LOCK_CATEGORIES と同じ
+
+
+def _lock_list(s: str) -> list[str]:
+    items = [x.strip().lower() for x in s.split(",") if x.strip()]
+    bad = [x for x in items if x not in LOCK_CHOICES]
+    if not items or bad:
+        raise argparse.ArgumentTypeError("lock must be a comma list of: " + ", ".join(LOCK_CHOICES))
+    return list(dict.fromkeys(items))
+
+
+def _colors_json(s: str) -> dict[str, Any]:
+    try:
+        v = json.loads(s)
+    except ValueError:
+        v = None
+    if not isinstance(v, dict) or not v:
+        raise argparse.ArgumentTypeError("colors must be JSON like '{\"Bottle\": \"#cc2233\"}' or "
+                                         "'{\"Bottle\": {\"Label\": \"#cc2233\"}}' (one material only)")
+    return v
+
+
+def _scene_args(s: argparse.ArgumentParser, final: bool) -> None:
+    """11/25 受付の旗 JR_SCENE_SELECT・JR_SCENE_LOCK（試し描きと仕上げ）と、仕上げの JR_COLOR_SLOTS（colors）・JR_COMPARE_REGIONS
+    （compare_to と compare_allow）・JR_FILE_OUTPUTS の入口（MCP にはあった）。付けたときだけ送る。"""
+    s.add_argument("--scene-name", default=None, metavar="NAME",
+                   help="a .blend with several scenes: render this scene ('inspect' lists them)")
+    s.add_argument("--lock", type=_lock_list, default=None, metavar="ITEMS",
+                   help="with --lock-base: refuse the render (nothing charged) if these differ from that render's scene: "
+                        "comma list of " + ", ".join(LOCK_CHOICES))
+    s.add_argument("--lock-base", default=None, metavar="JOB_ID", help="with --lock: the earlier render the user approved")
+    if not final:
+        return
+    s.add_argument("--colors", type=_colors_json, default=None, metavar="JSON",
+                   help="object name -> colour for this render only, e.g. '{\"Bottle\": \"#cc2233\"}'; "
+                        "'{\"Bottle\": {\"Label\": \"#cc2233\"}}' changes only the material 'Label' of Bottle")
+    s.add_argument("--compare-to", default=None, metavar="JOB_ID",
+                   help="an earlier final of this key: also return compare.mp4 / compare.png (before / after) and compare.json")
+    s.add_argument("--compare-allow", type=_region, action="append", default=None, metavar="X0,Y0,X1,Y1",
+                   help="with --compare-to: a box that was meant to change (repeat for up to 8); frames that changed visibly "
+                        "outside the boxes are listed and marked in compare_outside.png")
+    s.add_argument("--file-outputs", action="store_true",
+                   help="also return what the compositor's File Output nodes write for each frame (PNG / OpenEXR)")
+
+
+def _scene_options(args: argparse.Namespace) -> dict[str, Any]:
+    out: dict[str, Any] = {}
+    if getattr(args, "scene_name", None):
+        out["scene_name"] = args.scene_name
+    lock, base = getattr(args, "lock", None), getattr(args, "lock_base", None)
+    if bool(lock) != bool(base):
+        raise SystemExit("--lock and --lock-base go together: what to keep, and the earlier render it must match")
+    if lock:
+        out.update(lock=lock, lock_base=base)
+    if getattr(args, "colors", None):
+        out["colors"] = args.colors
+    allow = getattr(args, "compare_allow", None)
+    if allow and not getattr(args, "compare_to", None):
+        raise SystemExit("--compare-allow goes with --compare-to (the earlier final to compare with)")
+    if any(b == "auto" for b in (allow or [])):
+        raise SystemExit("--compare-allow takes boxes like 200,100,440,260 (not auto)")
+    if getattr(args, "compare_to", None):
+        out["compare_to"] = args.compare_to
+    if allow:
+        out["compare_allow"] = allow[:8]
+    if getattr(args, "file_outputs", False):
+        out["file_outputs"] = True
+    return out
+
+
 def _splat_args(s: argparse.ArgumentParser) -> None:
     s.add_argument("--subject-only", action="store_true",
                    help="a scan (.spz or 3DGS .ply): keep the scanned subject and what it stands on, remove the surroundings")
@@ -367,6 +437,7 @@ def cmd_preview(c: Client, args: argparse.Namespace) -> int:
         extra["changed_since"] = args.changed_since       # 11/17 受付の旗 JR_REGION_AUTO: 前の仕上げから変わった所の四角
     if getattr(args, "auto_fix", None):
         extra["auto_fix"] = args.auto_fix                 # 11/18 受付の旗 JR_AUTO_FIX: 点検の直しを当てて自分で描き直す（試し描きだけ）
+    extra.update(_scene_options(args))                    # 11/25 シーンの選択・固定
     j = c.submit(sid, kind="preview", frames=frames, camera=args.camera, width=w, height=h,
                  samples=args.samples, engine=args.engine, max_yen=args.max_yen, **extra)
     print(f"job {j['job_id']} queued: {what} (estimate ~{j['estimate']['seconds']}s)", file=sys.stderr)
@@ -591,6 +662,7 @@ def cmd_render(c: Client, args: argparse.Namespace) -> int:
               file=sys.stderr)
         return 2
     params.update(_splat_options(args))
+    params.update(_scene_options(args))     # 11/25 シーンの選択・固定・材質の色・比べの範囲・File Output
     params.update(mp)
     if mp.get("preset") and (args.output or "auto") == "auto":
         params["output"] = None             # プリセットの形式（scan・turntable は MP4、product は PNG）
@@ -1252,6 +1324,7 @@ def build_parser() -> argparse.ArgumentParser:
                         "one sheet plus draft.mp4 at the real length, with the estimate for every frame")
     _splat_args(s)
     _move_preset_args(s)
+    _scene_args(s, final=False)
     _asset_arg(s)
     _asset_root_arg(s)
     s.set_defaults(fn=cmd_preview)
@@ -1306,6 +1379,7 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--yes", action="store_true", help="with --test: render the full range without asking if the test passes")
     _splat_args(s)
     _move_preset_args(s)
+    _scene_args(s, final=True)
     _asset_arg(s)
     _asset_root_arg(s)
     s.set_defaults(fn=cmd_render)

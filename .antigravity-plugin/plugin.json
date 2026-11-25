@@ -3,7 +3,7 @@
   "name": "janction-render",
   "displayName": "JANCTION Render",
   "description": "Render Blender scenes, bpy scripts and 3D files on cloud GPUs from Antigravity: previews in seconds, then MP4 or PNG finals. No local GPU.",
-  "version": "0.4.341",
+  "version": "0.4.342",
   "logo": "plugins/janction-render/assets/icon.png",
   "author": {
     "name": "JasmyLab Inc.",

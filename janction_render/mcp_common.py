@@ -1194,6 +1194,25 @@ def opt_in_values(**values: Any) -> dict[str, Any]:
     return out
 
 
+# 11/25: render_estimate は読むだけの道具（read_only）なのに、test・settings の説明が render_final の「描く・仕上げと同じく請求」の
+# 使い回しで、OpenAI の毎日の点検が render_estimate の新しい定義だけを止めた（render_final は同じ文で通った）。見積もりの側は
+# 「何も描かない」と分かる文にする。名前だけの OPT_IN_PARAM_DOCS より先に、すでに説明があっても置き換える。
+OPT_IN_PARAM_DOCS_BY_TOOL: dict[tuple[str, str], str] = {
+    ("render_estimate", "settings"): (
+        "'scene' (final, .blend): estimate with the .blend's own resolution (with its percentage), samples, fps, engine and "
+        "frame range, as render_final with settings='scene' would use them; values you pass win. Nothing is rendered. Leave "
+        "empty for the service defaults."),
+    ("render_estimate", "test"): (
+        "Animations, estimate only (nothing is rendered): 'contiguous' (test_frames frames from frame_start, default 10) or "
+        "'spread' (the first, middle and last frame) adds the GPU seconds and wall time of the short test that render_final "
+        "with the same test would run with exactly this final's settings, next to the full range. Leave empty to estimate "
+        "the whole range only."),
+    ("render_estimate", "test_frames"): (
+        "With test='contiguous': how many frames from frame_start the test would have (1-24, default 10; 0 = default). "
+        "Nothing is rendered."),
+}
+
+
 def apply_opt_in_schema(server: Any) -> None:
     """登録の後（tooldocs.apply の後）の道具の一覧の仕上げ。旗が OFF の引数が一覧に残っていれば外し（ふつうは登録の前の
     hide_params で外れている）、ON の引数で説明が無いもの（リモートの道具）に OPT_IN_PARAM_DOCS の説明を付ける。"""
@@ -1209,8 +1228,32 @@ def apply_opt_in_schema(server: Any) -> None:
             props.pop(param, None)
             if "required" in tool.parameters:
                 tool.parameters["required"] = [r for r in tool.parameters["required"] if r in props]
+        elif isinstance(props[param], dict) and OPT_IN_PARAM_DOCS_BY_TOOL.get((tool_name, param)):
+            props[param]["description"] = OPT_IN_PARAM_DOCS_BY_TOOL[(tool_name, param)]
         elif isinstance(props[param], dict) and not props[param].get("description") and OPT_IN_PARAM_DOCS.get(param):
             props[param]["description"] = OPT_IN_PARAM_DOCS[param]
+    _add_color_slots_note(server)
+
+
+# 11/25 材質ごとの色（受付の旗 JR_COLOR_SLOTS）: 引数は増えず colors の値の形が増えるだけなので OPT_IN に載らない。旗を開けても
+# MCP の colors・variations の説明が「物の名前 -> 色」のままで、AI が {材質: 色} の書き方を知る道が無かった（11/25 ops の確かめ）。
+# 旗が ON のときだけ 1 文足す（OFF の形は今までと同じ）
+COLOR_SLOTS_NOTE = (" To colour only one material of an object, give the object a {material name: colour} map instead, e.g. "
+                    "{'Bottle': {'Label': '#cc2233'}} changes only the slots of Bottle that use the material 'Label' (scene_info "
+                    "lists the materials).")
+
+
+def _add_color_slots_note(server: Any) -> None:
+    if not flag_on("JR_COLOR_SLOTS"):
+        return
+    for tool_name, param in (("render_final", "colors"), ("render_preview", "variations")):
+        try:
+            tool = server._tool_manager.get_tool(tool_name)   # noqa: SLF001
+        except Exception:  # noqa: BLE001
+            tool = None
+        prop = ((tool.parameters.get("properties") or {}) if tool is not None else {}).get(param)
+        if isinstance(prop, dict) and COLOR_SLOTS_NOTE not in (prop.get("description") or ""):
+            prop["description"] = (prop.get("description") or "").rstrip() + COLOR_SLOTS_NOTE
 
 
 def hide_params(fn: Any, *names: Any) -> Any:

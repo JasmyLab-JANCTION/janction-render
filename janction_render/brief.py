@@ -679,7 +679,10 @@ def review_next(r: dict[str, Any] | None, fu: dict[str, Any] | None = None) -> s
 # 作り手向けの機能（11/5、それぞれ旗つき・既定 OFF）が仕事の状態に足す欄。brief はそのまま渡す（納品の点検 delivery_report は
 # 要約だけを下で渡す）: 仕上げの後の処理の状態（extras）・前の版と比べた結果（compare）・SNS 向けの動画（deliver）・合成用のパス
 # （passes）・物の色（colors）・サンプル数の自動（auto_samples）と、その試し描きがどの仕上げのためか（probe_for）
-CREATOR_FIELDS = ("extras", "compare", "deliver", "passes", "colors", "auto_samples", "probe_for")
+CREATOR_FIELDS = ("extras", "compare", "deliver", "passes", "colors", "auto_samples", "probe_for",
+                  # 11/25 File Output ノードの一覧（JR_FILE_OUTPUTS）とシーンの指紋・固定（JR_SCENE_LOCK）。案内が「仕事の欄にある」と
+                  # 言っているのに MCP の返事から落ちていた（REST の仕事の状態にはある）
+                  "file_outputs", "scene_fingerprint")
 # シーンと違う設定（scene_diff）・シーンの設定で描いた値（scene_settings）（11/9、受付の旗 JR_SCENE_DIFF・JR_SCENE_SETTINGS）。受付の形のまま
 SCENE_FIELDS = ("scene_diff", "scene_settings")
 # 色の管理（読んだだけ）と透過の形・EXR の書き方と点検（11/9、受付の旗 JR_PRO_EXR）。受付の形のまま
