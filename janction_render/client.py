@@ -677,7 +677,9 @@ class ClientError(RuntimeError):
         # ようこそクレジット（docs/46）の受付なら付いてくる。card_offer はカード登録（0 円）で無料の GPU 時間が足される鍵の案内、
         # topup_options はチャージの選択肢（docs/62 P0-1: REST の 402 と同じものを AI に渡す）
         # resume: 402 で預かった注文（o_…）。払うとその仕事が自動で始まり、render_status(o_…) で追える（10/14）
-        for k in ("welcome", "first_topup_bonus", "card_offer", "topup_options", "topup_credit_yen", "resume", "monthly_offer"):
+        # checkout_first・checkout_primary: 受付の「払う場面は有料を先に」の旗（PR #857）（11/25）。有料の道を先に言う印と、先に言う道（spot / plan）
+        for k in ("welcome", "first_topup_bonus", "card_offer", "topup_options", "topup_credit_yen", "resume", "monthly_offer",
+                  "checkout_first", "checkout_primary"):
             if self.extra.get(k):
                 out[k] = self.extra[k]
         if self.extra.get("accepts"):

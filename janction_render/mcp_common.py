@@ -965,7 +965,7 @@ OPT_IN_PARAM_DOCS: dict[str, str] = {
                     "'ocio/config.ocio': Blender renders with that color management (its view transforms, looks and color "
                     "spaces). Use the same value for the preview and the final."),
     "file_outputs": ("True: also return what the scene's compositor File Output nodes write for each frame (PNG and OpenEXR; "
-                     "Blender 5.0 or newer). The files come back named fo<node>s<item>_<frame> and the job's file_outputs "
+                     "Blender 5.0, 5.2 and 5.3). The files come back named fo<node>s<item>_<frame> and the job's file_outputs "
                      "section says which node and item each belongs to. Not with cameras, split or region."),
     "region": ("With region_of: [x0, y0, x1, y1] in pixels (top-left origin) of the part to render again; only that part is "
                "rendered with the scene you send now and pasted into the earlier image, so the GPU time is that area's share. "
@@ -1159,6 +1159,24 @@ def open_features() -> list[str]:
 def open_presets() -> list[str]:
     """全員に開いている旗つきのプリセットの値（受付の /v1/capabilities の optional_presets）。無ければ []。"""
     return [name for flag, name in OPEN_PRESETS if flag_on(flag)]
+
+
+def pay_first_next(x: dict[str, Any], after: str) -> str | None:
+    """402 に checkout_first（受付の「払う場面は有料を先に」の旗（PR #857）、11/25）が付いているときの次の一手。付いていなければ None（今までの文）。
+    受付が作った tell_user の順のまま伝える: この描画の値段 → 有料の道（先に言う方は checkout_primary）→ もう一方 →
+    カード登録（0 円）は最後に 1 行。どれにするかは利用者が選ぶ（AI が選ばない）。"""
+    if not x.get("checkout_first") or not x.get("tell_user"):
+        return None
+    if x.get("monthly_offer") and x.get("checkout_primary") == "plan":
+        ways = "the monthly plan first (monthly_offer.link) and the one-time top-up as the other way (checkout_url); show both links"
+    elif x.get("monthly_offer"):
+        ways = "the one-time top-up first (checkout_url) and the monthly plan as the other way (monthly_offer.link); show both links"
+    else:
+        ways = "the one-time top-up (checkout_url)"
+    card = ("; last, in one short line, that registering a card (card_offer.link) adds free GPU time at no charge"
+            if x.get("card_offer") else "")
+    return ("relay tell_user to the user in their own language and keep its order: what this render costs, then " + ways + card
+            + "; the user picks, do not pick for them; " + after + "; " + SMALLER_IS_USERS_CHOICE)
 
 
 def monthly_offer_next(x: dict[str, Any], after: str) -> str | None:

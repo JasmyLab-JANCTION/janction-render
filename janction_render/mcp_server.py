@@ -471,6 +471,10 @@ def _payment_block(exc: ClientError) -> Optional[dict[str, Any]]:
     after = ("after they paid (or registered the card) the render starts by itself: tell them so and follow it with "
              "render_status(job_id=resume.order_id); do not upload or submit it again (a resend returns the same job)"
              if p.get("resume") else "after they paid, call billing() to confirm the balance, then submit the same job again")
+    pay_first = mcp_common.pay_first_next(p, after)     # 11/25 受付の「払う場面は有料を先に」の旗（PR #857）: 有料の道を先に、カード登録は最後に 1 行
+    if pay_first:
+        p["next"] = pay_first
+        return p
     plan_first = mcp_common.monthly_offer_next(p, after)     # 11/16 受付の旗 JR_PLAN_FIRST: 月額の案内が付いた 402 は、月額を先に
     if plan_first:
         p["next"] = plan_first

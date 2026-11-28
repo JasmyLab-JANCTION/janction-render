@@ -54,6 +54,21 @@ def _j(obj: Any) -> str:
     return json.dumps(obj, ensure_ascii=False, indent=2)
 
 
+def _failed(j: dict[str, Any], keys: tuple[str, ...] = ("job_id", "status", "error", "log_tail")) -> str:
+    """描けなかった仕事の表示（11/28）。前は job_id・status・warnings だけで、受付が返す失敗の理由と直し方（failure）を出していなかった
+    （preview の失敗が "failed" の 1 語になり、理由は status を打ち直さないと見えなかった）。理由と直し方を標準エラーに 2 行、
+    JSON に failure を入れる。"""
+    f = j.get("failure") if isinstance(j.get("failure"), dict) else {}
+    if f:
+        print(f"failed: {f.get('reason') or f.get('code') or j.get('status')}", file=sys.stderr)
+        if f.get("recommended_action"):
+            print(f"what to do: {f['recommended_action']}", file=sys.stderr)
+    out = {k: j.get(k) for k in keys if j.get(k) not in (None, "", [])}
+    if f:
+        out["failure"] = {k: f[k] for k in ("code", "reason", "recommended_action", "retryable", "charged_yen", "error_class") if k in f}
+    return _j(out)
+
+
 def _size(s: str) -> tuple[int, int]:
     try:
         w, h = s.lower().split("x")
@@ -244,7 +259,7 @@ def cmd_inspect(c: Client, args: argparse.Namespace) -> int:
         print(f"job {j['job_id']} queued (reads the scene, no render)", file=sys.stderr)
         j = c.wait(j["job_id"], timeout=args.timeout, on_progress=_progress)
     if j["status"] != "done":
-        print(_j({k: j.get(k) for k in ("job_id", "status", "error", "log_tail")}))
+        print(_failed(j))
         return 1
     info = dict(j.get("info") or {})
     info["scene_id"] = sid
@@ -370,7 +385,7 @@ def _scene_args(s: argparse.ArgumentParser, final: bool) -> None:
                    help="with --compare-to: a box that was meant to change (repeat for up to 8); frames that changed visibly "
                         "outside the boxes are listed and marked in compare_outside.png")
     s.add_argument("--file-outputs", action="store_true",
-                   help="also return what the compositor's File Output nodes write for each frame (PNG / OpenEXR)")
+                   help="also return what the compositor's File Output nodes write for each frame (PNG / OpenEXR; Blender 5.0, 5.2 and 5.3)")
 
 
 def _scene_options(args: argparse.Namespace) -> dict[str, Any]:
@@ -443,7 +458,7 @@ def cmd_preview(c: Client, args: argparse.Namespace) -> int:
     print(f"job {j['job_id']} queued: {what} (estimate ~{j['estimate']['seconds']}s)", file=sys.stderr)
     j = c.wait(j["job_id"], timeout=args.timeout, on_progress=_progress)
     if j["status"] != "done":
-        print(_j({k: j.get(k) for k in ("job_id", "status", "error", "log_tail", "warnings")}))
+        print(_failed(j, ("job_id", "status", "error", "log_tail", "warnings")))
         return 1
     out = Path(args.out) if args.out else Path("render_out") / safe_name(j["job_id"])
     paths = c.download(j["job_id"], out, on_progress=_say_err)
@@ -692,7 +707,7 @@ def cmd_render(c: Client, args: argparse.Namespace) -> int:
         return 0
     j = c.wait(j["job_id"], timeout=args.timeout, on_progress=_progress)
     if j["status"] != "done":
-        print(_j({k: j.get(k) for k in ("job_id", "status", "error", "log_tail")}))
+        print(_failed(j))
         return 1
     out = Path(args.out) if args.out else Path("render_out") / safe_name(j["job_id"])
     paths = c.download(j["job_id"], out, on_progress=_say_err)
@@ -1207,7 +1222,7 @@ def _outcome(c: Client, args: argparse.Namespace, name: str, options: dict[str, 
           file=sys.stderr)
     j = c.wait(j["job_id"], timeout=args.timeout, on_progress=_progress)
     if j["status"] != "done":
-        print(_j({k: j.get(k) for k in ("job_id", "status", "error", "log_tail")}))
+        print(_failed(j))
         return 1
     out = Path(args.out) if args.out else Path("render_out") / safe_name(j["job_id"])
     paths = c.download(j["job_id"], out, only=only, on_progress=_say_err)
@@ -1233,7 +1248,7 @@ def cmd_try(c: Client, args: argparse.Namespace) -> int:
     j = c.submit(up["scene_id"], kind="preview", frames=[1], environment="compare")
     j = c.wait(j["job_id"], timeout=args.timeout, on_progress=_progress)
     if j["status"] != "done":
-        print(_j({k: j.get(k) for k in ("job_id", "status", "error", "log_tail")}))
+        print(_failed(j))
         return 1
     out = Path(args.out) if args.out else Path("render_out") / safe_name(j["job_id"])
     paths = c.download(j["job_id"], out, on_progress=_say_err)
@@ -1539,7 +1554,25 @@ def main(argv: list[str] | None = None) -> int:
             print(f"payment required: {exc.detail}", file=sys.stderr)
             order = (pay.get("resume") or {}).get("order_id")
             mo = pay.get("monthly_offer") or {}
-            if mo.get("tell_user"):
+            if pay.get("checkout_first"):
+                # 11/25 受付の「払う場面は有料を先に」の旗（PR #857）: 有料の道を先に（先に言う道は checkout_primary）、カード登録（0 円）は最後の 1 行。
+                # どれで払っても預かった仕事は自動で始まる
+                once = f"{pay.get('topup_yen') or ''} JPY: {pay['checkout_url']}"
+                if mo.get("tell_user") and pay.get("checkout_primary") == "plan":
+                    print(mo["tell_user"], file=sys.stderr)
+                    print(f"a one-time top-up is also possible, {once}", file=sys.stderr)
+                else:
+                    print(f"pay {once}", file=sys.stderr)
+                    if mo.get("tell_user"):
+                        print(f"a monthly plan is also possible: {mo['tell_user']}", file=sys.stderr)
+                if pay.get("card_offer"):
+                    print(_card_line(pay["card_offer"], starts_by_itself=bool(order)), file=sys.stderr)
+                if order:
+                    print("the render starts by itself after any of them (nothing to run again); follow it with: "
+                          f"janction-render status {_arg(order) or 'ORDER_ID'}", file=sys.stderr)
+                else:
+                    print("then run the command again", file=sys.stderr)
+            elif mo.get("tell_user"):
                 # 11/16 受付の旗 JR_PLAN_FIRST: カード登録（0 円、あれば）→ 月額 → 1 回きりのチャージの順。どれで払っても
                 # 預かった仕事は自動で始まる
                 if pay.get("card_offer"):

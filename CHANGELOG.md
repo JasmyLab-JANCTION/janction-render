@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.343 - 2026-11-28
+
+- CLI: when a render fails, `preview`, `render`, `inspect`, `turntable` and `shots` print the reason and what to do (`failed: …` / `what to do: …`) and include the `failure` object (code, reason, recommended action, charge) in the JSON, instead of only `"status": "failed"`.
+- Local MCP and CLI: on a 402 they follow the service's paid-first order (open the checkout first when the service says so).
+- Local MCP: job and estimate replies keep fields the service sends that were dropped before (the draft video, memory used, asset licences, missing assets, whether a final would be refused, 3D-file import time).
+
 ## 0.4.342 - 2026-11-25
 
 - CLI: `--scene-name` (pick a scene of a .blend with several), `--lock` / `--lock-base` (refuse a render that changes what the user approved), and for `render`: `--colors` (including one material of an object, e.g. `{"Bottle": {"Label": "#cc2233"}}`), `--compare-to` / `--compare-allow` (before / after, and changes outside the boxes that were meant to change) and `--file-outputs` (what the compositor's File Output nodes write).
